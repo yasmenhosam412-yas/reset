@@ -22,14 +22,4 @@ class ForgotPasswordUsecase {
       newPassword: newPassword,
     );
   }
-
-  Future<Either<Failure, String>> sendMagicLink({
-    required String email,
-    required String redirectTo,
-  }) {
-    return authRepository.sendPasswordResetMagicLink(
-      email: email,
-      redirectTo: redirectTo,
-    );
-  }
 }

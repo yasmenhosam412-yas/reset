@@ -15,6 +15,8 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
+# Repo → Settings → Actions → General → Workflow permissions:
+#   select "Read and write permissions" (needed to push to gh-pages).
 permissions:
   contents: write
 
@@ -37,8 +39,14 @@ jobs:
 
       - run: flutter pub get
       - run: flutter build web --release --base-href /${{ github.event.repository.name }}/
-      - name: SPA fallback for GitHub Pages
-        run: cp build/web/index.html build/web/404.html
+      - name: SPA + Jekyll bypass (GitHub Pages)
+        run: |
+          cp build/web/index.html build/web/404.html
+          touch build/web/.nojekyll
+      - name: Verify build output exists
+        run: |
+          ls -la build/web
+          test -f build/web/flutter_bootstrap.js || (echo "Missing flutter_bootstrap.js — build failed" && exit 1)
 
       - name: Deploy to gh-pages branch
         uses: JamesIves/github-pages-deploy-action@v4
@@ -46,3 +54,4 @@ jobs:
           branch: gh-pages
           folder: build/web
           clean: true
+          token: ${{ secrets.GITHUB_TOKEN }}

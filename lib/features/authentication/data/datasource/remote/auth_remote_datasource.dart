@@ -16,13 +16,4 @@ abstract class AuthRemoteDatasource {
     required String otp,
     required String newPassword,
   });
-
-  /// Sends a password recovery email with a magic link. The link redirects to
-  /// [redirectTo] with `#access_token=...&refresh_token=...&type=recovery` in the URL.
-  Future<void> sendPasswordResetMagicLink({
-    required String email,
-    required String redirectTo,
-  });
-
-  Future<void> updatePasswordForCurrentUser({required String newPassword});
 }

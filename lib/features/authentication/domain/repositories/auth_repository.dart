@@ -21,13 +21,4 @@ abstract class AuthRepository {
     required String otp,
     required String newPassword,
   });
-
-  Future<Either<Failure, String>> sendPasswordResetMagicLink({
-    required String email,
-    required String redirectTo,
-  });
-
-  Future<Either<Failure, String>> updatePasswordAfterRecovery({
-    required String newPassword,
-  });
 }

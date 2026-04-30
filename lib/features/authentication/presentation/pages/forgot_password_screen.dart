@@ -48,13 +48,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
-  void _sendMagicLink() {
-    if (!_emailFormKey.currentState!.validate()) return;
-    context.read<AuthBloc>().add(
-      AuthSendRecoveryMagicLinkEvent(email: _emailController.text.trim()),
-    );
-  }
-
   void _verifyAndReset() {
     if (!_codeFormKey.currentState!.validate()) return;
     context.read<AuthBloc>().add(
@@ -93,15 +86,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               const SnackBar(
                 content: Text(
                   'Enter the code from your email, then choose a new password.',
-                ),
-              ),
-            );
-          }
-          if (state.authState == AuthState.recoveryMagicLinkSent) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Check your email and tap the reset link. It opens this app with a secure token so you can choose a new password.',
                 ),
               ),
             );
@@ -202,7 +186,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Use a one-time code in the app, or get an email with a secure reset link (opens this app to set a new password).',
+            'We will send a one-time code to your email. Use the code in this app to set a new password.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
           ),
@@ -239,14 +223,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Text('Send code'),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 48,
-            child: OutlinedButton(
-              onPressed: isLoading ? null : _sendMagicLink,
-              child: const Text('Email me a reset link instead'),
             ),
           ),
           const SizedBox(height: 14),

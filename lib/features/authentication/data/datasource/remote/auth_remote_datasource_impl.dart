@@ -53,25 +53,4 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
     await supabaseClient.auth.updateUser(UserAttributes(password: newPassword));
     await supabaseClient.auth.signOut();
   }
-
-  @override
-  Future<void> sendPasswordResetMagicLink({
-    required String email,
-    required String redirectTo,
-  }) async {
-    await supabaseClient.auth.resetPasswordForEmail(
-      email,
-      redirectTo: redirectTo,
-    );
-  }
-
-  @override
-  Future<void> updatePasswordForCurrentUser({
-    required String newPassword,
-  }) async {
-    await supabaseClient.auth.updateUser(
-      UserAttributes(password: newPassword),
-    );
-    await supabaseClient.auth.signOut();
-  }
 }

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:new_project/core/di/di.dart';
@@ -13,22 +12,10 @@ Future<void> main() async {
   await Supabase.initialize(
     url: 'https://tucjzlcvrcxvovfaxsuk.supabase.co',
     anonKey: 'sb_publishable_IYRhCn_KBmi_PYVubWFClQ_Wm6sF6mK',
-    authOptions: FlutterAuthClientOptions(
-      // Web default is PKCE (`?code=` in redirect). That only works if the same
-      // browser/origin that requested the email still has the PKCE verifier.
-      // Implicit flow uses `#access_token=...` so magic / recovery links work
-      // when opened from the deployed GitHub Pages URL reliably.
-      authFlowType: kIsWeb ? AuthFlowType.implicit : AuthFlowType.pkce,
+    authOptions: const FlutterAuthClientOptions(
+      authFlowType: AuthFlowType.pkce,
     ),
   );
-
-  Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-    if (data.event == AuthChangeEvent.passwordRecovery) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        AppRouter.router.go(AppRouter.setNewPasswordPath);
-      });
-    }
-  });
 
   configureDependencies();
 

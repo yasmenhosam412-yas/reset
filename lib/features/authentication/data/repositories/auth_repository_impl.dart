@@ -88,38 +88,4 @@ class AuthRepositoryImpl implements AuthRepository {
       return Left(ServerFailure(message: e.toString()));
     }
   }
-
-  @override
-  Future<Either<Failure, String>> sendPasswordResetMagicLink({
-    required String email,
-    required String redirectTo,
-  }) async {
-    try {
-      await authRemoteDatasource.sendPasswordResetMagicLink(
-        email: email,
-        redirectTo: redirectTo,
-      );
-      return const Right('Reset link sent');
-    } on AuthException catch (e) {
-      return Left(ServerFailure(message: e.message));
-    } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
-    }
-  }
-
-  @override
-  Future<Either<Failure, String>> updatePasswordAfterRecovery({
-    required String newPassword,
-  }) async {
-    try {
-      await authRemoteDatasource.updatePasswordForCurrentUser(
-        newPassword: newPassword,
-      );
-      return const Right('Password updated');
-    } on AuthException catch (e) {
-      return Left(ServerFailure(message: e.message));
-    } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
-    }
-  }
 }

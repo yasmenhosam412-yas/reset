@@ -2,19 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:new_project/features/authentication/presentation/pages/forgot_password_screen.dart';
 import 'package:new_project/features/authentication/presentation/pages/login_screen.dart';
-import 'package:new_project/features/authentication/presentation/pages/set_new_password_screen.dart';
 import 'package:new_project/features/authentication/presentation/pages/signup_screen.dart';
 
 class AppRouter {
   static const String loginPath = '/';
   static const String signupPath = '/signup';
   static const String forgotPasswordPath = '/forgot-password';
-  static const String setNewPasswordPath = '/set-new-password';
 
   /// GitHub Pages serves this app under `/reset/`, so the browser path is
   /// `/reset/` while routes are defined as `/`, `/signup`, … . Without
   /// [overridePlatformDefaultLocation], GoRouter tries to match `/reset/` and
-  /// shows a blank screen (no route). Forcing initial `/` fixes magic-link opens.
+  /// shows a blank screen (no route). Forcing initial `/` fixes deep-link opens.
   static final GoRouter router = GoRouter(
     initialLocation: loginPath,
     overridePlatformDefaultLocation: true,
@@ -30,10 +28,6 @@ class AppRouter {
       GoRoute(
         path: forgotPasswordPath,
         builder: (context, state) => const ForgotPasswordScreen(),
-      ),
-      GoRoute(
-        path: setNewPasswordPath,
-        builder: (context, state) => const SetNewPasswordScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

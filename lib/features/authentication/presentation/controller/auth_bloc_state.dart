@@ -6,8 +6,6 @@ enum AuthState {
   loadedOut,
   /// Email OTP was sent; user should enter code and new password.
   recoveryOtpSent,
-  /// Password reset magic link was sent to email.
-  recoveryMagicLinkSent,
   loadedForgotPassword,
   errorLogin,
   errorSignup,

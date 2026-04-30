@@ -6,7 +6,6 @@ import 'package:new_project/features/authentication/domain/repositories/auth_rep
 import 'package:new_project/features/authentication/domain/usecases/forgot_password_usecase.dart';
 import 'package:new_project/features/authentication/domain/usecases/login_usecase.dart';
 import 'package:new_project/features/authentication/domain/usecases/logout_usecase.dart';
-import 'package:new_project/features/authentication/domain/usecases/set_password_after_recovery_usecase.dart';
 import 'package:new_project/features/authentication/domain/usecases/signup_usecase.dart';
 import 'package:new_project/features/authentication/presentation/controller/auth_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -40,19 +39,12 @@ void configureDependencies() {
     () => ForgotPasswordUsecase(authRepository: getIt<AuthRepository>()),
   );
 
-  getIt.registerLazySingleton<SetPasswordAfterRecoveryUsecase>(
-    () => SetPasswordAfterRecoveryUsecase(
-      authRepository: getIt<AuthRepository>(),
-    ),
-  );
-
   getIt.registerFactory(
     () => AuthBloc(
       loginUsecase: getIt(),
       signupUsecase: getIt(),
       logoutUsecase: getIt(),
       forgotPasswordUsecase: getIt(),
-      setPasswordAfterRecoveryUsecase: getIt(),
     ),
   );
 }

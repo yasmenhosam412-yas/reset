@@ -39,16 +39,4 @@ class AuthVerifyRecoveryOtpEvent extends AuthBlocEvent {
   });
 }
 
-class AuthSendRecoveryMagicLinkEvent extends AuthBlocEvent {
-  final String email;
-
-  AuthSendRecoveryMagicLinkEvent({required this.email});
-}
-
-class AuthSetPasswordAfterRecoveryEvent extends AuthBlocEvent {
-  final String newPassword;
-
-  AuthSetPasswordAfterRecoveryEvent({required this.newPassword});
-}
-
 class AuthResetToIdleEvent extends AuthBlocEvent {}
