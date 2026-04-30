@@ -1,0 +1,48 @@
+# Builds Flutter web and pushes to branch "gh-pages".
+#
+# Setup once on GitHub:
+#   Repo → Settings → Pages → Build and deployment → Source: Deploy from a branch
+#   Branch: gh-pages / folder: / (root) → Save
+#
+# After the first successful run, the site will be at:
+#   https://<YOUR_USERNAME>.github.io/<REPO_NAME>/
+# The build uses --base-href /<REPO_NAME>/ automatically (repository name).
+
+name: Deploy Flutter Web to GitHub Pages
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gh-pages-deploy
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+      - run: flutter build web --release --base-href /${{ github.event.repository.name }}/
+      - name: SPA fallback for GitHub Pages
+        run: cp build/web/index.html build/web/404.html
+
+      - name: Deploy to gh-pages branch
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: build/web
+          clean: true
