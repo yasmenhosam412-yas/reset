@@ -17,9 +17,9 @@ class AuthRepositoryImpl implements AuthRepository {
       await authRemoteDatasource.login(email: email, password: password);
       return Right("Welcome User !");
     } on AuthException catch (e) {
-      return Left(ServerFailure(message: e.message));
+      return Left(_mapAuthException(e));
     } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
+      return Left(failureFromException(e));
     }
   }
 
@@ -29,9 +29,9 @@ class AuthRepositoryImpl implements AuthRepository {
       await authRemoteDatasource.logout();
       return Right("Logged Out");
     } on AuthException catch (e) {
-      return Left(ServerFailure(message: e.message));
+      return Left(_mapAuthException(e));
     } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
+      return Left(failureFromException(e));
     }
   }
 
@@ -49,9 +49,9 @@ class AuthRepositoryImpl implements AuthRepository {
       );
       return Right("Signup Successfully");
     } on AuthException catch (e) {
-      return Left(ServerFailure(message: e.message));
+      return Left(_mapAuthException(e));
     } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
+      return Left(failureFromException(e));
     }
   }
 
@@ -63,9 +63,9 @@ class AuthRepositoryImpl implements AuthRepository {
       await authRemoteDatasource.sendPasswordRecoveryOtp(email: email);
       return const Right('Verification code sent');
     } on AuthException catch (e) {
-      return Left(ServerFailure(message: e.message));
+      return Left(_mapAuthException(e));
     } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
+      return Left(failureFromException(e));
     }
   }
 
@@ -83,9 +83,16 @@ class AuthRepositoryImpl implements AuthRepository {
       );
       return const Right('Password updated');
     } on AuthException catch (e) {
-      return Left(ServerFailure(message: e.message));
+      return Left(_mapAuthException(e));
     } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
+      return Left(failureFromException(e));
     }
   }
+}
+
+Failure _mapAuthException(AuthException e) {
+  if (authMessageLooksLikeNetworkFailure(e.message)) {
+    return NetworkFailure();
+  }
+  return ServerFailure(message: e.message);
 }

@@ -1,0 +1,20 @@
+import 'package:new_project/features/authentication/data/models/user_model.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/entities/comment_entity.dart';
+
+class PostEntity {
+  final String id;
+  final UserModel userModel;
+  final String postImage;
+  final String postContent;
+  final List<String> likes;
+  final List<CommentEntity> comments;
+
+  PostEntity({
+    required this.id,
+    required this.userModel,
+    required this.postImage,
+    required this.postContent,
+    required this.likes,
+    required this.comments,
+  });
+}

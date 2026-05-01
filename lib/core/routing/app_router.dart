@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:new_project/core/di/di.dart';
 import 'package:new_project/features/authentication/presentation/pages/forgot_password_screen.dart';
 import 'package:new_project/features/authentication/presentation/pages/login_screen.dart';
 import 'package:new_project/features/authentication/presentation/pages/signup_screen.dart';
+import 'package:new_project/features/main_screen/main_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AppRouter {
   static const String loginPath = '/';
   static const String signupPath = '/signup';
   static const String forgotPasswordPath = '/forgot-password';
+  static const String mainScreenPath = '/main-screen';
 
-  /// GitHub Pages serves this app under `/reset/`, so the browser path is
-  /// `/reset/` while routes are defined as `/`, `/signup`, … . Without
-  /// [overridePlatformDefaultLocation], GoRouter tries to match `/reset/` and
-  /// shows a blank screen (no route). Forcing initial `/` fixes deep-link opens.
   static final GoRouter router = GoRouter(
-    initialLocation: loginPath,
+    initialLocation: (getIt<SupabaseClient>().auth.currentUser?.id != null)
+        ? mainScreenPath
+        : loginPath,
     overridePlatformDefaultLocation: true,
     routes: [
       GoRoute(
@@ -28,6 +30,10 @@ class AppRouter {
       GoRoute(
         path: forgotPasswordPath,
         builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: mainScreenPath,
+        builder: (context, state) => const MainScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

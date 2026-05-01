@@ -4,6 +4,7 @@ import 'package:new_project/core/di/di.dart';
 import 'package:new_project/core/routing/app_router.dart';
 import 'package:new_project/core/utils/app_colors.dart';
 import 'package:new_project/features/authentication/presentation/controller/auth_bloc.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<void> main() async {
@@ -21,7 +22,11 @@ Future<void> main() async {
 
   runApp(
     MultiBlocProvider(
-      providers: [BlocProvider(create: (context) => getIt<AuthBloc>())],
+      providers: [
+        BlocProvider(create: (context) => getIt<AuthBloc>()),
+
+        BlocProvider(create: (context) => getIt<HomeBloc>()),
+      ],
       child: MyApp(),
     ),
   );

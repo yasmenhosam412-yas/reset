@@ -50,6 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Logged in successfully')),
             );
+            context.go(AppRouter.mainScreenPath);
           }
         },
         builder: (context, state) {
@@ -65,9 +66,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   height: 240,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Theme.of(context).colorScheme.primary.withValues(
-                      alpha: 0.16,
-                    ),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.16),
                   ),
                 ),
               ),
@@ -79,9 +80,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   height: 180,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Theme.of(context).colorScheme.tertiary.withValues(
-                      alpha: 0.12,
-                    ),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.tertiary.withValues(alpha: 0.12),
                   ),
                 ),
               ),
@@ -93,9 +94,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   height: 200,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(48),
-                    color: Theme.of(context).colorScheme.primary.withValues(
-                      alpha: 0.1,
-                    ),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1),
                   ),
                 ),
               ),
@@ -152,7 +153,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                   validator: (value) {
                                     final email = value?.trim() ?? '';
-                                    if (email.isEmpty) return 'Email is required';
+                                    if (email.isEmpty) {
+                                      return 'Email is required';
+                                    }
                                     if (!email.contains('@')) {
                                       return 'Enter a valid email';
                                     }
@@ -201,8 +204,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                     onPressed: isLoading
                                         ? null
                                         : () => context.push(
-                                              AppRouter.forgotPasswordPath,
-                                            ),
+                                            AppRouter.forgotPasswordPath,
+                                          ),
                                     child: const Text('Forgot password?'),
                                   ),
                                 ),
@@ -226,7 +229,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 TextButton(
                                   onPressed: isLoading
                                       ? null
-                                      : () => context.push(AppRouter.signupPath),
+                                      : () =>
+                                            context.push(AppRouter.signupPath),
                                   child: const Text(
                                     "Don't have an account? Sign up",
                                   ),
