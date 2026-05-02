@@ -2,8 +2,10 @@ import 'dart:typed_data';
 
 import 'package:fpdart/fpdart.dart';
 import 'package:new_project/core/errors/failure.dart';
+import 'package:new_project/features/authentication/data/models/user_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/datasource/home_datasource.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/models/profile_dashboard_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/repositories/home_repository.dart';
 
 class HomeRepositoryImpl implements HomeRepository {
@@ -58,6 +60,58 @@ class HomeRepositoryImpl implements HomeRepository {
     try {
       final result = await homeDatasource.getPosts();
       return Right(result);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> sendChallengeRequest(
+    UserModel userModel,
+    int gameId,
+  ) async {
+    try {
+      await homeDatasource.sendChallengeRequest(
+        userModel,
+        gameId,
+      );
+      return Right(null);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> sendFriendRequest(UserModel userModel) async {
+    try {
+      await homeDatasource.sendFriendRequest(userModel);
+      return Right(null);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, ProfileDashboardModel>> loadProfileDashboard() async {
+    try {
+      final result = await homeDatasource.loadProfileDashboard();
+      return Right(result);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> respondToFriendRequest({
+    required String requestId,
+    required bool accept,
+  }) async {
+    try {
+      await homeDatasource.respondToFriendRequest(
+        requestId: requestId,
+        accept: accept,
+      );
+      return Right(null);
     } catch (e) {
       return Left(failureFromException(e));
     }

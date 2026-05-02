@@ -17,7 +17,6 @@ class NetworkFailure extends Failure {
   NetworkFailure({super.message = "No internet connection"});
 }
 
-/// Maps common transport and timeout errors to [NetworkFailure]; everything else to [ServerFailure].
 Failure failureFromException(Object error) {
   if (error is Failure) return error;
   if (error is TimeoutException) {

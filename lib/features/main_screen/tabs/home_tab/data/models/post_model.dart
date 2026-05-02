@@ -10,6 +10,7 @@ class PostModel extends PostEntity {
     required super.postContent,
     required super.likes,
     required super.comments,
+    super.createdAt,
   });
 
   PostModel copyWith({
@@ -19,6 +20,7 @@ class PostModel extends PostEntity {
     String? postContent,
     List<String>? likes,
     List<CommentModel>? comments,
+    DateTime? createdAt,
   }) {
     return PostModel(
       id: id ?? this.id,
@@ -27,6 +29,7 @@ class PostModel extends PostEntity {
       postContent: postContent ?? this.postContent,
       likes: likes ?? this.likes,
       comments: comments ?? this.comments,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 
@@ -53,6 +56,14 @@ class PostModel extends PostEntity {
             ),
           )
           .toList(),
+      createdAt: _parseDateTime(json['created_at']),
     );
+  }
+
+  static DateTime? _parseDateTime(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is DateTime) return raw;
+    if (raw is String) return DateTime.tryParse(raw);
+    return null;
   }
 }

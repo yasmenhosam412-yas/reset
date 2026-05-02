@@ -6,6 +6,7 @@ import 'package:new_project/features/main_screen/tabs/home_tab/data/datasource/h
 import 'package:new_project/features/main_screen/tabs/home_tab/data/datasource/home_supabase_tables.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/comment_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/models/profile_dashboard_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomeDatasourceImpl implements HomeDatasource {
@@ -197,7 +198,15 @@ class HomeDatasourceImpl implements HomeDatasource {
       postContent: row[PostCols.postContent]?.toString() ?? '',
       likes: _parseLikesField(row[PostCols.likes]),
       comments: comments,
+      createdAt: _parsePostCreatedAt(row[PostCols.createdAt]),
     );
+  }
+
+  static DateTime? _parsePostCreatedAt(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is DateTime) return raw;
+    if (raw is String) return DateTime.tryParse(raw);
+    return null;
   }
 
   Map<String, dynamic> _firstProfileMap(Map<String, dynamic> row) {
@@ -212,7 +221,6 @@ class HomeDatasourceImpl implements HomeDatasource {
     final direct = fromValue(row[HomeTable.profiles]);
     if (direct != null) return direct;
 
-    // PostgREST may use disambiguated keys (e.g. profiles!posts_user_id_fkey) when embedding.
     for (final entry in row.entries) {
       final key = entry.key;
       if (key == HomeTable.profiles) continue;
@@ -224,7 +232,6 @@ class HomeDatasourceImpl implements HomeDatasource {
     return {};
   }
 
-  /// Fills missing display fields from [auth.currentUser] when the row is the signed-in user.
   UserModel _mergeSessionProfileIfNeeded(UserModel user, String authorId) {
     final sessionUid = _currentUserId;
     if (sessionUid == null || authorId != sessionUid) return user;
@@ -270,5 +277,240 @@ class HomeDatasourceImpl implements HomeDatasource {
           (e) => e is Map ? Map<String, dynamic>.from(e) : <String, dynamic>{},
         )
         .toList(growable: false);
+  }
+
+  ({String from, String to}) _resolveOutgoingPair(UserModel userModel) {
+    final from = _currentUserId;
+    if (from == null) {
+      throw StateError('Cannot send request while signed out.');
+    }
+    final to = userModel.id.trim();
+    if (to.isEmpty) {
+      throw StateError('Cannot send request: missing user id.');
+    }
+    if (to == from) {
+      throw StateError('Cannot send request to yourself.');
+    }
+    return (from: from, to: to);
+  }
+
+  bool _isUniqueViolation(PostgrestException e) {
+    final code = e.code;
+    if (code == '23505') return true;
+    final msg = '${e.message} ${e.details}'.toLowerCase();
+    return msg.contains('duplicate') || msg.contains('unique');
+  }
+
+  @override
+  Future<void> sendFriendRequest(UserModel userModel) async {
+    final pair = _resolveOutgoingPair(userModel);
+    try {
+      await _client.from(HomeTable.friendRequests).insert({
+        FriendRequestCols.fromUserId: pair.from,
+        FriendRequestCols.toUserId: pair.to,
+        FriendRequestCols.status: FriendRequestStatus.pending,
+      });
+    } on PostgrestException catch (e) {
+      if (_isUniqueViolation(e)) {
+        throw StateError(
+          'A friend request with this user already exists.',
+        );
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> sendChallengeRequest(UserModel userModel, int gameId) async {
+    final pair = _resolveOutgoingPair(userModel);
+    try {
+      await _client.from(HomeTable.gameChallenges).insert({
+        GameChallengeCols.fromUserId: pair.from,
+        GameChallengeCols.toUserId: pair.to,
+        GameChallengeCols.gameId: gameId,
+        GameChallengeCols.status: GameChallengeStatus.pending,
+      });
+    } on PostgrestException catch (e) {
+      if (_isUniqueViolation(e)) {
+        throw StateError(
+          'A pending challenge to this user for this game already exists.',
+        );
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<ProfileDashboardModel> loadProfileDashboard() async {
+    final uid = _currentUserId;
+    if (uid == null) {
+      throw StateError('Cannot load profile while signed out.');
+    }
+
+    final sessionUser = _client.auth.currentUser;
+    final email = sessionUser?.email;
+
+    final profileRow = await _client
+        .from(HomeTable.profiles)
+        .select(
+          '${ProfileCols.id}, ${ProfileCols.username}, ${ProfileCols.avatarUrl}',
+        )
+        .eq(ProfileCols.id, uid)
+        .maybeSingle();
+
+    final UserModel user;
+    if (profileRow == null) {
+      if (sessionUser == null) {
+        throw StateError('No profile or session.');
+      }
+      user = _mergeSessionProfileIfNeeded(
+        UserModel.fromSupabaseUser(sessionUser),
+        uid,
+      );
+    } else {
+      final map = Map<String, dynamic>.from(profileRow);
+      user = _mergeSessionProfileIfNeeded(
+        UserModel.fromJson(map),
+        uid,
+      );
+    }
+
+    final postsRes = await _client
+        .from(HomeTable.posts)
+        .select(PostCols.id)
+        .eq(PostCols.userId, uid);
+    final postsCount = (postsRes as List).length;
+
+    final friendsCount = await _countAcceptedFriends(uid);
+
+    final chRes = await _client
+        .from(HomeTable.gameChallenges)
+        .select(PostCols.id)
+        .or(
+          '${GameChallengeCols.fromUserId}.eq.$uid,'
+          '${GameChallengeCols.toUserId}.eq.$uid',
+        );
+    final challengesCount = (chRes as List).length;
+
+    final incoming = await _fetchIncomingFriendRequests(uid);
+
+    return ProfileDashboardModel(
+      user: user,
+      email: email,
+      stats: UserProfileStats(
+        postsCount: postsCount,
+        friendsCount: friendsCount,
+        challengesCount: challengesCount,
+      ),
+      incomingFriendRequests: incoming,
+    );
+  }
+
+  Future<int> _countAcceptedFriends(String uid) async {
+    final response = await _client
+        .from(HomeTable.friendRequests)
+        .select(
+          '${FriendRequestCols.fromUserId}, ${FriendRequestCols.toUserId}',
+        )
+        .eq(FriendRequestCols.status, FriendRequestStatus.accepted)
+        .or(
+          '${FriendRequestCols.fromUserId}.eq.$uid,'
+          '${FriendRequestCols.toUserId}.eq.$uid',
+        );
+
+    final rows = _asMapList(response);
+    final friendIds = <String>{};
+    for (final m in rows) {
+      final from = m[FriendRequestCols.fromUserId]?.toString() ?? '';
+      final to = m[FriendRequestCols.toUserId]?.toString() ?? '';
+      if (from == uid && to.isNotEmpty) {
+        friendIds.add(to);
+      } else if (to == uid && from.isNotEmpty) {
+        friendIds.add(from);
+      }
+    }
+    return friendIds.length;
+  }
+
+  Future<List<IncomingFriendRequestModel>> _fetchIncomingFriendRequests(
+    String uid,
+  ) async {
+    final rowsRaw = await _client
+        .from(HomeTable.friendRequests)
+        .select(
+          '${FriendRequestCols.id}, ${FriendRequestCols.fromUserId}, ${PostCols.createdAt}',
+        )
+        .eq(FriendRequestCols.toUserId, uid)
+        .eq(FriendRequestCols.status, FriendRequestStatus.pending)
+        .order(PostCols.createdAt, ascending: false);
+
+    final rows = _asMapList(rowsRaw);
+    if (rows.isEmpty) return const [];
+
+    final fromIds = <String>{};
+    for (final m in rows) {
+      final fid = m[FriendRequestCols.fromUserId]?.toString() ?? '';
+      if (fid.isNotEmpty) fromIds.add(fid);
+    }
+    if (fromIds.isEmpty) return const [];
+
+    final profilesRaw = await _client
+        .from(HomeTable.profiles)
+        .select(
+          '${ProfileCols.id}, ${ProfileCols.username}, ${ProfileCols.avatarUrl}',
+        )
+        .inFilter(ProfileCols.id, fromIds.toList());
+
+    final profileById = <String, Map<String, dynamic>>{};
+    for (final p in _asMapList(profilesRaw)) {
+      final id = p[ProfileCols.id]?.toString();
+      if (id != null) profileById[id] = p;
+    }
+
+    final out = <IncomingFriendRequestModel>[];
+    for (final m in rows) {
+      final rid = m[FriendRequestCols.id]?.toString() ?? '';
+      final fid = m[FriendRequestCols.fromUserId]?.toString() ?? '';
+      if (rid.isEmpty || fid.isEmpty) continue;
+
+      final pMap = profileById[fid];
+      final fromUser = pMap != null
+          ? UserModel.fromJson(pMap)
+          : UserModel(id: fid, username: 'User', avatarUrl: null);
+
+      out.add(
+        IncomingFriendRequestModel(
+          requestId: rid,
+          fromUser: _mergeSessionProfileIfNeeded(fromUser, fid),
+          createdAt: _parsePostCreatedAt(m[PostCols.createdAt]),
+        ),
+      );
+    }
+    return out;
+  }
+
+  @override
+  Future<void> respondToFriendRequest({
+    required String requestId,
+    required bool accept,
+  }) async {
+    final uid = _currentUserId;
+    if (uid == null) {
+      throw StateError('Cannot respond while signed out.');
+    }
+    final id = requestId.trim();
+    if (id.isEmpty) {
+      throw ArgumentError('requestId must not be empty');
+    }
+
+    await _client
+        .from(HomeTable.friendRequests)
+        .update({
+          FriendRequestCols.status: accept
+              ? FriendRequestStatus.accepted
+              : FriendRequestStatus.declined,
+        })
+        .eq(FriendRequestCols.id, id)
+        .eq(FriendRequestCols.toUserId, uid);
   }
 }

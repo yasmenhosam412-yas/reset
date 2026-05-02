@@ -12,3 +12,39 @@ bool homePostLikedByCurrentUser(PostModel post) {
   if (uid == null) return false;
   return post.likes.contains(uid);
 }
+
+/// True when the signed-in user can open author actions (not self, known author id).
+bool homePostAuthorActionsAvailable(PostModel post) {
+  final uid = Supabase.instance.client.auth.currentUser?.id;
+  if (uid == null || post.userModel.id.isEmpty) return false;
+  return post.userModel.id != uid;
+}
+
+/// Short relative label, e.g. `5m ago`, `2h ago`, `3d ago`.
+String homeFeedTimeAgo(DateTime? at, {DateTime? clock}) {
+  if (at == null) return '';
+  final now = clock ?? DateTime.now();
+  var delta = now.difference(at);
+  if (delta.isNegative) {
+    delta = Duration.zero;
+  }
+  if (delta.inSeconds < 45) return 'just now';
+  if (delta.inMinutes < 60) {
+    final m = delta.inMinutes;
+    return '${m}m ago';
+  }
+  if (delta.inHours < 24) {
+    final h = delta.inHours;
+    return '${h}h ago';
+  }
+  if (delta.inDays < 7) {
+    final d = delta.inDays;
+    return '${d}d ago';
+  }
+  final w = delta.inDays ~/ 7;
+  if (w < 5) return '${w}w ago';
+  final mo = delta.inDays ~/ 30;
+  if (mo < 12) return '${mo}mo ago';
+  final y = delta.inDays ~/ 365;
+  return '${y}y ago';
+}

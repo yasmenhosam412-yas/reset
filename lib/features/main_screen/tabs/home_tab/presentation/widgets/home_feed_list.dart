@@ -12,10 +12,14 @@ class HomeFeedList extends StatelessWidget {
     super.key,
     required this.posts,
     required this.onOpenComments,
+    required this.onAuthorTap,
+    this.scrollController,
   });
 
   final List<PostModel> posts;
   final void Function(PostModel post) onOpenComments;
+  final void Function(PostModel post) onAuthorTap;
+  final ScrollController? scrollController;
 
   Future<void> _onRefresh(BuildContext context) async {
     final bloc = context.read<HomeBloc>();
@@ -29,6 +33,7 @@ class HomeFeedList extends StatelessWidget {
     return RefreshIndicator(
       onRefresh: () => _onRefresh(context),
       child: ListView.separated(
+        controller: scrollController,
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
         itemCount: posts.length,
         separatorBuilder: (context, index) => const SizedBox(height: 12),
@@ -38,6 +43,9 @@ class HomeFeedList extends StatelessWidget {
             post: post,
             likedByMe: homePostLikedByCurrentUser(post),
             onOpenComments: () => onOpenComments(post),
+            onAuthorTap: homePostAuthorActionsAvailable(post)
+                ? () => onAuthorTap(post)
+                : null,
           );
         },
       ),

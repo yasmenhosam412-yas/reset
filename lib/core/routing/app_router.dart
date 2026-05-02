@@ -5,6 +5,8 @@ import 'package:new_project/features/authentication/presentation/pages/forgot_pa
 import 'package:new_project/features/authentication/presentation/pages/login_screen.dart';
 import 'package:new_project/features/authentication/presentation/pages/signup_screen.dart';
 import 'package:new_project/features/main_screen/main_screen.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_route_args.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_session_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AppRouter {
@@ -12,6 +14,7 @@ class AppRouter {
   static const String signupPath = '/signup';
   static const String forgotPasswordPath = '/forgot-password';
   static const String mainScreenPath = '/main-screen';
+  static const String gameSessionPath = '/game-session';
 
   static final GoRouter router = GoRouter(
     initialLocation: (getIt<SupabaseClient>().auth.currentUser?.id != null)
@@ -34,6 +37,18 @@ class AppRouter {
       GoRoute(
         path: mainScreenPath,
         builder: (context, state) => const MainScreen(),
+      ),
+      GoRoute(
+        path: gameSessionPath,
+        builder: (context, state) {
+          final extra = state.extra;
+          if (extra is! OnlineGameRouteArgs) {
+            return const Scaffold(
+              body: Center(child: Text('Missing match data.')),
+            );
+          }
+          return OnlineGameSessionPage(args: extra);
+        },
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

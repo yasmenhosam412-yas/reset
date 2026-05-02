@@ -4,6 +4,8 @@ import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/a
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_post_like_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_post_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_home_posts_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/send_home_challenge_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/send_home_friend_request_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_event.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_state.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -14,21 +16,29 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     required AddHomePostUsecase addHomePostUsecase,
     required AddHomeCommentUsecase addHomeCommentUsecase,
     required AddHomePostLikeUsecase addHomePostLikeUsecase,
+    required SendHomeFriendRequestUsecase sendHomeFriendRequestUsecase,
+    required SendHomeChallengeUsecase sendHomeChallengeUsecase,
   })  : _getHomePostsUsecase = getHomePostsUsecase,
         _addHomePostUsecase = addHomePostUsecase,
         _addHomeCommentUsecase = addHomeCommentUsecase,
         _addHomePostLikeUsecase = addHomePostLikeUsecase,
+        _sendHomeFriendRequestUsecase = sendHomeFriendRequestUsecase,
+        _sendHomeChallengeUsecase = sendHomeChallengeUsecase,
         super(HomeState.initial()) {
     on<HomePostsRequested>(_onPostsRequested);
     on<HomePostCreateRequested>(_onPostCreateRequested);
     on<HomeCommentCreateRequested>(_onCommentCreateRequested);
     on<HomePostLikeRequested>(_onPostLikeRequested);
+    on<HomeSendFriendRequest>(_onSendFriendRequest);
+    on<HomeSendChallenge>(_onSendChallenge);
   }
 
   final GetHomePostsUsecase _getHomePostsUsecase;
   final AddHomePostUsecase _addHomePostUsecase;
   final AddHomeCommentUsecase _addHomeCommentUsecase;
   final AddHomePostLikeUsecase _addHomePostLikeUsecase;
+  final SendHomeFriendRequestUsecase _sendHomeFriendRequestUsecase;
+  final SendHomeChallengeUsecase _sendHomeChallengeUsecase;
 
   Future<void> _onPostsRequested(
     HomePostsRequested event,
@@ -42,6 +52,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           status: HomeStatus.failure,
           posts: const [],
           errorMessage: failure.message,
+          clearSuccess: true,
         ),
       ),
       (posts) => emit(
@@ -71,6 +82,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         state.copyWith(
           status: HomeStatus.failure,
           errorMessage: failure.message,
+          clearSuccess: true,
         ),
       );
       return;
@@ -82,6 +94,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         state.copyWith(
           status: HomeStatus.failure,
           errorMessage: f.message,
+          clearSuccess: true,
         ),
       ),
       (posts) => emit(
@@ -109,6 +122,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         state.copyWith(
           status: HomeStatus.failure,
           errorMessage: failure.message,
+          clearSuccess: true,
         ),
       );
       return;
@@ -120,6 +134,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         state.copyWith(
           status: HomeStatus.failure,
           errorMessage: f.message,
+          clearSuccess: true,
         ),
       ),
       (posts) => emit(
@@ -154,9 +169,63 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         state.copyWith(
           posts: previousPosts,
           errorMessage: failure.message,
+          clearSuccess: true,
         ),
       ),
       (_) {},
+    );
+  }
+
+  Future<void> _onSendFriendRequest(
+    HomeSendFriendRequest event,
+    Emitter<HomeState> emit,
+  ) async {
+    emit(state.copyWith(clearError: true, clearSuccess: true));
+    final name = event.userModel.username.trim().isEmpty
+        ? 'User'
+        : event.userModel.username.trim();
+    final result = await _sendHomeFriendRequestUsecase(event.userModel);
+    result.fold(
+      (failure) => emit(
+        state.copyWith(
+          errorMessage: failure.message,
+          clearSuccess: true,
+        ),
+      ),
+      (_) => emit(
+        state.copyWith(
+          successMessage: 'Friend request sent to $name',
+          clearError: true,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onSendChallenge(
+    HomeSendChallenge event,
+    Emitter<HomeState> emit,
+  ) async {
+    emit(state.copyWith(clearError: true, clearSuccess: true));
+    final name = event.userModel.username.trim().isEmpty
+        ? 'User'
+        : event.userModel.username.trim();
+    final result = await _sendHomeChallengeUsecase(
+      event.userModel,
+      event.gameId,
+    );
+    result.fold(
+      (failure) => emit(
+        state.copyWith(
+          errorMessage: failure.message,
+          clearSuccess: true,
+        ),
+      ),
+      (_) => emit(
+        state.copyWith(
+          successMessage: 'Challenge sent to $name',
+          clearError: true,
+        ),
+      ),
     );
   }
 }

@@ -8,6 +8,7 @@ class PostEntity {
   final String postContent;
   final List<String> likes;
   final List<CommentEntity> comments;
+  final DateTime? createdAt;
 
   PostEntity({
     required this.id,
@@ -16,5 +17,6 @@ class PostEntity {
     required this.postContent,
     required this.likes,
     required this.comments,
+    this.createdAt,
   });
 }

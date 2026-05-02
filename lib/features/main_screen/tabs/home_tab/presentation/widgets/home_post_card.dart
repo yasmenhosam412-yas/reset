@@ -11,11 +11,13 @@ class HomePostCard extends StatelessWidget {
     required this.post,
     required this.likedByMe,
     required this.onOpenComments,
+    this.onAuthorTap,
   });
 
   final PostModel post;
   final bool likedByMe;
   final VoidCallback onOpenComments;
+  final VoidCallback? onAuthorTap;
 
   @override
   Widget build(BuildContext context) {
@@ -31,37 +33,14 @@ class HomePostCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: homeFeedAvatarColor(author),
-                  foregroundColor: Colors.white,
-                  backgroundImage:
-                      hasAvatarImage ? NetworkImage(avatarUrl) : null,
-                  onBackgroundImageError:
-                      hasAvatarImage ? (_, _) {} : null,
-                  child: hasAvatarImage
-                      ? null
-                      : Text(
-                          author.isNotEmpty ? author[0].toUpperCase() : '?',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        author,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            _AuthorHeader(
+              author: author,
+              timeAgo: homeFeedTimeAgo(post.createdAt),
+              theme: theme,
+              scheme: scheme,
+              hasAvatarImage: hasAvatarImage,
+              avatarUrl: avatarUrl,
+              onAuthorTap: onAuthorTap,
             ),
             if (post.postImage.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -150,6 +129,90 @@ class HomePostCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _AuthorHeader extends StatelessWidget {
+  const _AuthorHeader({
+    required this.author,
+    required this.timeAgo,
+    required this.theme,
+    required this.scheme,
+    required this.hasAvatarImage,
+    required this.avatarUrl,
+    required this.onAuthorTap,
+  });
+
+  final String author;
+  final String timeAgo;
+  final ThemeData theme;
+  final ColorScheme scheme;
+  final bool hasAvatarImage;
+  final String? avatarUrl;
+  final VoidCallback? onAuthorTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final row = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: homeFeedAvatarColor(author),
+            foregroundColor: Colors.white,
+            backgroundImage: hasAvatarImage && (avatarUrl?.isNotEmpty ?? false)
+                ? NetworkImage(avatarUrl!)
+                : null,
+            onBackgroundImageError: hasAvatarImage ? (_, _) {} : null,
+            child: hasAvatarImage
+                ? null
+                : Text(
+                    author.isNotEmpty ? author[0].toUpperCase() : '?',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  author,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (timeAgo.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    timeAgo,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (onAuthorTap != null)
+            Icon(
+              Icons.chevron_right_rounded,
+              color: scheme.onSurfaceVariant,
+            ),
+        ],
+      ),
+    );
+
+    if (onAuthorTap == null) return row;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onAuthorTap,
+        borderRadius: BorderRadius.circular(12),
+        child: row,
       ),
     );
   }
