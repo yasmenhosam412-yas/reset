@@ -4,6 +4,8 @@ import 'package:new_project/features/main_screen/tabs/online_tab/data/data/onlin
 import 'package:new_project/features/main_screen/tabs/online_tab/data/models/challenge_request_model.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/data/models/game_challenge_sides_model.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/data/models/penalty_shootout_online_models.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/data/models/fantasy_duel_session_model.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/data/models/rim_shot_session_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class OnlineDatasourseImpl implements OnlineDatasourse {
@@ -348,6 +350,201 @@ class OnlineDatasourseImpl implements OnlineDatasourse {
     }
     await supabaseClient.rpc<void>(
       'finish_penalty_match_cleanup',
+      params: {'p_challenge_id': id},
+    );
+  }
+
+  @override
+  Future<void> abandonOnlineGameSession({required String challengeId}) async {
+    final id = challengeId.trim();
+    if (id.isEmpty) {
+      throw ArgumentError.value(challengeId, 'challengeId', 'must not be empty');
+    }
+    await supabaseClient.rpc<void>(
+      'abandon_online_game_session',
+      params: {'p_challenge_id': id},
+    );
+  }
+
+  @override
+  Future<void> ensureRimShotSession({required String challengeId}) async {
+    final id = challengeId.trim();
+    if (id.isEmpty) {
+      throw ArgumentError.value(challengeId, 'challengeId', 'must not be empty');
+    }
+    await supabaseClient.rpc<void>(
+      'ensure_rim_shot_session',
+      params: {'p_challenge_id': id},
+    );
+  }
+
+  @override
+  Future<RimShotSessionModel?> fetchRimShotSession({
+    required String challengeId,
+  }) async {
+    final id = challengeId.trim();
+    if (id.isEmpty) return null;
+
+    final row = await supabaseClient
+        .from(HomeTable.rimShotSessions)
+        .select()
+        .eq(RimShotSessionCols.challengeId, id)
+        .maybeSingle();
+
+    if (row == null) return null;
+    return RimShotSessionModel.fromJson(
+      Map<String, dynamic>.from(row as Map),
+    );
+  }
+
+  @override
+  Future<RimShotSessionModel?> tryApplyRimShotTurn({
+    required String challengeId,
+    required String expectedTurn,
+    required double power,
+    required double aim,
+    required bool made,
+    required int nextScoreFrom,
+    required int nextScoreTo,
+    required String nextTurn,
+    required String status,
+    required int nextRoundSeq,
+  }) async {
+    final id = challengeId.trim();
+    if (id.isEmpty) {
+      throw ArgumentError.value(challengeId, 'challengeId', 'must not be empty');
+    }
+
+    final payload = <String, dynamic>{
+      RimShotSessionCols.scoreFrom: nextScoreFrom,
+      RimShotSessionCols.scoreTo: nextScoreTo,
+      RimShotSessionCols.whoseTurn: nextTurn,
+      RimShotSessionCols.roundSeq: nextRoundSeq,
+      RimShotSessionCols.lastPower: power,
+      RimShotSessionCols.lastAim: aim,
+      RimShotSessionCols.lastMade: made,
+      RimShotSessionCols.status: status,
+      RimShotSessionCols.updatedAt: DateTime.now().toUtc().toIso8601String(),
+    };
+
+    final row = await supabaseClient
+        .from(HomeTable.rimShotSessions)
+        .update(payload)
+        .eq(RimShotSessionCols.challengeId, id)
+        .eq(RimShotSessionCols.whoseTurn, expectedTurn)
+        .select()
+        .maybeSingle();
+
+    if (row == null) return null;
+    return RimShotSessionModel.fromJson(
+      Map<String, dynamic>.from(row as Map),
+    );
+  }
+
+  @override
+  Future<void> resetRimShotMatch({required String challengeId}) async {
+    final id = challengeId.trim();
+    if (id.isEmpty) {
+      throw ArgumentError.value(challengeId, 'challengeId', 'must not be empty');
+    }
+    await supabaseClient.rpc<void>(
+      'reset_rim_shot_match',
+      params: {'p_challenge_id': id},
+    );
+  }
+
+  @override
+  Future<void> ensureFantasyDuelSession({required String challengeId}) async {
+    final id = challengeId.trim();
+    if (id.isEmpty) {
+      throw ArgumentError.value(challengeId, 'challengeId', 'must not be empty');
+    }
+    await supabaseClient.rpc<void>(
+      'ensure_fantasy_duel_session',
+      params: {'p_challenge_id': id},
+    );
+  }
+
+  @override
+  Future<FantasyDuelSessionModel?> fetchFantasyDuelSession({
+    required String challengeId,
+  }) async {
+    final id = challengeId.trim();
+    if (id.isEmpty) return null;
+
+    final row = await supabaseClient
+        .from(HomeTable.fantasyDuelSessions)
+        .select()
+        .eq(FantasyDuelSessionCols.challengeId, id)
+        .maybeSingle();
+
+    if (row == null) return null;
+    return FantasyDuelSessionModel.fromJson(
+      Map<String, dynamic>.from(row as Map),
+    );
+  }
+
+  @override
+  Future<bool> submitFantasyDuelTrio({
+    required String challengeId,
+    required bool asFrom,
+    required List<int> trio,
+  }) async {
+    final id = challengeId.trim();
+    if (id.isEmpty) {
+      throw ArgumentError.value(challengeId, 'challengeId', 'must not be empty');
+    }
+    if (trio.length != 3) {
+      throw ArgumentError.value(trio, 'trio', 'must have length 3');
+    }
+
+    final cur = await fetchFantasyDuelSession(challengeId: id);
+    if (cur == null) return false;
+    if (cur.matchComplete) return false;
+    if (asFrom) {
+      if (cur.fromTrio != null) return false;
+    } else {
+      if (cur.toTrio != null) return false;
+    }
+
+    final col = asFrom ? FantasyDuelSessionCols.fromTrio : FantasyDuelSessionCols.toTrio;
+    await supabaseClient.from(HomeTable.fantasyDuelSessions).update({
+      col: trio,
+      FantasyDuelSessionCols.updatedAt: DateTime.now().toUtc().toIso8601String(),
+    }).eq(FantasyDuelSessionCols.challengeId, id);
+    return true;
+  }
+
+  @override
+  Future<void> finishFantasyDuelRoundAndAdvance({
+    required String challengeId,
+    required int completedRound,
+    required int fromRoundPoints,
+    required int toRoundPoints,
+  }) async {
+    final id = challengeId.trim();
+    if (id.isEmpty) {
+      throw ArgumentError.value(challengeId, 'challengeId', 'must not be empty');
+    }
+    await supabaseClient.rpc<void>(
+      'fantasy_duel_finish_round_and_advance',
+      params: {
+        'p_challenge_id': id,
+        'p_completed_round': completedRound,
+        'p_from_points': fromRoundPoints,
+        'p_to_points': toRoundPoints,
+      },
+    );
+  }
+
+  @override
+  Future<void> resetFantasyDuelMatch({required String challengeId}) async {
+    final id = challengeId.trim();
+    if (id.isEmpty) {
+      throw ArgumentError.value(challengeId, 'challengeId', 'must not be empty');
+    }
+    await supabaseClient.rpc<void>(
+      'reset_fantasy_duel_match',
       params: {'p_challenge_id': id},
     );
   }

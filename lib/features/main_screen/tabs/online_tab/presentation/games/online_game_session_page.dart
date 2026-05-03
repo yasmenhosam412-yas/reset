@@ -1,54 +1,90 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:new_project/core/di/di.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/domain/repositories/online_repository.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_route_args.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_titles.dart';
-import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/penalty_shootout_game.dart';
-import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/penalty_shootout_online_config.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/penalty_shootout/penalty_shootout_game_screen.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/penalty_shootout/penalty_shootout_online_config.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/fantasy_cards/fantasy_duel_game.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/fantasy_cards/fantasy_duel_online_config.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/rim_shot/rim_shot_game.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/rim_shot/rim_shot_online_config.dart';
 
-class OnlineGameSessionPage extends StatelessWidget {
+class OnlineGameSessionPage extends StatefulWidget {
   const OnlineGameSessionPage({super.key, required this.args});
 
   final OnlineGameRouteArgs args;
 
   @override
+  State<OnlineGameSessionPage> createState() => _OnlineGameSessionPageState();
+}
+
+class _OnlineGameSessionPageState extends State<OnlineGameSessionPage> {
+  bool _exitInFlight = false;
+
+  Future<void> _leaveMatchAndPop() async {
+    if (_exitInFlight) return;
+    _exitInFlight = true;
+    final r = await getIt<OnlineRepository>().abandonOnlineGameSession(
+      challengeId: widget.args.challengeId,
+    );
+    r.fold((_) {}, (_) {});
+    if (!mounted) return;
+    context.pop();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final title = onlineGameTitle(args.gameId);
+    final title = onlineGameTitle(widget.args.gameId);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-        backgroundColor: theme.scaffoldBackgroundColor,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          Text(
-            'Match vs ${args.opponentDisplayName}',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w800,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        unawaited(_leaveMatchAndPop());
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded),
+            onPressed: _leaveMatchAndPop,
+          ),
+          title: Text(title),
+          backgroundColor: theme.scaffoldBackgroundColor,
+        ),
+        body: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            Text(
+              'Match vs ${widget.args.opponentDisplayName}',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Challenge: ${args.challengeId}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
+            const SizedBox(height: 8),
+            Text(
+              'Challenge: ${widget.args.challengeId}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          _GameBody(
-            gameId: args.gameId,
-            scheme: scheme,
-            theme: theme,
-            opponentName: args.opponentDisplayName,
-            challengeId: args.challengeId,
-            challengeFromUserId: args.challengeFromUserId,
-            challengeToUserId: args.challengeToUserId,
-          ),
-        ],
+            const SizedBox(height: 24),
+            _GameBody(
+              gameId: widget.args.gameId,
+              scheme: scheme,
+              theme: theme,
+              opponentName: widget.args.opponentDisplayName,
+              challengeId: widget.args.challengeId,
+              challengeFromUserId: widget.args.challengeFromUserId,
+              challengeToUserId: widget.args.challengeToUserId,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -77,21 +113,32 @@ class _GameBody extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (gameId) {
       case 1:
-        return PenaltyShootoutGame(
+        return _PenaltyOnlineShootoutSlot(
           scheme: scheme,
           theme: theme,
           opponentName: opponentName,
-          online: PenaltyShootoutOnlineConfig(
-            challengeId: challengeId,
-            fromUserId: challengeFromUserId,
-            toUserId: challengeToUserId,
-            repository: getIt<OnlineRepository>(),
-          ),
+          challengeId: challengeId,
+          challengeFromUserId: challengeFromUserId,
+          challengeToUserId: challengeToUserId,
         );
       case 2:
-        return _OneVOneBody(scheme: scheme, theme: theme);
+        return _RimShotOnlineSlot(
+          scheme: scheme,
+          theme: theme,
+          opponentName: opponentName,
+          challengeId: challengeId,
+          challengeFromUserId: challengeFromUserId,
+          challengeToUserId: challengeToUserId,
+        );
       case 3:
-        return _FantasyCardsBody(scheme: scheme, theme: theme);
+        return _FantasyDuelOnlineSlot(
+          scheme: scheme,
+          theme: theme,
+          opponentName: opponentName,
+          challengeId: challengeId,
+          challengeFromUserId: challengeFromUserId,
+          challengeToUserId: challengeToUserId,
+        );
       default:
         return Card(
           child: Padding(
@@ -106,78 +153,129 @@ class _GameBody extends StatelessWidget {
   }
 }
 
-class _OneVOneBody extends StatelessWidget {
-  const _OneVOneBody({required this.scheme, required this.theme});
+class _PenaltyOnlineShootoutSlot extends StatefulWidget {
+  const _PenaltyOnlineShootoutSlot({
+    required this.scheme,
+    required this.theme,
+    required this.opponentName,
+    required this.challengeId,
+    required this.challengeFromUserId,
+    required this.challengeToUserId,
+  });
 
   final ColorScheme scheme;
   final ThemeData theme;
+  final String opponentName;
+  final String challengeId;
+  final String challengeFromUserId;
+  final String challengeToUserId;
+
+  @override
+  State<_PenaltyOnlineShootoutSlot> createState() =>
+      _PenaltyOnlineShootoutSlotState();
+}
+
+class _PenaltyOnlineShootoutSlotState extends State<_PenaltyOnlineShootoutSlot> {
+  int _bootKey = 0;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: scheme.secondaryContainer.withValues(alpha: 0.35),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.sports_esports_rounded, size: 40, color: scheme.primary),
-            const SizedBox(height: 12),
-            Text(
-              '1v1 game',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Head-to-head session placeholder.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
+    return PenaltyShootoutGame(
+      key: ValueKey(_bootKey),
+      scheme: widget.scheme,
+      theme: widget.theme,
+      opponentName: widget.opponentName,
+      online: PenaltyShootoutOnlineConfig(
+        challengeId: widget.challengeId,
+        fromUserId: widget.challengeFromUserId,
+        toUserId: widget.challengeToUserId,
+        repository: getIt<OnlineRepository>(),
       ),
+      onPlayAgain: () => setState(() => _bootKey++),
     );
   }
 }
 
-class _FantasyCardsBody extends StatelessWidget {
-  const _FantasyCardsBody({required this.scheme, required this.theme});
+class _RimShotOnlineSlot extends StatefulWidget {
+  const _RimShotOnlineSlot({
+    required this.scheme,
+    required this.theme,
+    required this.opponentName,
+    required this.challengeId,
+    required this.challengeFromUserId,
+    required this.challengeToUserId,
+  });
 
   final ColorScheme scheme;
   final ThemeData theme;
+  final String opponentName;
+  final String challengeId;
+  final String challengeFromUserId;
+  final String challengeToUserId;
+
+  @override
+  State<_RimShotOnlineSlot> createState() => _RimShotOnlineSlotState();
+}
+
+class _RimShotOnlineSlotState extends State<_RimShotOnlineSlot> {
+  int _bootKey = 0;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: scheme.tertiaryContainer.withValues(alpha: 0.35),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.auto_awesome_rounded, size: 40, color: scheme.tertiary),
-            const SizedBox(height: 12),
-            Text(
-              'Fantasy cards',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Deck / draft placeholder.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
+    return RimShotGame(
+      key: ValueKey(_bootKey),
+      scheme: widget.scheme,
+      theme: widget.theme,
+      opponentName: widget.opponentName,
+      online: RimShotOnlineConfig(
+        challengeId: widget.challengeId,
+        fromUserId: widget.challengeFromUserId,
+        toUserId: widget.challengeToUserId,
+        repository: getIt<OnlineRepository>(),
       ),
+      onPlayAgain: () => setState(() => _bootKey++),
+    );
+  }
+}
+
+class _FantasyDuelOnlineSlot extends StatefulWidget {
+  const _FantasyDuelOnlineSlot({
+    required this.scheme,
+    required this.theme,
+    required this.opponentName,
+    required this.challengeId,
+    required this.challengeFromUserId,
+    required this.challengeToUserId,
+  });
+
+  final ColorScheme scheme;
+  final ThemeData theme;
+  final String opponentName;
+  final String challengeId;
+  final String challengeFromUserId;
+  final String challengeToUserId;
+
+  @override
+  State<_FantasyDuelOnlineSlot> createState() => _FantasyDuelOnlineSlotState();
+}
+
+class _FantasyDuelOnlineSlotState extends State<_FantasyDuelOnlineSlot> {
+  int _bootKey = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return FantasyDuelGame(
+      key: ValueKey(_bootKey),
+      scheme: widget.scheme,
+      theme: widget.theme,
+      opponentName: widget.opponentName,
+      online: FantasyDuelOnlineConfig(
+        challengeId: widget.challengeId,
+        fromUserId: widget.challengeFromUserId,
+        toUserId: widget.challengeToUserId,
+        repository: getIt<OnlineRepository>(),
+      ),
+      onPlayAgain: () => setState(() => _bootKey++),
     );
   }
 }

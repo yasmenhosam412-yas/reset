@@ -7,6 +7,8 @@ import 'package:new_project/features/main_screen/tabs/home_tab/data/datasource/h
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/comment_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/profile_dashboard_model.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/models/lineup_race_board_row.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/models/team_cloud_snapshot.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomeDatasourceImpl implements HomeDatasource {
@@ -406,7 +408,7 @@ class HomeDatasourceImpl implements HomeDatasource {
     );
   }
 
-  Future<int> _countAcceptedFriends(String uid) async {
+  Future<Set<String>> _acceptedFriendIdSet(String uid) async {
     final response = await _client
         .from(HomeTable.friendRequests)
         .select(
@@ -421,15 +423,27 @@ class HomeDatasourceImpl implements HomeDatasource {
     final rows = _asMapList(response);
     final friendIds = <String>{};
     for (final m in rows) {
-      final from = m[FriendRequestCols.fromUserId]?.toString() ?? '';
-      final to = m[FriendRequestCols.toUserId]?.toString() ?? '';
+      final from = m[FriendRequestCols.fromUserId]?.toString().trim() ?? '';
+      final to = m[FriendRequestCols.toUserId]?.toString().trim() ?? '';
       if (from == uid && to.isNotEmpty) {
         friendIds.add(to);
       } else if (to == uid && from.isNotEmpty) {
         friendIds.add(from);
       }
     }
+    return friendIds;
+  }
+
+  Future<int> _countAcceptedFriends(String uid) async {
+    final friendIds = await _acceptedFriendIdSet(uid);
     return friendIds.length;
+  }
+
+  @override
+  Future<Set<String>> getAcceptedFriendUserIds() async {
+    final uid = _currentUserId;
+    if (uid == null) return {};
+    return _acceptedFriendIdSet(uid);
   }
 
   Future<List<IncomingFriendRequestModel>> _fetchIncomingFriendRequests(
@@ -512,5 +526,168 @@ class HomeDatasourceImpl implements HomeDatasource {
         })
         .eq(FriendRequestCols.id, id)
         .eq(FriendRequestCols.toUserId, uid);
+  }
+
+  String _utcDateString(DateTime utc) {
+    final y = utc.year.toString().padLeft(4, '0');
+    final m = utc.month.toString().padLeft(2, '0');
+    final d = utc.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
+
+  @override
+  Future<TeamCloudSnapshot> fetchTeamCloudSnapshot() async {
+    final uid = _currentUserId;
+    if (uid == null) {
+      throw StateError('Not signed in.');
+    }
+    final row = await _client
+        .from(HomeTable.profiles)
+        .select('${ProfileCols.teamSkillPoints}, ${ProfileCols.teamSquad}')
+        .eq(ProfileCols.id, uid)
+        .maybeSingle();
+
+    final ptsRaw = row?[ProfileCols.teamSkillPoints];
+    final pts = ptsRaw is int
+        ? ptsRaw
+        : ptsRaw is num
+        ? ptsRaw.toInt()
+        : int.tryParse('$ptsRaw') ?? 0;
+
+    final squadRaw = row?[ProfileCols.teamSquad];
+    Map<String, dynamic>? squadJson;
+    if (squadRaw is Map) {
+      squadJson = Map<String, dynamic>.from(squadRaw);
+    }
+
+    final today = _utcDateString(DateTime.now().toUtc());
+    final claims = await _client
+        .from(HomeTable.teamChallengeDailyClaims)
+        .select(TeamChallengeClaimCols.challengeKey)
+        .eq(TeamChallengeClaimCols.userId, uid)
+        .eq(TeamChallengeClaimCols.claimDay, today);
+
+    final keys = <String>{};
+    final list = claims as List<dynamic>?;
+    if (list != null) {
+      for (final e in list) {
+        if (e is Map) {
+          final k = e[TeamChallengeClaimCols.challengeKey]?.toString();
+          if (k != null && k.isNotEmpty) keys.add(k);
+        }
+      }
+    }
+
+    return TeamCloudSnapshot(
+      skillPoints: pts,
+      squadJson: squadJson,
+      claimedChallengeKeysToday: keys,
+    );
+  }
+
+  @override
+  Future<void> upsertMyTeamSquad(Map<String, dynamic> squadJson) async {
+    final uid = _currentUserId;
+    if (uid == null) {
+      throw StateError('Not signed in.');
+    }
+    await _client.from(HomeTable.profiles).update({
+      ProfileCols.teamSquad: squadJson,
+    }).eq(ProfileCols.id, uid);
+  }
+
+  @override
+  Future<Map<String, dynamic>> rpcClaimTeamDailyChallenge(String key) async {
+    final raw = await _client.rpc(
+      'claim_team_daily_challenge',
+      params: {'p_challenge_key': key},
+    );
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    throw StateError('Unexpected RPC response');
+  }
+
+  @override
+  Future<Map<String, dynamic>> rpcTrainTeamPlayer({
+    required int playerSlot,
+    required String statKey,
+  }) async {
+    final raw = await _client.rpc(
+      'train_team_player',
+      params: {
+        'p_slot': playerSlot,
+        'p_stat': statKey,
+      },
+    );
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    throw StateError('Unexpected RPC response');
+  }
+
+  DateTime? _parseSubmittedAt(dynamic v) {
+    if (v == null) return null;
+    if (v is DateTime) return v;
+    if (v is String) return DateTime.tryParse(v);
+    return null;
+  }
+
+  LineupRaceBoardRow _mapLineupRaceRow(Map<String, dynamic> m) {
+    final uid = m[TeamLineupRaceCols.userId]?.toString() ?? '';
+    final sc = m[TeamLineupRaceCols.score];
+    final score = sc is int ? sc : (sc is num ? sc.toInt() : 0);
+    final tname = m[TeamLineupRaceCols.teamName]?.toString() ?? '';
+    final prof = m[HomeTable.profiles];
+    String? username;
+    String? avatarUrl;
+    if (prof is Map) {
+      final pm = Map<String, dynamic>.from(prof);
+      username = pm[ProfileCols.username]?.toString();
+      final av = pm[ProfileCols.avatarUrl]?.toString();
+      avatarUrl = (av != null && av.isNotEmpty) ? av : null;
+    }
+    return LineupRaceBoardRow(
+      userId: uid,
+      score: score,
+      teamName: tname,
+      username: username,
+      avatarUrl: avatarUrl,
+      submittedAt: _parseSubmittedAt(m[TeamLineupRaceCols.submittedAt]),
+    );
+  }
+
+  @override
+  Future<List<LineupRaceBoardRow>> fetchLineupRaceLeaderboard({
+    required String raceKey,
+    int limit = 40,
+  }) async {
+    final rk = raceKey.trim();
+    if (rk.isEmpty) return const [];
+
+    final response = await _client
+        .from(HomeTable.teamLineupRaceEntries)
+        .select(
+          '${TeamLineupRaceCols.userId}, ${TeamLineupRaceCols.score}, '
+          '${TeamLineupRaceCols.teamName}, ${TeamLineupRaceCols.submittedAt}, '
+          '${HomeTable.profiles}(${ProfileCols.username}, ${ProfileCols.avatarUrl})',
+        )
+        .eq(TeamLineupRaceCols.raceKey, rk)
+        .order(TeamLineupRaceCols.score, ascending: false)
+        .limit(limit);
+
+    final rows = response as List<dynamic>;
+    return rows
+        .map((e) => _mapLineupRaceRow(Map<String, dynamic>.from(e as Map)))
+        .toList(growable: false);
+  }
+
+  @override
+  Future<Map<String, dynamic>> rpcSubmitTeamLineupRace(String raceKey) async {
+    final raw = await _client.rpc(
+      'submit_team_lineup_race',
+      params: {'p_race_key': raceKey},
+    );
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    throw StateError('Unexpected RPC response');
   }
 }

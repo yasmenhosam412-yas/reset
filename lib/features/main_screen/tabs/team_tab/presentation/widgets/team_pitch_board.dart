@@ -9,13 +9,13 @@ class TeamPitchBoard extends StatelessWidget {
     required this.formationLabel,
     required this.slotRows,
     required this.players,
-    required this.onPlayerTap,
+    this.onPlayerTap,
   });
 
   final String formationLabel;
   final List<List<int>> slotRows;
   final List<TeamRosterPlayer> players;
-  final ValueChanged<int> onPlayerTap;
+  final ValueChanged<int>? onPlayerTap;
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +104,9 @@ class TeamPitchBoard extends StatelessWidget {
                             child: Center(
                               child: TeamPlayerToken(
                                 player: players[slotIndices[i]],
-                                onTap: () => onPlayerTap(slotIndices[i]),
+                                onTap: onPlayerTap != null
+                                    ? () => onPlayerTap!(slotIndices[i])
+                                    : null,
                               ),
                             ),
                           ),

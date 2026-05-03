@@ -3,8 +3,11 @@ import 'dart:typed_data';
 import 'package:fpdart/fpdart.dart';
 import 'package:new_project/core/errors/failure.dart';
 import 'package:new_project/features/authentication/data/models/user_model.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/models/lineup_race_board_row.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/profile_dashboard_model.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/models/team_challenge_results.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/models/team_cloud_snapshot.dart';
 
 abstract class HomeRepository {
   Future<Either<Failure, void>> addPost({
@@ -23,7 +26,9 @@ abstract class HomeRepository {
 
   Future<Either<Failure, List<PostModel>>> getPosts();
 
-    Future<Either<Failure,void>> sendFriendRequest(UserModel userModel);
+  Future<Either<Failure, Set<String>>> getAcceptedFriendUserIds();
+
+  Future<Either<Failure, void>> sendFriendRequest(UserModel userModel);
 
   Future<Either<Failure, void>> sendChallengeRequest(
     UserModel userModel,
@@ -36,4 +41,24 @@ abstract class HomeRepository {
     required String requestId,
     required bool accept,
   });
+
+  Future<Either<Failure, TeamCloudSnapshot>> fetchTeamCloudSnapshot();
+
+  Future<Either<Failure, void>> upsertMyTeamSquad(Map<String, dynamic> squadJson);
+
+  Future<Either<Failure, TeamChallengeClaimResult>> claimTeamDailyChallenge(
+    String challengeKey,
+  );
+
+  Future<Either<Failure, TeamTrainPlayerResult>> trainTeamPlayerStat({
+    required int playerSlot,
+    required String statKey,
+  });
+
+  Future<Either<Failure, List<LineupRaceBoardRow>>> fetchLineupRaceLeaderboard({
+    required String raceKey,
+    int limit = 40,
+  });
+
+  Future<Either<Failure, int>> submitLineupRaceEntry(String raceKey);
 }

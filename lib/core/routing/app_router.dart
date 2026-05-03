@@ -1,6 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:new_project/core/di/di.dart';
 import 'package:new_project/features/authentication/presentation/pages/forgot_password_screen.dart';
 import 'package:new_project/features/authentication/presentation/pages/login_screen.dart';
 import 'package:new_project/features/authentication/presentation/pages/signup_screen.dart';
@@ -8,6 +9,27 @@ import 'package:new_project/features/main_screen/main_screen.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_route_args.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_session_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+/// Notifies [GoRouter] whenever Supabase auth changes (session restore, sign-in,
+/// token refresh, sign-out). Without this, [initialLocation] is evaluated once and
+/// can point at login before the persisted session is ready — a hot restart / R
+/// then looks like an unwanted sign-out.
+class GoRouterRefreshStream extends ChangeNotifier {
+  GoRouterRefreshStream(Stream<AuthState> stream) {
+    _sub = stream.listen(
+      (_) => notifyListeners(),
+      onError: (_) => notifyListeners(),
+    );
+  }
+
+  late final StreamSubscription<AuthState> _sub;
+
+  @override
+  void dispose() {
+    _sub.cancel();
+    super.dispose();
+  }
+}
 
 class AppRouter {
   static const String loginPath = '/';
@@ -17,10 +39,27 @@ class AppRouter {
   static const String gameSessionPath = '/game-session';
 
   static final GoRouter router = GoRouter(
-    initialLocation: (getIt<SupabaseClient>().auth.currentUser?.id != null)
-        ? mainScreenPath
-        : loginPath,
+    initialLocation: loginPath,
+    refreshListenable: GoRouterRefreshStream(
+      Supabase.instance.client.auth.onAuthStateChange,
+    ),
     overridePlatformDefaultLocation: true,
+    redirect: (context, state) {
+      final user = Supabase.instance.client.auth.currentUser;
+      final loc = state.matchedLocation;
+
+      final onPublicAuth = loc == loginPath ||
+          loc == signupPath ||
+          loc == forgotPasswordPath;
+
+      if (user == null && !onPublicAuth) {
+        return loginPath;
+      }
+      if (user != null && loc == loginPath) {
+        return mainScreenPath;
+      }
+      return null;
+    },
     routes: [
       GoRoute(
         path: loginPath,

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/bottom_sheets/home_comments_sheet.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/bottom_sheets/home_new_post_sheet.dart';
@@ -291,7 +292,17 @@ class _HomeTabState extends State<HomeTab> {
 
   void _openPostAuthorActions(BuildContext context, PostModel post) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final author = post.userModel.username;
+    final state = context.read<HomeBloc>().state;
+    final authorIdNorm = post.userModel.id.trim().toLowerCase();
+    final alreadyFriend = authorIdNorm.isNotEmpty &&
+        state.acceptedFriendUserIds.contains(authorIdNorm);
+    final myId =
+        Supabase.instance.client.auth.currentUser?.id.trim().toLowerCase();
+    final isSelf =
+        myId != null && myId.isNotEmpty && myId == authorIdNorm;
+
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -310,25 +321,50 @@ class _HomeTabState extends State<HomeTab> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                FilledButton.icon(
-                  onPressed: () {
-                    Navigator.of(sheetContext).pop();
-                    context.read<HomeBloc>().add(
-                      HomeSendFriendRequest(userModel: post.userModel),
-                    );
-                  },
-                  icon: const Icon(Icons.person_add_rounded),
-                  label: const Text('Send friend request'),
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.of(sheetContext).pop();
-                    _showChallengeGamePicker(context, post);
-                  },
-                  icon: const Icon(Icons.sports_esports_rounded),
-                  label: const Text('Send challenge'),
-                ),
+                if (isSelf)
+                  Text(
+                    'This is your post.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  )
+                else ...[
+                  if (alreadyFriend)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading:
+                          Icon(Icons.people_rounded, color: scheme.primary),
+                      title: const Text('Friends'),
+                      subtitle: Text(
+                        'You are already connected — no new request needed.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  else
+                    FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(sheetContext).pop();
+                        context.read<HomeBloc>().add(
+                              HomeSendFriendRequest(
+                                userModel: post.userModel,
+                              ),
+                            );
+                      },
+                      icon: const Icon(Icons.person_add_rounded),
+                      label: const Text('Send friend request'),
+                    ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(sheetContext).pop();
+                      _showChallengeGamePicker(context, post);
+                    },
+                    icon: const Icon(Icons.sports_esports_rounded),
+                    label: const Text('Send challenge'),
+                  ),
+                ],
               ],
             ),
           ),

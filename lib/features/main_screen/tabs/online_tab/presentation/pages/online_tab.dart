@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:new_project/core/di/di.dart';
 import 'package:new_project/core/routing/app_router.dart';
 import 'package:new_project/features/authentication/data/models/user_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/utils/home_feed_ui.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/data/models/challenge_request_model.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_route_args.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_titles.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/penalty_shootout/penalty_shootout_game_screen.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/fantasy_cards/fantasy_duel_game.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/rim_shot/rim_shot_game.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/dialogs/send_online_challenge_dialog.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/bloc/online_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/bloc/online_event.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/bloc/online_state.dart';
@@ -176,81 +179,6 @@ void _showAcceptedMatchLobbyDialog(
   });
 }
 
-void _showSendChallengeDialog(BuildContext context, UserModel friend) {
-  final theme = Theme.of(context);
-  final scheme = theme.colorScheme;
-  final bloc = context.read<OnlineBloc>();
-  final display = friend.username.trim().isEmpty
-      ? 'this friend'
-      : friend.username;
-
-  var selectedId = _OnlineTabView._games.first.gameId;
-
-  showDialog<void>(
-    context: context,
-    builder: (dialogContext) {
-      return StatefulBuilder(
-        builder: (ctx, setState) {
-          return AlertDialog(
-            title: Text('Challenge $display'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Choose a game',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  ..._OnlineTabView._games.map((g) {
-                    final selected = g.gameId == selectedId;
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(g.icon, size: 22),
-                      title: Text(g.title),
-                      selected: selected,
-                      selectedTileColor: scheme.primaryContainer
-                          .withValues(alpha: 0.35),
-                      onTap: () => setState(() => selectedId = g.gameId),
-                      trailing: Icon(
-                        selected
-                            ? Icons.check_circle_rounded
-                            : Icons.circle_outlined,
-                        color: selected ? scheme.primary : scheme.outline,
-                      ),
-                    );
-                  }),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  Navigator.pop(dialogContext);
-                  bloc.add(
-                    OnlineSendChallengeRequested(
-                      friend: friend,
-                      gameId: selectedId,
-                    ),
-                  );
-                },
-                child: const Text('Send'),
-              ),
-            ],
-          );
-        },
-      );
-    },
-  );
-}
-
 Future<void> _refreshOnlineTab(BuildContext context) async {
   context.read<OnlineBloc>().add(OnlineLoadRequested());
   await context.read<OnlineBloc>().stream.firstWhere(
@@ -258,15 +186,132 @@ Future<void> _refreshOnlineTab(BuildContext context) async {
   );
 }
 
+void _openGameVsAi(BuildContext context, _GameItem g) {
+  final theme = Theme.of(context);
+  final scheme = theme.colorScheme;
+
+  switch (g.gameId) {
+    case 1:
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (ctx) => Scaffold(
+            appBar: AppBar(
+              title: Text(g.title),
+              backgroundColor: theme.scaffoldBackgroundColor,
+            ),
+            body: ListView(
+              padding: const EdgeInsets.all(24),
+              children: [
+                Text(
+                  'Practice vs AI',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Single device — not an online match.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                PenaltyShootoutGame(
+                  scheme: scheme,
+                  theme: theme,
+                  opponentName: 'AI',
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      return;
+    case 2:
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (ctx) => Scaffold(
+            appBar: AppBar(
+              title: Text(g.title),
+              backgroundColor: theme.scaffoldBackgroundColor,
+            ),
+            body: ListView(
+              padding: const EdgeInsets.all(24),
+              children: [
+                Text(
+                  'Practice vs AI',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Single device — challenge a friend online for a real duel.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                RimShotGame(
+                  scheme: scheme,
+                  theme: theme,
+                  opponentName: 'AI',
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      return;
+    case 3:
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (ctx) => Scaffold(
+            appBar: AppBar(
+              title: Text(g.title),
+              backgroundColor: theme.scaffoldBackgroundColor,
+            ),
+            body: ListView(
+              padding: const EdgeInsets.all(24),
+              children: [
+                Text(
+                  'Practice vs AI',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Single device — same duel online vs a friend.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                FantasyDuelGame(
+                  scheme: scheme,
+                  theme: theme,
+                  opponentName: 'AI',
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      return;
+    default:
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${g.title} vs AI is not available yet.')),
+      );
+  }
+}
+
 class OnlineTab extends StatelessWidget {
   const OnlineTab({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => getIt<OnlineBloc>()..add(OnlineLoadRequested()),
-      child: const _OnlineTabView(),
-    );
+    return const _OnlineTabView();
   }
 }
 
@@ -277,19 +322,20 @@ class _OnlineTabView extends StatelessWidget {
     _GameItem(
       gameId: 1,
       title: 'Penalty shootout',
-      subtitle: 'Goalkeeper vs striker · live',
+      subtitle: 'Tap to play vs AI on this device',
       icon: Icons.sports_soccer_rounded,
     ),
     _GameItem(
       gameId: 2,
-      title: '1v1 game',
-      subtitle: 'Head to head · direct duel',
-      icon: Icons.sports_esports_rounded,
+      title: 'Rim shot',
+      subtitle:
+          'Free throws — tight power window, wing pads, first to ${RimShotGame.winningScore}',
+      icon: Icons.sports_basketball_rounded,
     ),
     _GameItem(
       gameId: 3,
       title: 'Fantasy cards',
-      subtitle: 'Draft · collect',
+      subtitle: 'Glyph duel — pick 3 of 5 lanes vs AI here',
       icon: Icons.auto_awesome_rounded,
     ),
   ];
@@ -473,7 +519,10 @@ class _OnlineTabView extends StatelessWidget {
                                     margin: EdgeInsets.zero,
                                     child: InkWell(
                                       onTap: () =>
-                                          _showSendChallengeDialog(context, f),
+                                          showSendOnlineChallengeDialog(
+                                            context,
+                                            f,
+                                          ),
                                       borderRadius: BorderRadius.circular(12),
                                       child: Padding(
                                         padding: const EdgeInsets.all(10),
@@ -941,7 +990,7 @@ class _OnlineTabView extends StatelessWidget {
                               color: scheme.primary,
                               size: 36,
                             ),
-                            onTap: () {},
+                            onTap: () => _openGameVsAi(context, g),
                           ),
                         );
                       },

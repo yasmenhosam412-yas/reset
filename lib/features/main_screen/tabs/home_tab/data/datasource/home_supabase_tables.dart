@@ -6,6 +6,10 @@ abstract final class HomeTable {
   static const gameChallenges = 'game_challenges';
   static const penaltyShootoutSessions = 'penalty_shootout_sessions';
   static const penaltyRoundPicks = 'penalty_round_picks';
+  static const rimShotSessions = 'rim_shot_sessions';
+  static const fantasyDuelSessions = 'fantasy_duel_sessions';
+  static const teamChallengeDailyClaims = 'team_challenge_daily_claims';
+  static const teamLineupRaceEntries = 'team_lineup_race_entries';
 }
 
 abstract final class HomeStorage {
@@ -32,6 +36,22 @@ abstract final class ProfileCols {
   static const id = 'id';
   static const username = 'username';
   static const avatarUrl = 'avatar_url';
+  static const teamSkillPoints = 'team_skill_points';
+  static const teamSquad = 'team_squad';
+}
+
+abstract final class TeamChallengeClaimCols {
+  static const userId = 'user_id';
+  static const challengeKey = 'challenge_key';
+  static const claimDay = 'claim_day';
+}
+
+abstract final class TeamLineupRaceCols {
+  static const raceKey = 'race_key';
+  static const userId = 'user_id';
+  static const score = 'score';
+  static const teamName = 'team_name';
+  static const submittedAt = 'submitted_at';
 }
 
 abstract final class FriendRequestCols {
@@ -83,4 +103,29 @@ abstract final class PenaltyPickCols {
 abstract final class PenaltyPickKind {
   static const shot = 'shot';
   static const dive = 'dive';
+}
+
+abstract final class RimShotSessionCols {
+  static const challengeId = 'challenge_id';
+  static const scoreFrom = 'score_from';
+  static const scoreTo = 'score_to';
+  static const whoseTurn = 'whose_turn';
+  static const roundSeq = 'round_seq';
+  static const lastPower = 'last_power';
+  static const lastAim = 'last_aim';
+  static const lastMade = 'last_made';
+  static const status = 'status';
+  static const updatedAt = 'updated_at';
+}
+
+abstract final class FantasyDuelSessionCols {
+  static const challengeId = 'challenge_id';
+  static const deckSeed = 'deck_seed';
+  static const fromTrio = 'from_trio';
+  static const toTrio = 'to_trio';
+  static const updatedAt = 'updated_at';
+  static const roundNumber = 'round_number';
+  static const fromMatchWins = 'from_match_wins';
+  static const toMatchWins = 'to_match_wins';
+  static const matchComplete = 'match_complete';
 }

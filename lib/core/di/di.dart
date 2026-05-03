@@ -13,10 +13,17 @@ import 'package:new_project/features/main_screen/tabs/home_tab/data/repositories
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_comment_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_post_like_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_post_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_home_accepted_friend_ids_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_home_posts_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/send_home_challenge_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/send_home_friend_request_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
+import 'package:new_project/features/main_screen/tabs/team_tab/domain/usecases/claim_team_daily_challenge_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/team_tab/domain/usecases/get_team_cloud_progress_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/team_tab/domain/usecases/sync_team_squad_to_cloud_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/team_tab/domain/usecases/get_lineup_race_leaderboard_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/team_tab/domain/usecases/submit_lineup_race_entry_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/team_tab/domain/usecases/train_team_player_stat_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/data/data/online_datasourse_impl.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/data/repositories/online_repository_impl.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/domain/repositories/online_repository.dart';
@@ -83,6 +90,12 @@ void configureDependencies() {
     () => GetHomePostsUsecase(homeRepository: getIt<HomeRepositoryImpl>()),
   );
 
+  getIt.registerLazySingleton<GetHomeAcceptedFriendIdsUsecase>(
+    () => GetHomeAcceptedFriendIdsUsecase(
+      homeRepository: getIt<HomeRepositoryImpl>(),
+    ),
+  );
+
   getIt.registerLazySingleton<AddHomePostUsecase>(
     () => AddHomePostUsecase(homeRepository: getIt<HomeRepositoryImpl>()),
   );
@@ -105,9 +118,46 @@ void configureDependencies() {
     () => SendHomeChallengeUsecase(homeRepository: getIt<HomeRepositoryImpl>()),
   );
 
+  getIt.registerLazySingleton<GetTeamCloudProgressUsecase>(
+    () => GetTeamCloudProgressUsecase(
+      homeRepository: getIt<HomeRepositoryImpl>(),
+    ),
+  );
+
+  getIt.registerLazySingleton<SyncTeamSquadToCloudUsecase>(
+    () => SyncTeamSquadToCloudUsecase(
+      homeRepository: getIt<HomeRepositoryImpl>(),
+    ),
+  );
+
+  getIt.registerLazySingleton<ClaimTeamDailyChallengeUsecase>(
+    () => ClaimTeamDailyChallengeUsecase(
+      homeRepository: getIt<HomeRepositoryImpl>(),
+    ),
+  );
+
+  getIt.registerLazySingleton<TrainTeamPlayerStatUsecase>(
+    () => TrainTeamPlayerStatUsecase(
+      homeRepository: getIt<HomeRepositoryImpl>(),
+    ),
+  );
+
+  getIt.registerLazySingleton<GetLineupRaceLeaderboardUsecase>(
+    () => GetLineupRaceLeaderboardUsecase(
+      homeRepository: getIt<HomeRepositoryImpl>(),
+    ),
+  );
+
+  getIt.registerLazySingleton<SubmitLineupRaceEntryUsecase>(
+    () => SubmitLineupRaceEntryUsecase(
+      homeRepository: getIt<HomeRepositoryImpl>(),
+    ),
+  );
+
   getIt.registerFactory(
     () => HomeBloc(
       getHomePostsUsecase: getIt(),
+      getHomeAcceptedFriendIdsUsecase: getIt(),
       addHomePostUsecase: getIt(),
       addHomeCommentUsecase: getIt(),
       addHomePostLikeUsecase: getIt(),

@@ -7,11 +7,13 @@ class TeamSquadHeader extends StatelessWidget {
     required this.teamName,
     required this.formationLabel,
     required this.onTeamRenamed,
+    this.skillPoints = 0,
   });
 
   final String teamName;
   final String formationLabel;
   final ValueChanged<String> onTeamRenamed;
+  final int skillPoints;
 
   @override
   Widget build(BuildContext context) {
@@ -87,6 +89,11 @@ class TeamSquadHeader extends StatelessWidget {
                               scheme: scheme,
                               icon: Icons.grid_view_rounded,
                               label: formationLabel,
+                            ),
+                            _HeaderChip(
+                              scheme: scheme,
+                              icon: Icons.stars_rounded,
+                              label: '$skillPoints pts',
                             ),
                           ],
                         ),
