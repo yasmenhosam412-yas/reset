@@ -13,6 +13,22 @@ class OnlineDatasourseImpl implements OnlineDatasourse {
 
   final SupabaseClient supabaseClient;
 
+  /// Friends who opted out of match invites are hidden from Online challenge lists.
+  static bool _profileAcceptsMatchInvites(dynamic row) {
+    if (row == null) return true;
+    if (row is! Map) return true;
+    final m = Map<String, dynamic>.from(row);
+    final raw = m[ProfileCols.acceptsMatchInvites];
+    if (raw == null) return true;
+    if (raw is bool) return raw;
+    if (raw is num) return raw != 0;
+    if (raw is String) {
+      final s = raw.toLowerCase();
+      if (s == 'false' || s == 'f' || s == '0') return false;
+    }
+    return true;
+  }
+
   @override
   Future<List<ChallengeRequestModel>> getChallenges() async {
     final uid = supabaseClient.auth.currentUser?.id;
@@ -28,13 +44,31 @@ class OnlineDatasourseImpl implements OnlineDatasourse {
         .order(PostCols.createdAt, ascending: false);
 
     final rows = response as List<dynamic>;
-    return rows
+    var challenges = rows
         .map(
           (e) => ChallengeRequestModel.fromJson(
             Map<String, dynamic>.from(e as Map),
           ),
         )
         .toList(growable: false);
+
+    final meRow = await supabaseClient
+        .from(HomeTable.profiles)
+        .select(ProfileCols.acceptsMatchInvites)
+        .eq(ProfileCols.id, uid)
+        .maybeSingle();
+
+    final acceptIncoming = _profileAcceptsMatchInvites(meRow);
+    if (!acceptIncoming) {
+      challenges = challenges
+          .where(
+            (c) =>
+                !(c.toId == uid && c.status.toLowerCase() == 'pending'),
+          )
+          .toList(growable: false);
+    }
+
+    return challenges;
   }
 
   @override
@@ -72,11 +106,14 @@ class OnlineDatasourseImpl implements OnlineDatasourse {
     final profiles = await supabaseClient
         .from(HomeTable.profiles)
         .select(
-          '${ProfileCols.id}, ${ProfileCols.username}, ${ProfileCols.avatarUrl}',
+          '${ProfileCols.id}, ${ProfileCols.username}, ${ProfileCols.avatarUrl}, ${ProfileCols.acceptsMatchInvites}',
         )
         .inFilter(ProfileCols.id, friendIds.toList());
 
-    final plist = profiles as List<dynamic>;
+    final plist = (profiles as List<dynamic>).where((e) {
+      return _profileAcceptsMatchInvites(e);
+    }).toList(growable: false);
+
     final users = plist
         .map(
           (e) => UserModel.fromJson(

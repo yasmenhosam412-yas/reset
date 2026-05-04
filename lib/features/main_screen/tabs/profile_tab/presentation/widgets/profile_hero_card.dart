@@ -8,12 +8,14 @@ class ProfileHeroCard extends StatelessWidget {
     required this.scheme,
     required this.dashboard,
     required this.onEditTap,
+    this.editBusy = false,
   });
 
   final ThemeData theme;
   final ColorScheme scheme;
   final ProfileDashboardModel dashboard;
   final VoidCallback onEditTap;
+  final bool editBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -93,8 +95,14 @@ class ProfileHeroCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              onPressed: onEditTap,
-              child: const Text('Edit'),
+              onPressed: editBusy ? null : onEditTap,
+              child: editBusy
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Edit'),
             ),
           ],
         ),

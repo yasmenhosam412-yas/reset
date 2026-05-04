@@ -31,6 +31,8 @@ StoredTeamSquad? parseStoredTeamSquad(Map<String, dynamic>? raw) {
     if (e is! Map) return null;
     final m = Map<String, dynamic>.from(e);
     final n = m['name']?.toString().trim() ?? 'Player';
+    final avatarRaw = m['avatar_base64']?.toString().trim();
+    final avatar = avatarRaw != null && avatarRaw.isNotEmpty ? avatarRaw : null;
     int stat(String k) {
       final v = m[k];
       if (v is int) return v.clamp(40, 99);
@@ -45,6 +47,7 @@ StoredTeamSquad? parseStoredTeamSquad(Map<String, dynamic>? raw) {
         defense: stat('defense'),
         speed: stat('speed'),
         stamina: stat('stamina'),
+        avatarBase64: avatar,
       ),
     );
   }
@@ -72,6 +75,8 @@ Map<String, dynamic> encodeTeamSquadJson({
             'defense': p.defense.clamp(40, 99),
             'speed': p.speed.clamp(40, 99),
             'stamina': p.stamina.clamp(40, 99),
+            if (p.avatarBase64 != null && p.avatarBase64!.isNotEmpty)
+              'avatar_base64': p.avatarBase64,
           },
         )
         .toList(growable: false),

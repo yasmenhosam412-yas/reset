@@ -12,14 +12,17 @@ import 'package:new_project/features/main_screen/tabs/team_tab/domain/usecases/t
 import 'package:new_project/features/main_screen/tabs/team_tab/presentation/dialogs/team_name_dialog.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/presentation/utils/team_roster_defaults.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/presentation/utils/team_slot_layout.dart';
+import 'package:new_project/features/main_screen/tabs/team_tab/presentation/widgets/team_battle_activities_card.dart';
+import 'package:new_project/features/main_screen/tabs/team_tab/presentation/widgets/team_best_lineup_app_card.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/presentation/widgets/team_daily_challenges_card.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/presentation/widgets/team_empty_squad_body.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/presentation/widgets/team_friends_duel_strip.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/presentation/widgets/team_lineup_race_panel.dart';
-import 'package:new_project/features/main_screen/tabs/team_tab/presentation/widgets/team_formation_pill.dart';
+import 'package:new_project/features/main_screen/tabs/team_tab/presentation/sheets/team_player_edit_sheet.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/presentation/widgets/team_pitch_board.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/presentation/widgets/team_skill_training_strip.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/presentation/widgets/team_squad_header.dart';
+import 'package:new_project/features/main_screen/tabs/team_tab/presentation/widgets/team_squad_pulse_card.dart';
 
 class TeamTab extends StatefulWidget {
   const TeamTab({super.key});
@@ -30,7 +33,6 @@ class TeamTab extends StatefulWidget {
 
 class _TeamTabState extends State<TeamTab> {
   String? _teamName;
-  int _formationIndex = 0;
   late List<TeamRosterPlayer> _players;
 
   bool _cloudReady = false;
@@ -56,12 +58,11 @@ class _TeamTabState extends State<TeamTab> {
             defense: e.defense,
             speed: e.speed,
             stamina: e.stamina,
+            avatarBase64: e.avatarBase64,
           ),
         )
         .toList(growable: false);
   }
-
-  TeamFormation get _formation => kTeamFormations[_formationIndex];
 
   Future<void> _loadCloudProgress() async {
     final r = await getIt<GetTeamCloudProgressUsecase>()();
@@ -85,7 +86,6 @@ class _TeamTabState extends State<TeamTab> {
           final stored = parseStoredTeamSquad(snap.squadJson);
           if (stored != null) {
             _teamName = stored.teamName;
-            _formationIndex = stored.formationIndex;
             _players = _clonePlayers(stored.players);
           }
         });
@@ -97,7 +97,7 @@ class _TeamTabState extends State<TeamTab> {
     if (_teamName == null || _teamName!.isEmpty) return;
     final json = encodeTeamSquadJson(
       teamName: _teamName!,
-      formationIndex: _formationIndex,
+      formationIndex: 0,
       players: _players,
     );
     final r = await getIt<SyncTeamSquadToCloudUsecase>()(json);
@@ -121,7 +121,6 @@ class _TeamTabState extends State<TeamTab> {
     setState(() {
       _teamName = name;
       _players = defaultTeamRoster();
-      _formationIndex = 0;
     });
     await _syncSquadToCloud();
     if (mounted) {
@@ -152,6 +151,36 @@ class _TeamTabState extends State<TeamTab> {
         );
       },
     );
+  }
+
+  Future<void> _onEditPlayer(int slotIndex) async {
+    final i = slotIndex.clamp(0, kTeamRosterSize - 1);
+    final current = _players[i];
+    final result = await showTeamPlayerEditSheet(
+      context,
+      playerIndex: i,
+      player: current,
+    );
+    if (!mounted || result == null) return;
+    setState(() {
+      _players[i] = TeamRosterPlayer(
+        name: result.name,
+        attack: current.attack,
+        defense: current.defense,
+        speed: current.speed,
+        stamina: current.stamina,
+        avatarBase64: result.avatarBase64,
+      );
+    });
+    await _syncSquadToCloud();
+  }
+
+  void _applySquadJsonFromCloud(Map<String, dynamic> json) {
+    final stored = parseStoredTeamSquad(json);
+    if (stored == null || !mounted) return;
+    setState(() {
+      _players = _clonePlayers(stored.players);
+    });
   }
 
   Future<void> _onTrainStat(String statKey) async {
@@ -189,33 +218,61 @@ class _TeamTabState extends State<TeamTab> {
     );
   }
 
+  BoxDecoration _tabBackdrop(ThemeData theme) {
+    final scheme = theme.colorScheme;
+    return BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          scheme.surface,
+          Color.lerp(scheme.surface, scheme.primaryContainer, 0.14)!,
+          Color.lerp(scheme.surface, scheme.tertiaryContainer, 0.1)!,
+        ],
+        stops: const [0.0, 0.45, 1.0],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
     if (!_cloudReady) {
-      return const Scaffold(
-        body: SafeArea(
-          child: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        body: DecoratedBox(
+          decoration: _tabBackdrop(theme),
+          child: const SafeArea(
+            child: Center(child: CircularProgressIndicator()),
+          ),
         ),
       );
     }
 
     if (_teamName == null) {
       return Scaffold(
-        body: SafeArea(
-          child: TeamEmptySquadBody(
-            onCreateTeam: _openCreateTeam,
-            challengesFooter: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _challengesCard(),
-                const TeamLineupRacePanel(
-                  hasSquad: false,
-                  ensureSquadSynced: null,
-                ),
-              ],
+        body: DecoratedBox(
+          decoration: _tabBackdrop(theme),
+          child: SafeArea(
+            child: TeamEmptySquadBody(
+              onCreateTeam: _openCreateTeam,
+              challengesFooter: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _challengesCard(),
+                  const TeamBestLineupInAppCard(),
+                  TeamBattleActivitiesCard(
+                    hasSquad: false,
+                    ensureSquadSynced: null,
+                    onSparBalanceUpdated: (_) {},
+                  ),
+                  const TeamLineupRacePanel(
+                    hasSquad: false,
+                    ensureSquadSynced: null,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -223,117 +280,103 @@ class _TeamTabState extends State<TeamTab> {
     }
 
     assert(
-      _formation.total == kTeamRosterSize && _players.length == kTeamRosterSize,
+      kTeamFormationFixed.total == kTeamRosterSize &&
+          _players.length == kTeamRosterSize,
     );
 
-    final slotRows = slotRowsForFormation(_formation);
+    final slotRows = slotRowsForFormation(kTeamFormationFixed);
 
     return Scaffold(
-      body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: TeamSquadHeader(
-                teamName: _teamName!,
-                formationLabel: _formation.label,
-                skillPoints: _skillPoints,
-                onTeamRenamed: (next) {
-                  setState(() => _teamName = next);
-                  unawaited(_syncSquadToCloud());
-                },
+      body: DecoratedBox(
+        decoration: _tabBackdrop(theme),
+        child: SafeArea(
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: TeamSquadHeader(
+                  teamName: _teamName!,
+                  formationLabel: kTeamFormationFixed.label,
+                  skillPoints: _skillPoints,
+                  onTeamRenamed: (next) {
+                    setState(() => _teamName = next);
+                    unawaited(_syncSquadToCloud());
+                  },
+                ),
               ),
-            ),
-            SliverToBoxAdapter(child: _challengesCard()),
-            SliverToBoxAdapter(
-              child: TeamSkillTrainingStrip(
-                players: _players,
-                skillPoints: _skillPoints,
-                selectedSlot: _trainingSlot,
-                busy: _trainingBusy,
-                onSlotChanged: (i) => setState(() => _trainingSlot = i),
-                onTrain: (k) => unawaited(_onTrainStat(k)),
+              SliverToBoxAdapter(
+                child: TeamSquadPulseCard(
+                  players: _players,
+                  formationLabel: kTeamFormationFixed.label,
+                ),
               ),
-            ),
-            SliverToBoxAdapter(
-              child: TeamLineupRacePanel(
-                hasSquad: true,
-                ensureSquadSynced: _syncSquadToCloud,
+              const SliverToBoxAdapter(
+                child: TeamBestLineupInAppCard(),
               ),
-            ),
-            SliverToBoxAdapter(
-              child: TeamFriendsDuelStrip(teamName: _teamName!),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 22, 20, 10),
-              sliver: SliverToBoxAdapter(
-                child: Row(
-                  children: [
-                    Icon(Icons.map_outlined, size: 22, color: scheme.primary),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Formation',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
+              SliverToBoxAdapter(child: _challengesCard()),
+              SliverToBoxAdapter(
+                child: TeamBattleActivitiesCard(
+                  hasSquad: true,
+                  ensureSquadSynced: _syncSquadToCloud,
+                  onSparBalanceUpdated: (b) => setState(() => _skillPoints = b),
+                  onSparSquadUpdated: _applySquadJsonFromCloud,
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: TeamSkillTrainingStrip(
+                  players: _players,
+                  skillPoints: _skillPoints,
+                  selectedSlot: _trainingSlot,
+                  busy: _trainingBusy,
+                  onSlotChanged: (i) => setState(() => _trainingSlot = i),
+                  onTrain: (k) => unawaited(_onTrainStat(k)),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: TeamLineupRacePanel(
+                  hasSquad: true,
+                  ensureSquadSynced: _syncSquadToCloud,
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: TeamFriendsDuelStrip(teamName: _teamName!),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+                sliver: SliverToBoxAdapter(
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.sports_soccer_outlined,
+                        size: 18,
+                        color: scheme.onSurfaceVariant,
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-                child: Row(
-                  children: List.generate(kTeamFormations.length, (i) {
-                    final f = kTeamFormations[i];
-                    return TeamFormationPill(
-                      label: f.label,
-                      selected: i == _formationIndex,
-                      onTap: () {
-                        setState(() => _formationIndex = i);
-                        unawaited(_syncSquadToCloud());
-                      },
-                    );
-                  }),
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-              sliver: SliverToBoxAdapter(
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.sports_soccer_outlined,
-                      size: 18,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'Formation board is view-only. Use skill training below to raise stats.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          height: 1.35,
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Standard 2-2-2 pitch for everyone. Tap a player to change name or photo. Train stats with skill points.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            height: 1.35,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-              sliver: SliverToBoxAdapter(
-                child: TeamPitchBoard(
-                  formationLabel: _formation.label,
-                  slotRows: slotRows,
-                  players: _players,
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                sliver: SliverToBoxAdapter(
+                  child: TeamPitchBoard(
+                    formationLabel: kTeamFormationFixed.label,
+                    slotRows: slotRows,
+                    players: _players,
+                    onPlayerTap: (slot) => unawaited(_onEditPlayer(slot)),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

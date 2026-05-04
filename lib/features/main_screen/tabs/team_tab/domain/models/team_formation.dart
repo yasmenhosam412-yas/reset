@@ -16,9 +16,11 @@ class TeamFormation {
 
 const int kTeamRosterSize = 6;
 
-const List<TeamFormation> kTeamFormations = [
-  TeamFormation(id: '2-2-2', label: '2-2-2', rows: [2, 2, 2]),
-  TeamFormation(id: '3-2-1', label: '3-2-1', rows: [3, 2, 1]),
-  TeamFormation(id: '1-2-2-1', label: '1-2-2-1', rows: [1, 2, 2, 1]),
-  TeamFormation(id: '1-3-2', label: '1-3-2', rows: [1, 3, 2]),
-];
+/// Single pitch layout for every squad (no formation picker).
+const TeamFormation kTeamFormationFixed = TeamFormation(
+  id: '2-2-2',
+  label: '2-2-2',
+  rows: [2, 2, 2],
+);
+
+const List<TeamFormation> kTeamFormations = [kTeamFormationFixed];

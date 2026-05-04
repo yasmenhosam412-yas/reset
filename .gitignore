@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Supabase Edge secrets (never commit real keys)
+supabase/.env.secrets
+.env.supabase.local
+
+# Cached Supabase CLI (scripts/deploy_process_push_queue.ps1)
+.tools/

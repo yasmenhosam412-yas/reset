@@ -90,6 +90,15 @@ class HomeRepositoryImpl implements HomeRepository {
       );
       return Right(null);
     } catch (e) {
+      final blob = '$e'.toLowerCase();
+      if (blob.contains('recipient_does_not_accept')) {
+        return Left(
+          ServerFailure(
+            message:
+                'That player is not accepting match invites right now.',
+          ),
+        );
+      }
       return Left(failureFromException(e));
     }
   }
@@ -109,6 +118,46 @@ class HomeRepositoryImpl implements HomeRepository {
     try {
       final result = await homeDatasource.loadProfileDashboard();
       return Right(result);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> updateAcceptsMatchInvites(bool accepts) async {
+    try {
+      await homeDatasource.updateAcceptsMatchInvites(accepts);
+      return const Right(null);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> updatePushNotificationsEnabled(
+    bool enabled,
+  ) async {
+    try {
+      await homeDatasource.updatePushNotificationsEnabled(enabled);
+      return const Right(null);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> updateMyProfile({
+    required String username,
+    Uint8List? avatarBytes,
+    String? avatarContentType,
+  }) async {
+    try {
+      await homeDatasource.updateMyProfile(
+        username: username,
+        avatarBytes: avatarBytes,
+        avatarContentType: avatarContentType,
+      );
+      return const Right(null);
     } catch (e) {
       return Left(failureFromException(e));
     }
@@ -224,6 +273,106 @@ class HomeRepositoryImpl implements HomeRepository {
       return Left(
         ServerFailure(message: _teamChallengeRpcError(m['error'])),
       );
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  String _sparRpcError(Object? code) {
+    switch ('$code') {
+      case 'not_authenticated':
+        return 'Sign in to continue.';
+      case 'cannot_spar_self':
+        return 'Pick a friend to spar.';
+      case 'not_friends':
+        return 'You can only spar accepted friends.';
+      case 'already_sparred':
+        return 'You two already sparred today (UTC). Try again tomorrow.';
+      case 'no_squad_saved':
+        return 'Save your squad to the cloud first.';
+      case 'opponent_no_squad':
+        return 'Their squad is not saved yet — ask them to open Team tab.';
+      case 'bad_squad':
+        return 'Squad data is invalid. Check both teams have six players.';
+      default:
+        return 'Could not run squad battle.';
+    }
+  }
+
+  TeamSquadSparStatDelta? _parseSparStatDelta(dynamic raw) {
+    if (raw is! Map) return null;
+    final o = Map<String, dynamic>.from(raw);
+    return TeamSquadSparStatDelta(
+      slotIndex: (o['slot'] as num?)?.toInt() ?? 0,
+      statKey: o['stat']?.toString() ?? '',
+      before: (o['before'] as num?)?.toInt() ?? 0,
+      after: (o['after'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  @override
+  Future<Either<Failure, TeamSquadSparResult>> claimTeamSquadSpar(
+    String opponentUserId,
+  ) async {
+    try {
+      final m = await homeDatasource.rpcClaimTeamSquadSpar(opponentUserId);
+      if (m['ok'] == true) {
+        Map<String, dynamic>? squadJson;
+        final sqRaw = m['team_squad'];
+        if (sqRaw is Map) {
+          squadJson = Map<String, dynamic>.from(sqRaw);
+        }
+        return Right(
+          TeamSquadSparResult(
+            outcome: m['outcome']?.toString() ?? '',
+            myScore: (m['my_score'] as num?)?.toInt() ?? 0,
+            opponentScore: (m['opponent_score'] as num?)?.toInt() ?? 0,
+            pointsAwarded: (m['points_awarded'] as num?)?.toInt() ?? 0,
+            balanceAfter: (m['balance'] as num?)?.toInt() ?? 0,
+            squadJson: squadJson,
+            statBonus: _parseSparStatDelta(m['stat_bonus']),
+            statPenalty: _parseSparStatDelta(m['stat_penalty']),
+          ),
+        );
+      }
+      return Left(ServerFailure(message: _sparRpcError(m['error'])));
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  String _academyScrimRpcError(Object? code) {
+    switch ('$code') {
+      case 'not_authenticated':
+        return 'Sign in to continue.';
+      case 'already_scrimmed':
+        return 'You already played the Academy friendly today (UTC). Come back tomorrow!';
+      case 'no_squad_saved':
+        return 'Save your squad to the cloud first.';
+      case 'bad_squad':
+        return 'Squad data is invalid. You need six players.';
+      default:
+        return 'Could not start Academy scrim.';
+    }
+  }
+
+  @override
+  Future<Either<Failure, TeamAcademyScrimResult>> claimTeamAcademyScrim() async {
+    try {
+      final m = await homeDatasource.rpcClaimTeamAcademyScrim();
+      if (m['ok'] == true) {
+        return Right(
+          TeamAcademyScrimResult(
+            outcome: m['outcome']?.toString() ?? '',
+            myScore: (m['my_score'] as num?)?.toInt() ?? 0,
+            opponentScore: (m['opponent_score'] as num?)?.toInt() ?? 0,
+            opponentName: m['opponent_name']?.toString() ?? 'Academy XI',
+            pointsAwarded: (m['points_awarded'] as num?)?.toInt() ?? 0,
+            balanceAfter: (m['balance'] as num?)?.toInt() ?? 0,
+          ),
+        );
+      }
+      return Left(ServerFailure(message: _academyScrimRpcError(m['error'])));
     } catch (e) {
       return Left(failureFromException(e));
     }

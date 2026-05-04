@@ -355,11 +355,13 @@ class HomeDatasourceImpl implements HomeDatasource {
     final profileRow = await _client
         .from(HomeTable.profiles)
         .select(
-          '${ProfileCols.id}, ${ProfileCols.username}, ${ProfileCols.avatarUrl}',
+          '${ProfileCols.id}, ${ProfileCols.username}, ${ProfileCols.avatarUrl}, ${ProfileCols.acceptsMatchInvites}, ${ProfileCols.pushNotificationsEnabled}',
         )
         .eq(ProfileCols.id, uid)
         .maybeSingle();
 
+    var acceptsMatchInvites = true;
+    var pushNotificationsEnabled = true;
     final UserModel user;
     if (profileRow == null) {
       if (sessionUser == null) {
@@ -371,6 +373,14 @@ class HomeDatasourceImpl implements HomeDatasource {
       );
     } else {
       final map = Map<String, dynamic>.from(profileRow);
+      acceptsMatchInvites = _coerceBool(
+        map[ProfileCols.acceptsMatchInvites],
+        defaultValue: true,
+      );
+      pushNotificationsEnabled = _coerceBool(
+        map[ProfileCols.pushNotificationsEnabled],
+        defaultValue: true,
+      );
       user = _mergeSessionProfileIfNeeded(
         UserModel.fromJson(map),
         uid,
@@ -405,7 +415,87 @@ class HomeDatasourceImpl implements HomeDatasource {
         challengesCount: challengesCount,
       ),
       incomingFriendRequests: incoming,
+      acceptsMatchInvites: acceptsMatchInvites,
+      pushNotificationsEnabled: pushNotificationsEnabled,
     );
+  }
+
+  static bool _coerceBool(dynamic raw, {required bool defaultValue}) {
+    if (raw == null) return defaultValue;
+    if (raw is bool) return raw;
+    if (raw is num) return raw != 0;
+    if (raw is String) {
+      final s = raw.toLowerCase();
+      if (s == 'true' || s == 't' || s == '1') return true;
+      if (s == 'false' || s == 'f' || s == '0') return false;
+    }
+    return defaultValue;
+  }
+
+  @override
+  Future<void> updateAcceptsMatchInvites(bool accepts) async {
+    final uid = _currentUserId;
+    if (uid == null) {
+      throw StateError('Not signed in.');
+    }
+    await _client.from(HomeTable.profiles).update({
+      ProfileCols.acceptsMatchInvites: accepts,
+    }).eq(ProfileCols.id, uid);
+  }
+
+  @override
+  Future<void> updatePushNotificationsEnabled(bool enabled) async {
+    final uid = _currentUserId;
+    if (uid == null) {
+      throw StateError('Not signed in.');
+    }
+    await _client.from(HomeTable.profiles).update({
+      ProfileCols.pushNotificationsEnabled: enabled,
+    }).eq(ProfileCols.id, uid);
+  }
+
+  @override
+  Future<void> updateMyProfile({
+    required String username,
+    Uint8List? avatarBytes,
+    String? avatarContentType,
+  }) async {
+    final uid = _currentUserId;
+    if (uid == null) {
+      throw StateError('Not signed in.');
+    }
+    final name = username.trim();
+    if (name.isEmpty) {
+      throw ArgumentError('Display name cannot be empty.');
+    }
+
+    String? newAvatarUrl;
+    if (avatarBytes != null && avatarBytes.isNotEmpty) {
+      newAvatarUrl = await _uploadPostImage(
+        uid: uid,
+        bytes: avatarBytes,
+        contentType: avatarContentType ?? 'image/jpeg',
+      );
+    }
+
+    final patch = <String, dynamic>{ProfileCols.username: name};
+    if (newAvatarUrl != null) {
+      patch[ProfileCols.avatarUrl] = newAvatarUrl;
+    }
+
+    await _client.from(HomeTable.profiles).upsert(
+          {
+            ProfileCols.id: uid,
+            ...patch,
+          },
+          onConflict: ProfileCols.id,
+        );
+
+    final meta = <String, dynamic>{'username': name};
+    if (newAvatarUrl != null) {
+      meta['avatar_url'] = newAvatarUrl;
+    }
+    await _client.auth.updateUser(UserAttributes(data: meta));
   }
 
   Future<Set<String>> _acceptedFriendIdSet(String uid) async {
@@ -619,6 +709,31 @@ class HomeDatasourceImpl implements HomeDatasource {
         'p_stat': statKey,
       },
     );
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    throw StateError('Unexpected RPC response');
+  }
+
+  @override
+  Future<Map<String, dynamic>> rpcClaimTeamSquadSpar(
+    String opponentUserId,
+  ) async {
+    final id = opponentUserId.trim();
+    if (id.isEmpty) {
+      throw ArgumentError.value(opponentUserId, 'opponentUserId', 'must not be empty');
+    }
+    final raw = await _client.rpc(
+      'claim_team_squad_spar',
+      params: {'p_opponent': id},
+    );
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    throw StateError('Unexpected RPC response');
+  }
+
+  @override
+  Future<Map<String, dynamic>> rpcClaimTeamAcademyScrim() async {
+    final raw = await _client.rpc('claim_team_academy_scrim');
     if (raw is Map<String, dynamic>) return raw;
     if (raw is Map) return Map<String, dynamic>.from(raw);
     throw StateError('Unexpected RPC response');

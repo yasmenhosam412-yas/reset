@@ -66,7 +66,7 @@ class TeamEmptySquadBody extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Build a six-player squad, pick a shape, and dial in stats. '
+                          'Build a six-player squad on the standard 2-2-2 pitch and train stats. '
                           'Once you have a team, challenge friends from this tab or Online.',
                           style: theme.textTheme.bodyLarge?.copyWith(
                             color: scheme.onSurfaceVariant,
@@ -124,7 +124,7 @@ class TeamEmptySquadBody extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Six players only. Formations rearrange your board — tap anyone later to tweak ATK, DEF, SPD, STM.',
+                                  'Six players only on the same layout as everyone else — tap anyone later for name & photo, then train stats with skill points.',
                                   textAlign: TextAlign.center,
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     color: scheme.onSurfaceVariant,

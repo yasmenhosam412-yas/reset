@@ -8,6 +8,8 @@ import 'package:new_project/features/authentication/presentation/pages/signup_sc
 import 'package:new_project/features/main_screen/main_screen.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_route_args.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_session_page.dart';
+import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/pages/help_support_page.dart';
+import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/pages/privacy_security_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Notifies [GoRouter] whenever Supabase auth changes (session restore, sign-in,
@@ -37,6 +39,8 @@ class AppRouter {
   static const String forgotPasswordPath = '/forgot-password';
   static const String mainScreenPath = '/main-screen';
   static const String gameSessionPath = '/game-session';
+  static const String privacySecurityPath = '/privacy-security';
+  static const String helpSupportPath = '/help-support';
 
   static final GoRouter router = GoRouter(
     initialLocation: loginPath,
@@ -88,6 +92,14 @@ class AppRouter {
           }
           return OnlineGameSessionPage(args: extra);
         },
+      ),
+      GoRoute(
+        path: privacySecurityPath,
+        builder: (context, state) => const PrivacySecurityPage(),
+      ),
+      GoRoute(
+        path: helpSupportPath,
+        builder: (context, state) => const HelpSupportPage(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

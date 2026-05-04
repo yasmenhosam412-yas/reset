@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/domain/models/team_roster_player.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/presentation/constants/team_stat_colors.dart';
@@ -20,6 +22,7 @@ class TeamPlayerToken extends StatelessWidget {
     final scheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     final p = player;
+    final avatarProv = _teamAvatarImageProvider(p.avatarBase64);
 
     final card = Ink(
       decoration: BoxDecoration(
@@ -58,22 +61,27 @@ class TeamPlayerToken extends StatelessWidget {
                       colors: [scheme.primary, scheme.tertiary],
                     ),
                   ),
-                  child: CircleAvatar(
-                    radius: 20,
-                    backgroundColor: scheme.surface,
                     child: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: teamAvatarColor(p.name),
-                      foregroundColor: Colors.white,
-                      child: Text(
-                        p.name.isNotEmpty ? p.name[0].toUpperCase() : '?',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                        ),
+                      radius: 20,
+                      backgroundColor: scheme.surface,
+                      child: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: teamAvatarColor(p.name),
+                        foregroundColor: Colors.white,
+                        backgroundImage: avatarProv,
+                        child: avatarProv == null
+                            ? Text(
+                                p.name.isNotEmpty
+                                    ? p.name[0].toUpperCase()
+                                    : '?',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15,
+                                ),
+                              )
+                            : null,
                       ),
                     ),
-                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -144,5 +152,14 @@ class TeamPlayerToken extends StatelessWidget {
             )
           : card,
     );
+  }
+}
+
+ImageProvider? _teamAvatarImageProvider(String? b64) {
+  if (b64 == null || b64.isEmpty) return null;
+  try {
+    return MemoryImage(base64Decode(b64));
+  } catch (_) {
+    return null;
   }
 }

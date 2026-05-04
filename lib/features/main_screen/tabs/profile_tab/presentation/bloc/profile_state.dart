@@ -13,6 +13,8 @@ class ProfileState {
     this.dashboard,
     this.errorMessage,
     this.successMessage,
+    this.busyFriendRequestId,
+    this.profileSaveBusy = false,
   });
 
   factory ProfileState.initial() {
@@ -24,13 +26,22 @@ class ProfileState {
   final String? errorMessage;
   final String? successMessage;
 
+  /// Friend-request row being accepted or declined (disables buttons).
+  final String? busyFriendRequestId;
+
+  /// Saving display name / avatar from the edit sheet.
+  final bool profileSaveBusy;
+
   ProfileState copyWith({
     ProfileStatus? status,
     ProfileDashboardModel? dashboard,
     String? errorMessage,
     String? successMessage,
+    String? busyFriendRequestId,
+    bool? profileSaveBusy,
     bool clearError = false,
     bool clearSuccess = false,
+    bool clearBusyFriendRequest = false,
   }) {
     return ProfileState(
       status: status ?? this.status,
@@ -38,6 +49,10 @@ class ProfileState {
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       successMessage:
           clearSuccess ? null : (successMessage ?? this.successMessage),
+      busyFriendRequestId: clearBusyFriendRequest
+          ? null
+          : (busyFriendRequestId ?? this.busyFriendRequestId),
+      profileSaveBusy: profileSaveBusy ?? this.profileSaveBusy,
     );
   }
 }

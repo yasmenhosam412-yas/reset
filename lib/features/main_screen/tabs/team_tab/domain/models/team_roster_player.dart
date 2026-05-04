@@ -5,6 +5,7 @@ class TeamRosterPlayer {
     required this.defense,
     required this.speed,
     required this.stamina,
+    this.avatarBase64,
   });
 
   String name;
@@ -12,4 +13,7 @@ class TeamRosterPlayer {
   int defense;
   int speed;
   int stamina;
+
+  /// Optional JPEG/PNG bytes as base64 (synced in [team_squad] JSON).
+  String? avatarBase64;
 }

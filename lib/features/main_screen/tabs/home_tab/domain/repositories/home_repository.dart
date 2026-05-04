@@ -6,7 +6,12 @@ import 'package:new_project/features/authentication/data/models/user_model.dart'
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/lineup_race_board_row.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/profile_dashboard_model.dart';
-import 'package:new_project/features/main_screen/tabs/home_tab/data/models/team_challenge_results.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/models/team_challenge_results.dart'
+    show
+        TeamAcademyScrimResult,
+        TeamChallengeClaimResult,
+        TeamSquadSparResult,
+        TeamTrainPlayerResult;
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/team_cloud_snapshot.dart';
 
 abstract class HomeRepository {
@@ -37,6 +42,16 @@ abstract class HomeRepository {
 
   Future<Either<Failure, ProfileDashboardModel>> loadProfileDashboard();
 
+  Future<Either<Failure, void>> updateAcceptsMatchInvites(bool accepts);
+
+  Future<Either<Failure, void>> updatePushNotificationsEnabled(bool enabled);
+
+  Future<Either<Failure, void>> updateMyProfile({
+    required String username,
+    Uint8List? avatarBytes,
+    String? avatarContentType,
+  });
+
   Future<Either<Failure, void>> respondToFriendRequest({
     required String requestId,
     required bool accept,
@@ -54,6 +69,12 @@ abstract class HomeRepository {
     required int playerSlot,
     required String statKey,
   });
+
+  Future<Either<Failure, TeamSquadSparResult>> claimTeamSquadSpar(
+    String opponentUserId,
+  );
+
+  Future<Either<Failure, TeamAcademyScrimResult>> claimTeamAcademyScrim();
 
   Future<Either<Failure, List<LineupRaceBoardRow>>> fetchLineupRaceLeaderboard({
     required String raceKey,

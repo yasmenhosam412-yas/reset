@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 
 class ProfileAccountSettingsCard extends StatelessWidget {
-  const ProfileAccountSettingsCard({super.key, required this.scheme});
+  const ProfileAccountSettingsCard({
+    super.key,
+    required this.scheme,
+    this.onItemTap,
+  });
 
   final ColorScheme scheme;
+  final ValueChanged<String>? onItemTap;
 
   static const _items = <(IconData, String)>[
     (Icons.lock_outline_rounded, 'Privacy & security'),
-    (Icons.palette_outlined, 'Appearance'),
+    (Icons.star_rounded, 'Rate the app'),
     (Icons.help_outline_rounded, 'Help & support'),
   ];
 
@@ -23,7 +28,9 @@ class ProfileAccountSettingsCard extends StatelessWidget {
               leading: Icon(_items[i].$1, color: scheme.primary),
               title: Text(_items[i].$2),
               trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () {},
+              onTap: onItemTap == null
+                  ? null
+                  : () => onItemTap!(_items[i].$2),
             ),
           ],
         ],

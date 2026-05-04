@@ -1,4 +1,5 @@
 import 'package:new_project/features/authentication/data/datasource/remote/auth_remote_datasource.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/datasource/home_supabase_tables.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
@@ -28,6 +29,12 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
 
   @override
   Future<void> logout() async {
+    final uid = supabaseClient.auth.currentUser?.id;
+    if (uid != null) {
+      await supabaseClient.from(HomeTable.profiles).update({
+        ProfileCols.fcmToken: null,
+      }).eq(ProfileCols.id, uid);
+    }
     await supabaseClient.auth.signOut();
   }
 

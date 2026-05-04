@@ -59,8 +59,16 @@ class TeamFriendsDuelStrip extends StatelessWidget {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Challenge a friend with “$teamName” in mind — '
-                              'they get the invite on Online.',
+                              teamName,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: scheme.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Same friends list as Home — challenge someone and '
+                              'they will see it on Online.',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: scheme.onSurfaceVariant,
                                 height: 1.35,

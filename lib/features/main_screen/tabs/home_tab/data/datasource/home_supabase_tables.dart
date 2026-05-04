@@ -38,6 +38,9 @@ abstract final class ProfileCols {
   static const avatarUrl = 'avatar_url';
   static const teamSkillPoints = 'team_skill_points';
   static const teamSquad = 'team_squad';
+  static const acceptsMatchInvites = 'accepts_match_invites';
+  static const fcmToken = 'fcm_token';
+  static const pushNotificationsEnabled = 'push_notifications_enabled';
 }
 
 abstract final class TeamChallengeClaimCols {

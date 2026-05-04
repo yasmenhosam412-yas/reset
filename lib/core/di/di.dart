@@ -19,6 +19,8 @@ import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/s
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/send_home_friend_request_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/domain/usecases/claim_team_daily_challenge_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/team_tab/domain/usecases/claim_team_academy_scrim_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/team_tab/domain/usecases/claim_team_squad_spar_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/domain/usecases/get_team_cloud_progress_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/domain/usecases/sync_team_squad_to_cloud_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/domain/usecases/get_lineup_race_leaderboard_usecase.dart';
@@ -34,6 +36,9 @@ import 'package:new_project/features/main_screen/tabs/online_tab/domain/usecases
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/bloc/online_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/domain/usecases/load_profile_dashboard_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/domain/usecases/respond_profile_friend_request_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/profile_tab/domain/usecases/update_accepts_match_invites_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/profile_tab/domain/usecases/update_push_notifications_enabled_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/profile_tab/domain/usecases/update_profile_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/bloc/profile_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -136,6 +141,18 @@ void configureDependencies() {
     ),
   );
 
+  getIt.registerLazySingleton<ClaimTeamSquadSparUsecase>(
+    () => ClaimTeamSquadSparUsecase(
+      homeRepository: getIt<HomeRepositoryImpl>(),
+    ),
+  );
+
+  getIt.registerLazySingleton<ClaimTeamAcademyScrimUsecase>(
+    () => ClaimTeamAcademyScrimUsecase(
+      homeRepository: getIt<HomeRepositoryImpl>(),
+    ),
+  );
+
   getIt.registerLazySingleton<TrainTeamPlayerStatUsecase>(
     () => TrainTeamPlayerStatUsecase(
       homeRepository: getIt<HomeRepositoryImpl>(),
@@ -219,10 +236,31 @@ void configureDependencies() {
     ),
   );
 
+  getIt.registerLazySingleton<UpdateProfileUsecase>(
+    () => UpdateProfileUsecase(
+      homeRepository: getIt<HomeRepositoryImpl>(),
+    ),
+  );
+
+  getIt.registerLazySingleton<UpdateAcceptsMatchInvitesUsecase>(
+    () => UpdateAcceptsMatchInvitesUsecase(
+      homeRepository: getIt<HomeRepositoryImpl>(),
+    ),
+  );
+
+  getIt.registerLazySingleton<UpdatePushNotificationsEnabledUsecase>(
+    () => UpdatePushNotificationsEnabledUsecase(
+      homeRepository: getIt<HomeRepositoryImpl>(),
+    ),
+  );
+
   getIt.registerFactory(
     () => ProfileBloc(
       loadProfileDashboardUsecase: getIt(),
       respondProfileFriendRequestUsecase: getIt(),
+      updateProfileUsecase: getIt(),
+      updateAcceptsMatchInvitesUsecase: getIt(),
+      updatePushNotificationsEnabledUsecase: getIt(),
     ),
   );
 }

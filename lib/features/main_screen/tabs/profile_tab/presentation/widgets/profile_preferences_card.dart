@@ -30,7 +30,9 @@ class ProfilePreferencesCard extends StatelessWidget {
               color: scheme.primary,
             ),
             title: const Text('Push notifications'),
-            subtitle: const Text('Scores, invites, and reminders'),
+            subtitle: const Text(
+              'Likes and comments on your posts, friend requests, and match invites',
+            ),
           ),
           const Divider(height: 1),
           SwitchListTile.adaptive(
@@ -41,7 +43,9 @@ class ProfilePreferencesCard extends StatelessWidget {
               color: scheme.primary,
             ),
             title: const Text('Match invites'),
-            subtitle: const Text('Friends can invite you to play'),
+            subtitle: const Text(
+              'Off: you won’t see incoming invites and friends won’t see you for online challenges',
+            ),
           ),
         ],
       ),

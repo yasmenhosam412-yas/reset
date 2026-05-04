@@ -1,15 +1,9 @@
 class TeamPlayerEditResult {
   const TeamPlayerEditResult({
     required this.name,
-    required this.attack,
-    required this.defense,
-    required this.speed,
-    required this.stamina,
+    this.avatarBase64,
   });
 
   final String name;
-  final int attack;
-  final int defense;
-  final int speed;
-  final int stamina;
+  final String? avatarBase64;
 }

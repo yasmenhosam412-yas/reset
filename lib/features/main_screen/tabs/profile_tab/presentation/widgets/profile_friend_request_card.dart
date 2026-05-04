@@ -16,11 +16,13 @@ class ProfileFriendRequestCard extends StatelessWidget {
     required this.request,
     required this.theme,
     required this.scheme,
+    this.requestBusy = false,
   });
 
   final IncomingFriendRequestModel request;
   final ThemeData theme;
   final ColorScheme scheme;
+  final bool requestBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -85,24 +87,34 @@ class ProfileFriendRequestCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => context.read<ProfileBloc>().add(
-                          ProfileFriendRequestResponded(
-                            requestId: request.requestId,
-                            accept: false,
-                          ),
-                        ),
-                    child: const Text('Decline'),
+                    onPressed: requestBusy
+                        ? null
+                        : () => context.read<ProfileBloc>().add(
+                              ProfileFriendRequestResponded(
+                                requestId: request.requestId,
+                                accept: false,
+                              ),
+                            ),
+                    child: requestBusy
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Decline'),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: FilledButton(
-                    onPressed: () => context.read<ProfileBloc>().add(
-                          ProfileFriendRequestResponded(
-                            requestId: request.requestId,
-                            accept: true,
-                          ),
-                        ),
+                    onPressed: requestBusy
+                        ? null
+                        : () => context.read<ProfileBloc>().add(
+                              ProfileFriendRequestResponded(
+                                requestId: request.requestId,
+                                accept: true,
+                              ),
+                            ),
                     child: const Text('Accept'),
                   ),
                 ),

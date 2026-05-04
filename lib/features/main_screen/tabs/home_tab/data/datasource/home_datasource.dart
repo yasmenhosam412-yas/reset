@@ -29,6 +29,19 @@ abstract class HomeDatasource {
 
   Future<ProfileDashboardModel> loadProfileDashboard();
 
+  /// Persists whether the user accepts online match invites (see [profiles.accepts_match_invites]).
+  Future<void> updateAcceptsMatchInvites(bool accepts);
+
+  /// Persists push preference (see [profiles.push_notifications_enabled]).
+  Future<void> updatePushNotificationsEnabled(bool enabled);
+
+  /// Updates [profiles] row and syncs auth user metadata for the current user.
+  Future<void> updateMyProfile({
+    required String username,
+    Uint8List? avatarBytes,
+    String? avatarContentType,
+  });
+
   Future<void> respondToFriendRequest({
     required String requestId,
     required bool accept,
@@ -44,6 +57,10 @@ abstract class HomeDatasource {
     required int playerSlot,
     required String statKey,
   });
+
+  Future<Map<String, dynamic>> rpcClaimTeamSquadSpar(String opponentUserId);
+
+  Future<Map<String, dynamic>> rpcClaimTeamAcademyScrim();
 
   Future<List<LineupRaceBoardRow>> fetchLineupRaceLeaderboard({
     required String raceKey,
