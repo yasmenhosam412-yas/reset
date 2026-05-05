@@ -10,7 +10,7 @@ class AppTheme {
     scaffoldBackgroundColor: const Color(0xFFF5F7FB),
     appBarTheme: AppBarTheme(
       centerTitle: true,
-      backgroundColor: colorScheme.surface,
+      backgroundColor: const Color(0xFFF5F7FB),
       foregroundColor: colorScheme.onSurface,
       elevation: 0,
     ),

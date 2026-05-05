@@ -232,7 +232,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
                       ),
                       title: 'You are all caught up',
                       subtitle:
-                          'Likes, comments, friend requests, and match invites will show here. Pull down to refresh.',
+                          'Likes, comments, friend requests, party room invites, and match invites will show here. Pull down to refresh.',
                       actions: null,
                     ),
                   ),
@@ -275,12 +275,41 @@ class _NotificationsTabState extends State<NotificationsTab> {
                         Icons.chat_bubble_rounded,
                         scheme.tertiary,
                       ),
+                    UserNotificationKind.partyRoomInvite => (
+                        Icons.groups_rounded,
+                        scheme.primary,
+                      ),
                     _ => (
                         Icons.notifications_rounded,
                         scheme.primary,
                       ),
                   };
                   final postId = f.data['post_id']?.toString().trim() ?? '';
+                  final VoidCallback? onOpenRelated = switch (f.kind) {
+                    UserNotificationKind.partyRoomInvite => () =>
+                        getIt<MainShellController>().openOnlineTab(),
+                    _ => postId.isEmpty || uid == null || uid.isEmpty
+                        ? null
+                        : () {
+                            final authorName = context
+                                    .read<ProfileBloc>()
+                                    .state
+                                    .dashboard
+                                    ?.user
+                                    .username
+                                    .trim() ??
+                                '';
+                            openAuthorPostsScreen(
+                              context: context,
+                              authorId: uid,
+                              authorName: authorName,
+                              commentController: _alertsCommentController,
+                              focusPostId: postId,
+                              openCommentsAfterScroll: f.kind ==
+                                  UserNotificationKind.postComment,
+                            );
+                          },
+                  };
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: _PlainFeedItem(
@@ -290,27 +319,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
                       theme: theme,
                       icon: icon,
                       accent: color,
-                      onOpenRelated: postId.isEmpty || uid == null || uid.isEmpty
-                          ? null
-                          : () {
-                              final authorName = context
-                                      .read<ProfileBloc>()
-                                      .state
-                                      .dashboard
-                                      ?.user
-                                      .username
-                                      .trim() ??
-                                  '';
-                              openAuthorPostsScreen(
-                                context: context,
-                                authorId: uid,
-                                authorName: authorName,
-                                commentController: _alertsCommentController,
-                                focusPostId: postId,
-                                openCommentsAfterScroll: f.kind ==
-                                    UserNotificationKind.postComment,
-                              );
-                            },
+                      onOpenRelated: onOpenRelated,
                     ),
                   );
                 }

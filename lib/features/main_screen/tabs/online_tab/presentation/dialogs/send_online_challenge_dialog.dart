@@ -29,15 +29,6 @@ void showSendOnlineChallengeDialog(BuildContext context, UserModel friend) {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Win the match for +10 team skill points (Team tab). '
-                    'Your friend loses nothing if they do not win.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      height: 1.35,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
                     'Choose a game',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,

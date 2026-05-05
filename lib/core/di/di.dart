@@ -15,10 +15,13 @@ import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/a
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_post_like_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_post_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/delete_home_post_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/update_home_post_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_home_accepted_friend_ids_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_home_posts_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_my_user_notifications_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/send_home_challenge_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/remove_home_friend_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/search_people_discovery_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/send_home_friend_request_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/data/global_battles_repository.dart';
@@ -121,6 +124,10 @@ void configureDependencies() {
     () => DeleteHomePostUsecase(homeRepository: getIt<HomeRepositoryImpl>()),
   );
 
+  getIt.registerLazySingleton<UpdateHomePostUsecase>(
+    () => UpdateHomePostUsecase(homeRepository: getIt<HomeRepositoryImpl>()),
+  );
+
   getIt.registerLazySingleton<AddHomeCommentUsecase>(
     () => AddHomeCommentUsecase(homeRepository: getIt<HomeRepositoryImpl>()),
   );
@@ -131,6 +138,16 @@ void configureDependencies() {
 
   getIt.registerLazySingleton<SendHomeFriendRequestUsecase>(
     () => SendHomeFriendRequestUsecase(
+      homeRepository: getIt<HomeRepositoryImpl>(),
+    ),
+  );
+
+  getIt.registerLazySingleton<RemoveHomeFriendUsecase>(
+    () => RemoveHomeFriendUsecase(homeRepository: getIt<HomeRepositoryImpl>()),
+  );
+
+  getIt.registerLazySingleton<SearchPeopleDiscoveryUsecase>(
+    () => SearchPeopleDiscoveryUsecase(
       homeRepository: getIt<HomeRepositoryImpl>(),
     ),
   );
@@ -197,6 +214,7 @@ void configureDependencies() {
       getHomeAcceptedFriendIdsUsecase: getIt(),
       addHomePostUsecase: getIt(),
       deleteHomePostUsecase: getIt(),
+      updateHomePostUsecase: getIt(),
       addHomeCommentUsecase: getIt(),
       addHomePostLikeUsecase: getIt(),
       sendHomeFriendRequestUsecase: getIt(),

@@ -15,12 +15,14 @@ class AddHomePostUsecase {
     String postImage = '',
     Uint8List? imageBytes,
     String? imageContentType,
+    bool allowShare = true,
   }) {
     return _homeRepository.addPost(
       postContent: postContent,
       postImage: postImage,
       imageBytes: imageBytes,
       imageContentType: imageContentType,
+      allowShare: allowShare,
     );
   }
 }

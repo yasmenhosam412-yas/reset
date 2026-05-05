@@ -13,7 +13,7 @@ abstract final class ForegroundPushNotifications {
   static const _channelId = 'social_ball_push';
   static const _channelName = 'Notifications';
   static const _channelDescription =
-      'Likes, comments, friend requests, and game invites.';
+      'Likes, comments, friend requests, party room invites, and game invites.';
 
   static final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
@@ -29,7 +29,7 @@ abstract final class ForegroundPushNotifications {
 
     await _plugin.initialize(
       settings: const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        android: AndroidInitializationSettings('@drawable/splash'),
         iOS: DarwinInitializationSettings(),
         macOS: DarwinInitializationSettings(),
       ),
@@ -100,7 +100,7 @@ abstract final class ForegroundPushNotifications {
           channelDescription: _channelDescription,
           importance: Importance.high,
           priority: Priority.high,
-          // Omit FCM android.smallIcon — may not match a drawable in this app.
+          icon: 'splash',
         ),
         iOS: const DarwinNotificationDetails(
           presentAlert: true,

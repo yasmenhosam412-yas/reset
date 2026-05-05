@@ -231,6 +231,9 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
           }
           if (m.status != 'done') {
             _banner = _roundMessage(rw, online: true);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _kickPickRowIntro();
+            });
           } else {
             _banner = null;
           }
@@ -330,6 +333,9 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
             }
             if (resp.session!.status != 'done') {
               _banner = _roundMessage(resp.roundWinner, online: true);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _kickPickRowIntro();
+              });
             } else {
               _banner = null;
             }
@@ -351,6 +357,13 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
     final ai = RpsDuelGame.picks[_rng.nextInt(3)];
     setState(() => _toPick = ai);
     _resolveOfflineRound();
+  }
+
+  void _kickPickRowIntro() {
+    if (!mounted) return;
+    _pickIntroCtrl
+      ..reset()
+      ..forward();
   }
 
   void _resolveOfflineRound() {
@@ -396,6 +409,10 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
     _hapticRoundResult(rw, online: false);
     if (done) {
       HapticFeedback.heavyImpact();
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _kickPickRowIntro();
+      });
     }
   }
 
@@ -597,11 +614,36 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
         GameMatchOutcomeLayer(
           outcome: _outcomeWhenBoutDone,
           scheme: scheme,
-          child: Column(
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(26),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  scheme.primary.withValues(alpha: 0.09),
+                  scheme.surface.withValues(alpha: 0.35),
+                  scheme.tertiary.withValues(alpha: 0.07),
+                ],
+                stops: const [0.0, 0.5, 1],
+              ),
+              border: Border.all(
+                color: scheme.outlineVariant.withValues(alpha: 0.28),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: scheme.primary.withValues(alpha: 0.06),
+                  blurRadius: 28,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.fromLTRB(14, 16, 14, 10),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
         _RpsDecorHeader(theme: theme, scheme: scheme, opponentName: oppLabel, online: _online),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         if (_status == 'done') ...[
           TweenAnimationBuilder<double>(
             key: ValueKey<String>('win$leftScore$rightScore'),
@@ -642,6 +684,7 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
           leftAccent: scheme.primary,
           rightAccent: scheme.tertiary,
           roundLabel: _status == 'done' ? null : 'Set ${_roundSeq + 1}',
+          roundAnimKey: _roundSeq,
         ),
         const SizedBox(height: 20),
         AnimatedSwitcher(
@@ -676,22 +719,71 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
                   isError: _bannerLooksLikeError(_banner!),
                 ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 22),
         Row(
           children: [
-            Text(
-              'Choose your throw',
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.2,
+            TweenAnimationBuilder<double>(
+              key: ValueKey<bool>(_canPickThisRound),
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 520),
+              curve: Curves.elasticOut,
+              builder: (context, t, child) {
+                return Transform.scale(scale: 0.86 + 0.14 * t, child: child);
+              },
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: scheme.primary.withValues(alpha: 0.22),
+                      blurRadius: 12,
+                      spreadRadius: 0,
+                    ),
+                  ],
+                ),
+                child: CircleAvatar(
+                  radius: 20,
+                  backgroundColor: scheme.primaryContainer.withValues(alpha: 0.85),
+                  child: Icon(
+                    Icons.touch_app_rounded,
+                    color: scheme.onPrimaryContainer,
+                    size: 22,
+                  ),
+                ),
               ),
             ),
-            const Spacer(),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Choose your throw',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _status == 'done'
+                        ? 'Bout finished'
+                        : _canPickThisRound
+                            ? 'Tap a card — simultaneous reveal vs $oppLabel'
+                            : 'Waiting for the round…',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             if (!_canPickThisRound && _status != 'done')
               const _PulsingWaitChip(),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         if (!_canPickThisRound && _status != 'done')
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
@@ -708,64 +800,40 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
             ),
           ),
         _lockedThrowRibbon(theme, scheme),
-        LayoutBuilder(
-          builder: (context, c) {
-            final narrow = c.maxWidth < 340;
-            if (narrow) {
-              return Column(
-                children: [
-                  _slideFadePick(
-                    0,
-                    _pickCard(theme, scheme, 'rock', Icons.landscape_rounded, 'Rock'),
-                  ),
-                  const SizedBox(height: 10),
-                  _slideFadePick(
-                    1,
-                    _pickCard(theme, scheme, 'paper', Icons.description_rounded, 'Paper'),
-                  ),
-                  const SizedBox(height: 10),
-                  _slideFadePick(
-                    2,
-                    _pickCard(theme, scheme, 'scissors', Icons.content_cut_rounded, 'Scissors'),
-                  ),
-                ],
-              );
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _slideFadePick(
-                    0,
-                    _pickCard(theme, scheme, 'rock', Icons.landscape_rounded, 'Rock'),
-                  ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _slideFadePick(
+                0,
+                _pickCard(theme, scheme, 'rock', Icons.landscape_rounded, 'Rock'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _slideFadePick(
+                1,
+                _pickCard(theme, scheme, 'paper', Icons.description_rounded, 'Paper'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _slideFadePick(
+                2,
+                _pickCard(
+                  theme,
+                  scheme,
+                  'scissors',
+                  Icons.content_cut_rounded,
+                  'Scissors',
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _slideFadePick(
-                    1,
-                    _pickCard(theme, scheme, 'paper', Icons.description_rounded, 'Paper'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _slideFadePick(
-                    2,
-                    _pickCard(
-                      theme,
-                      scheme,
-                      'scissors',
-                      Icons.content_cut_rounded,
-                      'Scissors',
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
+              ),
+            ),
+          ],
         ),
           ],
         ),
+          ),
         ),
         if (_duelFromPick != null && _duelToPick != null)
           _RpsRoundClashOverlay(
@@ -920,135 +988,220 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
     required Color leftAccent,
     required Color rightAccent,
     required String? roundLabel,
+    required int roundAnimKey,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            scheme.surfaceContainerHighest.withValues(alpha: 0.65),
-            scheme.surfaceContainerLow.withValues(alpha: 0.9),
-          ],
-        ),
-        border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: 0.45),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: scheme.shadow.withValues(alpha: 0.08),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+    final cap = RpsDuelGame.roundWinsToFinish;
+    return TweenAnimationBuilder<double>(
+      key: ValueKey<int>(roundAnimKey),
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutCubic,
+      builder: (context, pulse, child) {
+        return Transform.translate(
+          offset: Offset(0, 6 * (1 - pulse)),
+          child: Opacity(opacity: 0.55 + 0.45 * pulse, child: child),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              scheme.surfaceContainerHighest.withValues(alpha: 0.72),
+              scheme.primary.withValues(alpha: 0.06),
+              scheme.surfaceContainerLow.withValues(alpha: 0.92),
+            ],
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Text(
-                  'Scoreboard',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.8,
-                    color: scheme.primary,
-                  ),
-                ),
-                const Spacer(),
-                if (roundLabel != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: scheme.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      roundLabel,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: scheme.primary,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'First to ${RpsDuelGame.roundWinsToFinish} round wins takes the bout',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-                height: 1.3,
-              ),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _scorePillar(
-                    theme: theme,
-                    scheme: scheme,
-                    label: leftLabel,
-                    score: leftScore,
-                    accent: leftAccent,
-                    alignEnd: false,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 28),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: scheme.surface.withValues(alpha: 0.9),
-                      border: Border.all(color: scheme.outline.withValues(alpha: 0.35)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: scheme.primary.withValues(alpha: 0.12),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      'VS',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: _scorePillar(
-                    theme: theme,
-                    scheme: scheme,
-                    label: rightLabel,
-                    score: rightScore,
-                    accent: rightAccent,
-                    alignEnd: true,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(child: _winDots(score: leftScore, fill: leftAccent, scheme: scheme)),
-                const SizedBox(width: 56),
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: _winDots(score: rightScore, fill: rightAccent, scheme: scheme),
-                  ),
-                ),
-              ],
+          border: Border.all(
+            color: scheme.outlineVariant.withValues(alpha: 0.4),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: leftAccent.withValues(alpha: 0.07),
+              blurRadius: 26,
+              offset: const Offset(0, 12),
             ),
           ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.leaderboard_rounded, size: 20, color: scheme.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Scoreboard',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.6,
+                      color: scheme.primary,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (roundLabel != null)
+                    TweenAnimationBuilder<double>(
+                      key: ValueKey<String>(roundLabel),
+                      tween: Tween(begin: 0, end: 1),
+                      duration: const Duration(milliseconds: 380),
+                      curve: Curves.easeOutBack,
+                      builder: (context, t, child) {
+                        return Transform.scale(scale: 0.9 + 0.1 * t, child: child);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              scheme.primary.withValues(alpha: 0.2),
+                              scheme.tertiary.withValues(alpha: 0.14),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: scheme.primary.withValues(alpha: 0.22),
+                          ),
+                        ),
+                        child: Text(
+                          roundLabel,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            color: scheme.primary,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'First to $cap round wins takes the bout',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  height: 1.3,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: (leftScore / cap).clamp(0.0, 1.0),
+                        minHeight: 6,
+                        backgroundColor: scheme.surface.withValues(alpha: 0.55),
+                        color: leftAccent.withValues(alpha: 0.75),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: (rightScore / cap).clamp(0.0, 1.0),
+                        minHeight: 6,
+                        backgroundColor: scheme.surface.withValues(alpha: 0.55),
+                        color: rightAccent.withValues(alpha: 0.75),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _scorePillar(
+                      theme: theme,
+                      scheme: scheme,
+                      label: leftLabel,
+                      score: leftScore,
+                      accent: leftAccent,
+                      alignEnd: false,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 28),
+                    child: TweenAnimationBuilder<double>(
+                      key: ValueKey<int>(roundAnimKey),
+                      tween: Tween(begin: 0, end: 1),
+                      duration: const Duration(milliseconds: 500),
+                      curve: Curves.elasticOut,
+                      builder: (context, t, child) {
+                        final s = 1 + 0.18 * math.sin(t * math.pi);
+                        return Transform.scale(scale: s, child: child);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              scheme.surface.withValues(alpha: 0.98),
+                              scheme.primaryContainer.withValues(alpha: 0.35),
+                            ],
+                          ),
+                          border: Border.all(
+                            color: scheme.primary.withValues(alpha: 0.35),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: scheme.primary.withValues(alpha: 0.18),
+                              blurRadius: 14,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          'VS',
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            color: scheme.primary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: _scorePillar(
+                      theme: theme,
+                      scheme: scheme,
+                      label: rightLabel,
+                      score: rightScore,
+                      accent: rightAccent,
+                      alignEnd: true,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: _winDots(score: leftScore, fill: leftAccent, scheme: scheme),
+                  ),
+                  const SizedBox(width: 56),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: _winDots(
+                        score: rightScore,
+                        fill: rightAccent,
+                        scheme: scheme,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1144,6 +1297,19 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
     );
   }
 
+  Color _pickAccent(String pick, ColorScheme scheme) {
+    switch (pick) {
+      case 'rock':
+        return scheme.outline;
+      case 'paper':
+        return scheme.primary;
+      case 'scissors':
+        return scheme.tertiary;
+      default:
+        return scheme.primary;
+    }
+  }
+
   Widget _pickCard(
     ThemeData theme,
     ColorScheme scheme,
@@ -1154,13 +1320,14 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
     final enabled = _canPickThisRound && _status != 'done';
     final short = label.length > 6;
     final pressed = _pressingPick == pick;
+    final accent = _pickAccent(pick, scheme);
     return AnimatedOpacity(
-      duration: const Duration(milliseconds: 200),
-      opacity: enabled ? 1 : 0.45,
+      duration: const Duration(milliseconds: 220),
+      opacity: enabled ? 1 : 0.42,
       child: AnimatedScale(
-        scale: pressed ? 0.9 : 1,
-        duration: const Duration(milliseconds: 100),
-        curve: Curves.easeOut,
+        scale: pressed ? 0.94 : 1,
+        duration: const Duration(milliseconds: 140),
+        curve: Curves.easeOutCubic,
         child: Listener(
           behavior: HitTestBehavior.deferToChild,
           onPointerDown: enabled
@@ -1173,32 +1340,38 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
             if (_pressingPick != null) setState(() => _pressingPick = null);
           },
           child: Material(
-            color: scheme.surface.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(22),
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(24),
+            elevation: enabled ? (pressed ? 6 : 3) : 0,
+            shadowColor: accent.withValues(alpha: 0.35),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
-              borderRadius: BorderRadius.circular(22),
-              splashColor: scheme.primary.withValues(alpha: 0.18),
-              highlightColor: scheme.primary.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(24),
+              splashColor: accent.withValues(alpha: 0.22),
+              highlightColor: accent.withValues(alpha: 0.08),
               onTap: enabled ? () => unawaited(_onPick(pick)) : null,
               child: Ink(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(24),
                   border: Border.all(
                     color: enabled
                         ? (pressed
-                              ? scheme.primary.withValues(alpha: 0.55)
-                              : scheme.outlineVariant.withValues(alpha: 0.65))
-                        : scheme.outline.withValues(alpha: 0.25),
-                    width: pressed ? 2.2 : 1.5,
+                              ? accent.withValues(alpha: 0.75)
+                              : accent.withValues(alpha: 0.38))
+                        : scheme.outline.withValues(alpha: 0.22),
+                    width: pressed ? 2.4 : 1.6,
                   ),
+                  color: enabled
+                      ? null
+                      : scheme.surfaceContainerHighest.withValues(alpha: 0.4),
                   gradient: enabled
                       ? LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            scheme.primaryContainer.withValues(alpha: 0.35),
-                            scheme.secondaryContainer.withValues(alpha: 0.22),
+                            accent.withValues(alpha: 0.22),
+                            scheme.surfaceContainerLow.withValues(alpha: 0.88),
+                            accent.withValues(alpha: 0.12),
                           ],
                         )
                       : null,
@@ -1216,28 +1389,35 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         TweenAnimationBuilder<double>(
-                          key: ValueKey<String>('pickIcon$pick'),
+                          key: ValueKey<String>('pickIcon$pick$_roundSeq'),
                           tween: Tween(begin: 0, end: 1),
-                          duration: const Duration(milliseconds: 420),
+                          duration: const Duration(milliseconds: 520),
                           curve: Curves.easeOutBack,
                           builder: (context, pulse, _) {
                             return Transform.rotate(
-                              angle: (1 - pulse) * 0.1 * (pick == 'rock' ? -1 : 1),
+                              angle: (1 - pulse) * 0.14 * (pick == 'rock' ? -1 : 1),
                               child: Container(
                                 padding: const EdgeInsets.all(14),
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   gradient: RadialGradient(
                                     colors: [
-                                      scheme.primary.withValues(alpha: 0.2 + 0.08 * pulse),
-                                      scheme.primary.withValues(alpha: 0.05),
+                                      accent.withValues(alpha: 0.35 + 0.1 * pulse),
+                                      accent.withValues(alpha: 0.06),
                                     ],
                                   ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: accent.withValues(alpha: 0.25),
+                                      blurRadius: 10,
+                                      spreadRadius: 0,
+                                    ),
+                                  ],
                                 ),
                                 child: Icon(
                                   icon,
-                                  size: 30,
-                                  color: enabled ? scheme.primary : scheme.onSurfaceVariant,
+                                  size: 32,
+                                  color: enabled ? accent : scheme.onSurfaceVariant,
                                 ),
                               ),
                             );
@@ -1555,7 +1735,7 @@ class _PulsingWaitChipState extends State<_PulsingWaitChip>
   }
 }
 
-class _RpsDecorHeader extends StatelessWidget {
+class _RpsDecorHeader extends StatefulWidget {
   const _RpsDecorHeader({
     required this.theme,
     required this.scheme,
@@ -1569,52 +1749,171 @@ class _RpsDecorHeader extends StatelessWidget {
   final bool online;
 
   @override
+  State<_RpsDecorHeader> createState() => _RpsDecorHeaderState();
+}
+
+class _RpsDecorHeaderState extends State<_RpsDecorHeader>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  scheme.primary.withValues(alpha: 0.2),
-                  scheme.tertiary.withValues(alpha: 0.14),
-                ],
-              ),
-              border: Border.all(color: scheme.primary.withValues(alpha: 0.22)),
-            ),
-            child: Icon(Icons.balance_rounded, size: 28, color: scheme.primary),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
+    final theme = widget.theme;
+    final scheme = widget.scheme;
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, child) => child!,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(2, 0, 2, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Rock · Paper · Scissors',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.4,
-                  ),
+                AnimatedBuilder(
+                  animation: _ctrl,
+                  builder: (context, _) {
+                    final t = _ctrl.value;
+                    return Transform.rotate(
+                      angle: math.sin(t * math.pi * 2) * 0.04,
+                      child: Container(
+                        padding: const EdgeInsets.all(13),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          gradient: LinearGradient(
+                            begin: Alignment(-0.8 + t * 0.4, -1),
+                            end: Alignment(0.6 - t * 0.2, 1.1),
+                            colors: [
+                              scheme.primary.withValues(alpha: 0.28),
+                              scheme.tertiary.withValues(alpha: 0.2),
+                              scheme.secondary.withValues(alpha: 0.14),
+                            ],
+                          ),
+                          border: Border.all(
+                            color: scheme.primary.withValues(alpha: 0.35),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: scheme.primary.withValues(alpha: 0.2),
+                              blurRadius: 16,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.balance_rounded,
+                          size: 30,
+                          color: scheme.onSurface,
+                        ),
+                      ),
+                    );
+                  },
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  online ? 'vs $opponentName · online bout' : 'Practice vs $opponentName · same device',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    height: 1.35,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Rock · Paper · Scissors',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.5,
+                          height: 1.05,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        widget.online
+                            ? 'vs ${widget.opponentName} · live bout'
+                            : 'Practice vs ${widget.opponentName}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          height: 1.35,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          _rpsMiniChip(
+                            theme,
+                            scheme,
+                            Icons.landscape_rounded,
+                            'Rock',
+                            scheme.outline,
+                          ),
+                          _rpsMiniChip(
+                            theme,
+                            scheme,
+                            Icons.description_rounded,
+                            'Paper',
+                            scheme.primary,
+                          ),
+                          _rpsMiniChip(
+                            theme,
+                            scheme,
+                            Icons.content_cut_rounded,
+                            'Scissors',
+                            scheme.tertiary,
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _rpsMiniChip(
+    ThemeData theme,
+    ColorScheme scheme,
+    IconData icon,
+    String label,
+    Color accent,
+  ) {
+    return Material(
+      color: accent.withValues(alpha: 0.14),
+      borderRadius: BorderRadius.circular(999),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: accent),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: scheme.onSurface,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1671,8 +1970,15 @@ class _RpsRoundClashOverlay extends StatelessWidget {
     final paperPick = fromPick == 'paper' ? fromPick : toPick;
 
     return Positioned.fill(
-      child: Material(
-        color: scheme.shadow.withValues(alpha: 0.42),
+      child: AnimatedBuilder(
+        animation: animation,
+        builder: (context, child) {
+          final o = Curves.easeOut.transform(animation.value.clamp(0.0, 1.0));
+          return Material(
+            color: scheme.shadow.withValues(alpha: 0.38 * o),
+            child: child,
+          );
+        },
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 340),

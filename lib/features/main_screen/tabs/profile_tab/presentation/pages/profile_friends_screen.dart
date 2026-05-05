@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:new_project/core/di/di.dart';
 import 'package:new_project/features/authentication/data/models/user_model.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/remove_home_friend_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/utils/home_feed_ui.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/domain/usecases/get_online_friends_usecase.dart';
 
@@ -16,6 +17,7 @@ class _ProfileFriendsScreenState extends State<ProfileFriendsScreen> {
   List<UserModel> _friends = const [];
   bool _loading = true;
   String? _error;
+  String? _unfriendingUserId;
 
   @override
   void initState() {
@@ -47,6 +49,55 @@ class _ProfileFriendsScreenState extends State<ProfileFriendsScreen> {
           _loading = false;
           _friends = sorted;
         });
+      },
+    );
+  }
+
+  Future<void> _confirmUnfriend(UserModel friend) async {
+    final name = friend.username.trim().isEmpty
+        ? 'this player'
+        : friend.username.trim();
+    final fid = friend.id.trim();
+    if (fid.isEmpty) return;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Remove friend?'),
+          content: Text(
+            '$name will be removed from your friends. You can send a new '
+            'request later from Home.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Remove'),
+            ),
+          ],
+        );
+      },
+    );
+    if (ok != true || !mounted) return;
+
+    setState(() => _unfriendingUserId = fid);
+    final result = await getIt<RemoveHomeFriendUsecase>()(friendUserId: fid);
+    if (!mounted) return;
+    setState(() => _unfriendingUserId = null);
+
+    result.fold(
+      (f) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(f.message)),
+      ),
+      (_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$name removed from friends')),
+        );
+        _load();
       },
     );
   }
@@ -136,6 +187,8 @@ class _ProfileFriendsScreenState extends State<ProfileFriendsScreen> {
                                 ? 'Player'
                                 : u.username.trim();
                             final url = u.avatarUrl?.trim();
+                            final busy =
+                                _unfriendingUserId == u.id.trim() && _unfriendingUserId != null;
                             return Card(
                               elevation: 0,
                               color: scheme.surfaceContainerLow,
@@ -172,6 +225,25 @@ class _ProfileFriendsScreenState extends State<ProfileFriendsScreen> {
                                   style: theme.textTheme.titleSmall?.copyWith(
                                     fontWeight: FontWeight.w600,
                                   ),
+                                ),
+                                trailing: IconButton(
+                                  tooltip: 'Remove friend',
+                                  onPressed: busy || u.id.trim().isEmpty
+                                      ? null
+                                      : () => _confirmUnfriend(u),
+                                  icon: busy
+                                      ? SizedBox(
+                                          width: 22,
+                                          height: 22,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: scheme.primary,
+                                          ),
+                                        )
+                                      : Icon(
+                                          Icons.person_remove_outlined,
+                                          color: scheme.onSurfaceVariant,
+                                        ),
                                 ),
                               ),
                             );

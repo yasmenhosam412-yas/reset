@@ -25,7 +25,29 @@ Failure failureFromException(Object error) {
   if (isIoNetworkError(error)) {
     return NetworkFailure();
   }
-  return ServerFailure(message: error.toString());
+  return ServerFailure(message: _sanitizeFailureMessage(error.toString()));
+}
+
+String _sanitizeFailureMessage(String raw) {
+  var msg = raw.trim();
+  if (msg.isEmpty) return 'Something went wrong';
+
+  const prefixes = <String>[
+    'Bad state: ',
+    'Exception: ',
+    'StateError: ',
+    'Invalid argument(s): ',
+    'ArgumentError: ',
+  ];
+
+  for (final p in prefixes) {
+    if (msg.startsWith(p)) {
+      msg = msg.substring(p.length).trimLeft();
+      break;
+    }
+  }
+
+  return msg.isEmpty ? 'Something went wrong' : msg;
 }
 
 bool authMessageLooksLikeNetworkFailure(String message) {

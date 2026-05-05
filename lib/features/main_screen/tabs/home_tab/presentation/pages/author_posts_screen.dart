@@ -5,7 +5,7 @@ import 'package:new_project/features/main_screen/tabs/home_tab/presentation/bott
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_event.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_state.dart';
-import 'package:new_project/features/main_screen/tabs/home_tab/presentation/utils/home_feed_ui.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/presentation/utils/post_reactions.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/widgets/home_post_card.dart';
 
 class AuthorPostsScreen extends StatefulWidget {
@@ -162,7 +162,7 @@ class _AuthorPostsScreenState extends State<AuthorPostsScreen> {
                       return HomePostCard(
                         key: key,
                         post: post,
-                        likedByMe: homePostLikedByCurrentUser(post),
+                        myReaction: homePostMyReaction(post),
                         onOpenComments: () => showHomeCommentsSheet(
                           context,
                           post: post,

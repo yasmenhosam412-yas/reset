@@ -13,6 +13,7 @@ import 'package:new_project/features/main_screen/tabs/home_tab/presentation/cont
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_event.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_state.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/navigation/open_author_posts_screen.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/presentation/pages/explore_people_screen.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/widgets/home_feed_empty_placeholder.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/widgets/home_feed_list.dart';
 
@@ -31,12 +32,9 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
   final _newPostController = TextEditingController();
   final _commentController = TextEditingController();
   final _scrollController = ScrollController();
-  final _searchController = TextEditingController();
-  final _searchFocusNode = FocusNode();
   late final MainShellController _mainShell;
   late final AnimationController _headerAccentController;
 
-  String _searchQuery = '';
   _FeedSort _feedSort = _FeedSort.latest;
   bool _showScrollTop = false;
 
@@ -73,8 +71,6 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
       return;
     }
     if (!mounted) return;
-
-    setState(() => _searchQuery = '');
 
     PostModel? findInState(HomeState s) {
       for (final p in s.posts) {
@@ -120,8 +116,6 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
     _headerAccentController.dispose();
     _scrollController.removeListener(_onScrollOffset);
     _scrollController.dispose();
-    _searchFocusNode.dispose();
-    _searchController.dispose();
     _newPostController.dispose();
     _commentController.dispose();
     _mainShell.removeListener(_onShellDeepLink);
@@ -130,16 +124,6 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
 
   List<PostModel> _filteredAndSorted(List<PostModel> posts) {
     var list = List<PostModel>.from(posts);
-    final q = _searchQuery.trim().toLowerCase();
-    if (q.isNotEmpty) {
-      list = list
-          .where(
-            (p) =>
-                p.postContent.toLowerCase().contains(q) ||
-                p.userModel.username.toLowerCase().contains(q),
-          )
-          .toList();
-    }
     switch (_feedSort) {
       case _FeedSort.latest:
         break;
@@ -160,7 +144,7 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
     const tips = [
       'Pull down on the list to refresh posts.',
       'Tap someone’s name to add them or send a game challenge.',
-      'Search matches post text and display names.',
+      'Use Explore people under Jump in to search players by username.',
       'Switch to Top liked to see what’s trending.',
     ];
     final tip = tips[Random().nextInt(tips.length)];
@@ -170,51 +154,49 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
     );
   }
 
-  Widget _buildQuickActivityCard({
+  Widget _buildQuickActivitySlot({
     required BuildContext context,
     required IconData icon,
     required String label,
-    required String subtitle,
+    required String tooltip,
     required VoidCallback onTap,
     Color? iconColor,
   }) {
     final scheme = Theme.of(context).colorScheme;
     final accent = iconColor ?? scheme.primary;
-    return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: Material(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(18),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: SizedBox(
-            width: 108,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(icon, size: 26, color: accent),
-                  const SizedBox(height: 8),
-                  Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 3),
+        child: Material(
+          color: scheme.surfaceContainerHighest.withValues(alpha: 0.65),
+          borderRadius: BorderRadius.circular(14),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(14),
+            child: Tooltip(
+              message: tooltip,
+              waitDuration: const Duration(milliseconds: 400),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(4, 10, 4, 10),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 22, color: accent),
+                    const SizedBox(height: 6),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        height: 1.05,
+                        fontSize: 10.5,
+                      ),
                     ),
-                  ),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -378,88 +360,97 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
               ),
             ),
             const SizedBox(height: 8),
-            SizedBox(
-              height: 100,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.only(right: 6),
-                children: [
-                  _buildQuickActivityCard(
-                    context: context,
-                    icon: Icons.edit_note_rounded,
-                    label: 'New post',
-                    subtitle: 'Share an update',
-                    onTap: _openNewPostSheet,
-                    iconColor: scheme.tertiary,
-                  ),
-                  _buildQuickActivityCard(
-                    context: context,
-                    icon: Icons.sports_esports_rounded,
-                    label: 'Play online',
-                    subtitle: 'Challenges & duels',
-                    onTap: () => _mainShell.goToMainTab(1),
-                    iconColor: scheme.primary,
-                  ),
-                  _buildQuickActivityCard(
-                    context: context,
-                    icon: Icons.notifications_active_outlined,
-                    label: 'Alerts',
-                    subtitle: 'Replies & invites',
-                    onTap: () => _mainShell.goToMainTab(2),
-                  ),
-                  _buildQuickActivityCard(
-                    context: context,
-                    icon: Icons.groups_outlined,
-                    label: 'Battles',
-                    subtitle: 'Team events',
-                    onTap: () => _mainShell.goToMainTab(3),
-                    iconColor: scheme.secondary,
-                  ),
-                  _buildQuickActivityCard(
-                    context: context,
-                    icon: Icons.person_rounded,
-                    label: 'Profile',
-                    subtitle: 'You & friends',
-                    onTap: () => _mainShell.goToMainTab(4),
-                  ),
-                  _buildQuickActivityCard(
-                    context: context,
-                    icon: Icons.search_rounded,
-                    label: 'Find',
-                    subtitle: 'Search the feed',
-                    onTap: () =>
-                        _searchFocusNode.requestFocus(),
-                  ),
-                ],
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildQuickActivitySlot(
+                  context: context,
+                  icon: Icons.edit_note_rounded,
+                  label: 'Post',
+                  tooltip: 'New post — share an update',
+                  onTap: _openNewPostSheet,
+                  iconColor: scheme.tertiary,
+                ),
+                _buildQuickActivitySlot(
+                  context: context,
+                  icon: Icons.sports_esports_rounded,
+                  label: 'Online',
+                  tooltip: 'Play online — challenges & duels',
+                  onTap: () => _mainShell.goToMainTab(1),
+                  iconColor: scheme.primary,
+                ),
+                _buildQuickActivitySlot(
+                  context: context,
+                  icon: Icons.notifications_active_outlined,
+                  label: 'Alerts',
+                  tooltip: 'Alerts — replies & invites',
+                  onTap: () => _mainShell.goToMainTab(2),
+                ),
+                _buildQuickActivitySlot(
+                  context: context,
+                  icon: Icons.groups_outlined,
+                  label: 'Battles',
+                  tooltip: 'Battles — team events',
+                  onTap: () => _mainShell.goToMainTab(3),
+                  iconColor: scheme.secondary,
+                ),
+                _buildQuickActivitySlot(
+                  context: context,
+                  icon: Icons.person_rounded,
+                  label: 'Profile',
+                  tooltip: 'Profile — you & friends',
+                  onTap: () => _mainShell.goToMainTab(4),
+                ),
+                _buildQuickActivitySlot(
+                  context: context,
+                  icon: Icons.travel_explore_rounded,
+                  label: 'People',
+                  tooltip: 'Explore people — search & friend requests',
+                  onTap: _openExplorePeople,
+                ),
+              ],
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: _searchController,
-              focusNode: _searchFocusNode,
-              onChanged: (v) => setState(() => _searchQuery = v),
-              decoration: InputDecoration(
-                hintText: 'Search posts or people…',
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear_rounded),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => _searchQuery = '');
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: scheme.surfaceContainerLow,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
+            Material(
+              color: scheme.primaryContainer.withValues(alpha: 0.38),
+              borderRadius: BorderRadius.circular(16),
+              child: InkWell(
+                onTap: _openExplorePeople,
+                borderRadius: BorderRadius.circular(16),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  child: Row(
+                    children: [
+                      Icon(Icons.groups_2_rounded, color: scheme.primary),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Explore people',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Search players, add friends, respond to requests on Profile',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -493,6 +484,7 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
     String content,
     Uint8List? imageBytes,
     String? imageContentType,
+    bool allowShare,
   ) async {
     final trimmed = content.trim();
     if (trimmed.isEmpty && (imageBytes == null || imageBytes.isEmpty)) {
@@ -504,6 +496,7 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
         postContent: trimmed,
         imageBytes: imageBytes,
         imageContentType: imageContentType,
+        allowShare: allowShare,
       ),
     );
     _newPostController.clear();
@@ -515,6 +508,18 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
       context,
       contentController: _newPostController,
       onPublish: _publishPost,
+    );
+  }
+
+  void _openExplorePeople() {
+    final bloc = context.read<HomeBloc>();
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => BlocProvider.value(
+          value: bloc,
+          child: const ExplorePeopleScreen(),
+        ),
+      ),
     );
   }
 
@@ -589,50 +594,6 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
                         SliverFillRemaining(
                           hasScrollBody: false,
                           child: HomeFeedEmptyPlaceholder(),
-                        ),
-                      ],
-                    ),
-                  )
-                : displayed.isEmpty
-                ? RefreshIndicator(
-                    onRefresh: _refreshFeed,
-                    child: CustomScrollView(
-                      controller: _scrollController,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      slivers: [
-                        SliverToBoxAdapter(child: header),
-                        SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(24, 32, 24, 100),
-                          sliver: SliverToBoxAdapter(
-                            child: Column(
-                              children: [
-                                Icon(
-                                  Icons.search_off_rounded,
-                                  size: 48,
-                                  color: Theme.of(context).colorScheme.outline,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'No posts match your search.',
-                                  textAlign: TextAlign.center,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium,
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Try another keyword or clear the search box.',
-                                  textAlign: TextAlign.center,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onSurfaceVariant,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
                         ),
                       ],
                     ),

@@ -8,7 +8,10 @@ class AddHomePostLikeUsecase {
 
   final HomeRepository _homeRepository;
 
-  Future<Either<Failure, void>> call({required String postId}) {
-    return _homeRepository.togglePostLike(postId: postId);
+  Future<Either<Failure, void>> call({
+    required String postId,
+    String? reaction,
+  }) {
+    return _homeRepository.setPostReaction(postId: postId, reaction: reaction);
   }
 }

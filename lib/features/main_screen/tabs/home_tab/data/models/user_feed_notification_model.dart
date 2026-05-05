@@ -43,4 +43,5 @@ abstract final class UserNotificationKind {
   static const postLike = 'post_like';
   static const postComment = 'post_comment';
   static const friendRequest = 'friend_request';
+  static const partyRoomInvite = 'party_room_invite';
 }

@@ -5,6 +5,7 @@ import 'package:new_project/core/errors/failure.dart';
 import 'package:new_project/features/authentication/data/models/user_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/datasource/home_datasource.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/lineup_race_board_row.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/models/people_discovery_row.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/team_challenge_results.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/team_cloud_snapshot.dart';
@@ -30,9 +31,12 @@ class HomeRepositoryImpl implements HomeRepository {
   }
 
   @override
-  Future<Either<Failure, void>> togglePostLike({required String postId}) async {
+  Future<Either<Failure, void>> setPostReaction({
+    required String postId,
+    String? reaction,
+  }) async {
     try {
-      await homeDatasource.togglePostLike(postId: postId);
+      await homeDatasource.setPostReaction(postId: postId, reaction: reaction);
       return Right(null);
     } catch (e) {
       return Left(failureFromException(e));
@@ -45,6 +49,7 @@ class HomeRepositoryImpl implements HomeRepository {
     String postImage = '',
     Uint8List? imageBytes,
     String? imageContentType,
+    bool allowShare = true,
   }) async {
     try {
       await homeDatasource.addPost(
@@ -52,6 +57,7 @@ class HomeRepositoryImpl implements HomeRepository {
         postImage: postImage,
         imageBytes: imageBytes,
         imageContentType: imageContentType,
+        allowShare: allowShare,
       );
       return Right(null);
     } catch (e) {
@@ -70,9 +76,45 @@ class HomeRepositoryImpl implements HomeRepository {
   }
 
   @override
+  Future<Either<Failure, void>> updatePost({
+    required String postId,
+    required String postContent,
+    Uint8List? imageBytes,
+    String? imageContentType,
+    bool clearImage = false,
+    required bool allowShare,
+  }) async {
+    try {
+      await homeDatasource.updateOwnPost(
+        postId: postId,
+        postContent: postContent,
+        imageBytes: imageBytes,
+        imageContentType: imageContentType,
+        clearImage: clearImage,
+        allowShare: allowShare,
+      );
+      return Right(null);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
   Future<Either<Failure, List<PostModel>>> getPosts() async {
     try {
       final result = await homeDatasource.getPosts();
+      return Right(result);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<PeopleDiscoveryRow>>> searchPeopleDiscovery(
+    String query,
+  ) async {
+    try {
+      final result = await homeDatasource.searchPeopleDiscovery(query);
       return Right(result);
     } catch (e) {
       return Left(failureFromException(e));
@@ -184,6 +226,16 @@ class HomeRepositoryImpl implements HomeRepository {
         requestId: requestId,
         accept: accept,
       );
+      return Right(null);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> removeFriend({required String friendUserId}) async {
+    try {
+      await homeDatasource.removeAcceptedFriendship(friendUserId: friendUserId);
       return Right(null);
     } catch (e) {
       return Left(failureFromException(e));

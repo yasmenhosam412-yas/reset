@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/presentation/bottom_sheets/edit_home_post_sheet.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_event.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_challenge_games.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -45,6 +46,15 @@ void showHomePostAuthorActionsSheet(BuildContext context, PostModel post) {
                   ),
                 ),
                 const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    showEditHomePostSheet(context, post);
+                  },
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Edit post'),
+                ),
+                const SizedBox(height: 12),
                 FilledButton.tonalIcon(
                   onPressed: () {
                     Navigator.of(sheetContext).pop();

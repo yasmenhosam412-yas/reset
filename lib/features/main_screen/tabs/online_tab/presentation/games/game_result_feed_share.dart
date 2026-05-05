@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:new_project/core/di/di.dart';
+import 'package:new_project/core/utils/dispose_text_controller_next_frame.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_post_usecase.dart';
 
 /// Lets the player publish an editable recap to the home feed (same pipeline as Home → new post).
@@ -46,7 +47,10 @@ Future<void> showShareGameResultToFeedDialog(
       );
       return;
     }
-    final r = await getIt<AddHomePostUsecase>()(postContent: body);
+    final r = await getIt<AddHomePostUsecase>()(
+      postContent: body,
+      allowShare: true,
+    );
     if (!context.mounted) return;
     r.fold(
       (f) => ScaffoldMessenger.of(context).showSnackBar(
@@ -57,6 +61,6 @@ Future<void> showShareGameResultToFeedDialog(
       ),
     );
   } finally {
-    controller.dispose();
+    disposeTextControllerNextFrame(controller);
   }
 }

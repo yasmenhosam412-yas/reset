@@ -76,6 +76,7 @@ abstract final class GlobalBattleDigestNotifications {
         channelDescription: _channelDescription,
         importance: Importance.high,
         priority: Priority.high,
+        icon: 'splash',
       );
       const iosDetails = DarwinNotificationDetails(
         presentAlert: true,

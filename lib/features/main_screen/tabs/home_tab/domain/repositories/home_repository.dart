@@ -4,6 +4,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:new_project/core/errors/failure.dart';
 import 'package:new_project/features/authentication/data/models/user_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/lineup_race_board_row.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/models/people_discovery_row.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/user_feed_notification_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/profile_dashboard_model.dart';
@@ -21,18 +22,35 @@ abstract class HomeRepository {
     String postImage = '',
     Uint8List? imageBytes,
     String? imageContentType,
+    bool allowShare = true,
   });
 
   Future<Either<Failure, void>> deletePost({required String postId});
+
+  Future<Either<Failure, void>> updatePost({
+    required String postId,
+    required String postContent,
+    Uint8List? imageBytes,
+    String? imageContentType,
+    bool clearImage = false,
+    required bool allowShare,
+  });
 
   Future<Either<Failure, void>> addComment({
     required String postId,
     required String comment,
   });
 
-  Future<Either<Failure, void>> togglePostLike({required String postId});
+  Future<Either<Failure, void>> setPostReaction({
+    required String postId,
+    String? reaction,
+  });
 
   Future<Either<Failure, List<PostModel>>> getPosts();
+
+  Future<Either<Failure, List<PeopleDiscoveryRow>>> searchPeopleDiscovery(
+    String query,
+  );
 
   Future<Either<Failure, List<UserFeedNotificationModel>>> getMyUserNotifications({
     int limit = 50,
@@ -63,6 +81,8 @@ abstract class HomeRepository {
     required String requestId,
     required bool accept,
   });
+
+  Future<Either<Failure, void>> removeFriend({required String friendUserId});
 
   Future<Either<Failure, TeamCloudSnapshot>> fetchTeamCloudSnapshot();
 

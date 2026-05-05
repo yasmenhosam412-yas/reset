@@ -10,6 +10,7 @@ Future<void> showHomeNewPostSheet(
     String content,
     Uint8List? imageBytes,
     String? imageContentType,
+    bool allowShare,
   ) onPublish,
 }) {
   contentController.clear();
@@ -41,6 +42,7 @@ class _HomeNewPostSheetBody extends StatefulWidget {
     String content,
     Uint8List? imageBytes,
     String? imageContentType,
+    bool allowShare,
   ) onPublish;
 
   @override
@@ -51,6 +53,7 @@ class _HomeNewPostSheetBodyState extends State<_HomeNewPostSheetBody> {
   Uint8List? _imageBytes;
   String? _imageContentType;
   bool _posting = false;
+  bool _allowShare = true;
 
   String? _mimeFromFile(XFile file) {
     final fromPicker = file.mimeType;
@@ -94,7 +97,12 @@ class _HomeNewPostSheetBodyState extends State<_HomeNewPostSheetBody> {
     }
     setState(() => _posting = true);
     try {
-      await widget.onPublish(trimmed, _imageBytes, _imageContentType);
+      await widget.onPublish(
+        trimmed,
+        _imageBytes,
+        _imageContentType,
+        _allowShare,
+      );
     } finally {
       if (mounted) setState(() => _posting = false);
     }
@@ -153,6 +161,20 @@ class _HomeNewPostSheetBodyState extends State<_HomeNewPostSheetBody> {
             ),
             const SizedBox(height: 12),
           ],
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            value: _allowShare,
+            onChanged: _posting
+                ? null
+                : (v) => setState(() => _allowShare = v),
+            title: const Text('Allow reposts'),
+            subtitle: Text(
+              _allowShare
+                  ? 'Others can share this to the home feed.'
+                  : 'Repost is hidden for this post.',
+              style: theme.textTheme.bodySmall,
+            ),
+          ),
           FilledButton.icon(
             onPressed: _posting ? null : _submit,
             icon: _posting

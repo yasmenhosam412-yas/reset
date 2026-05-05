@@ -66,13 +66,6 @@ class _OnlineGameSessionPageState extends State<OnlineGameSessionPage> {
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Challenge: ${widget.args.challengeId}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
             const SizedBox(height: 24),
             _GameBody(
               gameId: widget.args.gameId,

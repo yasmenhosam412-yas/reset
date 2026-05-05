@@ -1,9 +1,11 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_comment_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/post_reactions_codec.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_post_like_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_post_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/delete_home_post_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/update_home_post_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_home_accepted_friend_ids_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_home_posts_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/send_home_challenge_usecase.dart';
@@ -19,6 +21,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     required GetHomeAcceptedFriendIdsUsecase getHomeAcceptedFriendIdsUsecase,
     required AddHomePostUsecase addHomePostUsecase,
     required DeleteHomePostUsecase deleteHomePostUsecase,
+    required UpdateHomePostUsecase updateHomePostUsecase,
     required AddHomeCommentUsecase addHomeCommentUsecase,
     required AddHomePostLikeUsecase addHomePostLikeUsecase,
     required SendHomeFriendRequestUsecase sendHomeFriendRequestUsecase,
@@ -27,6 +30,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         _getHomeAcceptedFriendIdsUsecase = getHomeAcceptedFriendIdsUsecase,
         _addHomePostUsecase = addHomePostUsecase,
         _deleteHomePostUsecase = deleteHomePostUsecase,
+        _updateHomePostUsecase = updateHomePostUsecase,
         _addHomeCommentUsecase = addHomeCommentUsecase,
         _addHomePostLikeUsecase = addHomePostLikeUsecase,
         _sendHomeFriendRequestUsecase = sendHomeFriendRequestUsecase,
@@ -35,8 +39,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     on<HomePostsRequested>(_onPostsRequested);
     on<HomePostCreateRequested>(_onPostCreateRequested);
     on<HomePostDeleteRequested>(_onPostDeleteRequested);
+    on<HomePostUpdateRequested>(_onPostUpdateRequested);
     on<HomeCommentCreateRequested>(_onCommentCreateRequested);
-    on<HomePostLikeRequested>(_onPostLikeRequested);
+    on<HomePostReactionRequested>(_onPostReactionRequested);
     on<HomeSendFriendRequest>(_onSendFriendRequest);
     on<HomeSendChallenge>(_onSendChallenge);
   }
@@ -45,6 +50,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final GetHomeAcceptedFriendIdsUsecase _getHomeAcceptedFriendIdsUsecase;
   final AddHomePostUsecase _addHomePostUsecase;
   final DeleteHomePostUsecase _deleteHomePostUsecase;
+  final UpdateHomePostUsecase _updateHomePostUsecase;
   final AddHomeCommentUsecase _addHomeCommentUsecase;
   final AddHomePostLikeUsecase _addHomePostLikeUsecase;
   final SendHomeFriendRequestUsecase _sendHomeFriendRequestUsecase;
@@ -98,6 +104,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       postImage: event.postImage,
       imageBytes: event.imageBytes,
       imageContentType: event.imageContentType,
+      allowShare: event.allowShare,
     );
 
     final failure = addResult.fold((l) => l, (_) => null);
@@ -178,6 +185,56 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     );
   }
 
+  Future<void> _onPostUpdateRequested(
+    HomePostUpdateRequested event,
+    Emitter<HomeState> emit,
+  ) async {
+    emit(state.copyWith(status: HomeStatus.loading, clearError: true));
+    final upd = await _updateHomePostUsecase(
+      postId: event.postId,
+      postContent: event.postContent,
+      imageBytes: event.imageBytes,
+      imageContentType: event.imageContentType,
+      clearImage: event.clearImage,
+      allowShare: event.allowShare,
+    );
+
+    final failure = upd.fold((l) => l, (_) => null);
+    if (failure != null) {
+      emit(
+        state.copyWith(
+          status: HomeStatus.failure,
+          errorMessage: failure.message,
+          clearSuccess: true,
+        ),
+      );
+      return;
+    }
+
+    final listResult = await _getHomePostsUsecase();
+    await listResult.fold(
+      (f) async => emit(
+        state.copyWith(
+          status: HomeStatus.failure,
+          errorMessage: f.message,
+          clearSuccess: true,
+        ),
+      ),
+      (posts) async {
+        final friendIds = await _fetchAcceptedFriendIds();
+        emit(
+          state.copyWith(
+            status: HomeStatus.loaded,
+            posts: List.of(posts, growable: false),
+            acceptedFriendUserIds: friendIds,
+            successMessage: 'Post updated',
+            clearError: true,
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _onCommentCreateRequested(
     HomeCommentCreateRequested event,
     Emitter<HomeState> emit,
@@ -223,15 +280,20 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     );
   }
 
-  Future<void> _onPostLikeRequested(
-    HomePostLikeRequested event,
+  Future<void> _onPostReactionRequested(
+    HomePostReactionRequested event,
     Emitter<HomeState> emit,
   ) async {
     final uid = Supabase.instance.client.auth.currentUser?.id;
     if (uid == null) return;
 
     final previousPosts = state.posts;
-    final optimistic = _postsWithToggledLike(previousPosts, event.postId, uid);
+    final optimistic = _postsWithReaction(
+      previousPosts,
+      event.postId,
+      uid,
+      event.reaction,
+    );
     emit(
       state.copyWith(
         posts: optimistic,
@@ -240,7 +302,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       ),
     );
 
-    final likeResult = await _addHomePostLikeUsecase(postId: event.postId);
+    final likeResult = await _addHomePostLikeUsecase(
+      postId: event.postId,
+      reaction: event.reaction,
+    );
     likeResult.fold(
       (failure) => emit(
         state.copyWith(
@@ -319,19 +384,25 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   }
 }
 
-List<PostModel> _postsWithToggledLike(
+List<PostModel> _postsWithReaction(
   List<PostModel> posts,
   String postId,
   String userId,
+  String? reaction,
 ) {
   return posts
       .map((p) {
         if (p.id != postId) return p;
         final next = List<String>.from(p.likes);
-        if (next.contains(userId)) {
-          next.remove(userId);
-        } else {
-          next.add(userId);
+        final uNorm = userId.trim().toLowerCase();
+        next.removeWhere(
+          (e) => postReactionEntryUserId(e).trim().toLowerCase() == uNorm,
+        );
+        final r = reaction?.trim().toLowerCase();
+        if (r != null &&
+            r.isNotEmpty &&
+            kPostReactionKeys.contains(r)) {
+          next.add(encodePostReactionEntry(userId, r));
         }
         return p.copyWith(likes: next);
       })

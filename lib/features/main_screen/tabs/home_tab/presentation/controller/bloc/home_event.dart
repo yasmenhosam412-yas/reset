@@ -12,18 +12,38 @@ final class HomePostCreateRequested extends HomeEvent {
     this.postImage = '',
     this.imageBytes,
     this.imageContentType,
+    this.allowShare = true,
   });
 
   final String postContent;
   final String postImage;
   final Uint8List? imageBytes;
   final String? imageContentType;
+  final bool allowShare;
 }
 
 final class HomePostDeleteRequested extends HomeEvent {
   HomePostDeleteRequested({required this.postId});
 
   final String postId;
+}
+
+final class HomePostUpdateRequested extends HomeEvent {
+  HomePostUpdateRequested({
+    required this.postId,
+    required this.postContent,
+    this.imageBytes,
+    this.imageContentType,
+    this.clearImage = false,
+    required this.allowShare,
+  });
+
+  final String postId;
+  final String postContent;
+  final Uint8List? imageBytes;
+  final String? imageContentType;
+  final bool clearImage;
+  final bool allowShare;
 }
 
 final class HomeCommentCreateRequested extends HomeEvent {
@@ -33,10 +53,12 @@ final class HomeCommentCreateRequested extends HomeEvent {
   final String comment;
 }
 
-final class HomePostLikeRequested extends HomeEvent {
-  HomePostLikeRequested({required this.postId});
+/// [reaction] is one of: like, love, laugh, wow, sad, care — or `null` to remove yours.
+final class HomePostReactionRequested extends HomeEvent {
+  HomePostReactionRequested({required this.postId, this.reaction});
 
   final String postId;
+  final String? reaction;
 }
 
 final class HomeSendFriendRequest extends HomeEvent {

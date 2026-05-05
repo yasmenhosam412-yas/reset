@@ -5,6 +5,7 @@ import 'package:new_project/features/main_screen/tabs/home_tab/presentation/cont
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_event.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_state.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/utils/home_feed_ui.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/presentation/utils/post_reactions.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/widgets/home_post_card.dart';
 
 class HomeFeedList extends StatelessWidget {
@@ -58,7 +59,7 @@ class HomeFeedList extends StatelessWidget {
                   return HomePostCard(
                     key: postKeyBuilder?.call(post),
                     post: post,
-                    likedByMe: homePostLikedByCurrentUser(post),
+                    myReaction: homePostMyReaction(post),
                     onOpenComments: () => onOpenComments(post),
                     onAuthorTap: homePostAuthorActionsAvailable(post)
                         ? () => onAuthorTap(post)

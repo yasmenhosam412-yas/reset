@@ -1,6 +1,7 @@
 import 'package:new_project/features/authentication/data/models/user_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/comment_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/entities/post_entity.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/post_reactions_codec.dart';
 
 class PostModel extends PostEntity {
   PostModel({
@@ -11,6 +12,7 @@ class PostModel extends PostEntity {
     required super.likes,
     required super.comments,
     super.createdAt,
+    super.allowShare,
   });
 
   PostModel copyWith({
@@ -21,6 +23,7 @@ class PostModel extends PostEntity {
     List<String>? likes,
     List<CommentModel>? comments,
     DateTime? createdAt,
+    bool? allowShare,
   }) {
     return PostModel(
       id: id ?? this.id,
@@ -30,6 +33,7 @@ class PostModel extends PostEntity {
       likes: likes ?? this.likes,
       comments: comments ?? this.comments,
       createdAt: createdAt ?? this.createdAt,
+      allowShare: allowShare ?? this.allowShare,
     );
   }
 
@@ -48,7 +52,7 @@ class PostModel extends PostEntity {
       userModel: user,
       postImage: json['post_image'] as String? ?? '',
       postContent: json['post_content'] as String? ?? '',
-      likes: List<String>.from(json['likes'] as List? ?? const []),
+      likes: normalizeLikesJson(json['likes']),
       comments: (json['comments'] as List? ?? const [])
           .map(
             (e) => CommentModel.fromJson(
@@ -57,7 +61,18 @@ class PostModel extends PostEntity {
           )
           .toList(),
       createdAt: _parseDateTime(json['created_at']),
+      allowShare: _parseAllowShare(json['allow_share']),
     );
+  }
+
+  static bool _parseAllowShare(dynamic raw) {
+    if (raw == null) return true;
+    if (raw is bool) return raw;
+    if (raw is String) {
+      final s = raw.toLowerCase();
+      return s == 'true' || s == 't' || s == '1';
+    }
+    return true;
   }
 
   static DateTime? _parseDateTime(dynamic raw) {

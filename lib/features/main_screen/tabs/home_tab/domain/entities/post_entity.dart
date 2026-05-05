@@ -9,6 +9,8 @@ class PostEntity {
   final List<String> likes;
   final List<CommentEntity> comments;
   final DateTime? createdAt;
+  /// When false, other users must not repost this post.
+  final bool allowShare;
 
   PostEntity({
     required this.id,
@@ -18,5 +20,6 @@ class PostEntity {
     required this.likes,
     required this.comments,
     this.createdAt,
+    this.allowShare = true,
   });
 }

@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:new_project/features/authentication/data/models/user_model.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/models/people_discovery_row.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/user_feed_notification_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/profile_dashboard_model.dart';
@@ -10,19 +11,37 @@ import 'package:new_project/features/main_screen/tabs/home_tab/data/models/team_
 abstract class HomeDatasource {
   Future<void> addPost({
     required String postContent,
-    String postImage,
+    String postImage = '',
     Uint8List? imageBytes,
     String? imageContentType,
+    bool allowShare = true,
   });
 
   /// Deletes a post authored by the signed-in user ([postId] must match).
   Future<void> deleteOwnPost({required String postId});
 
+  /// Updates [post_content] and optionally [post_image] for the signed-in author.
+  Future<void> updateOwnPost({
+    required String postId,
+    required String postContent,
+    Uint8List? imageBytes,
+    String? imageContentType,
+    bool clearImage = false,
+    required bool allowShare,
+  });
+
   Future<void> addComment({required String postId, required String comment});
 
-  Future<void> togglePostLike({required String postId});
+  /// Sets the current user's reaction, or clears it when [reaction] is null.
+  Future<void> setPostReaction({
+    required String postId,
+    String? reaction,
+  });
 
   Future<List<PostModel>> getPosts();
+
+  /// Username search (ilike) for players other than the signed-in user, with friend-request state.
+  Future<List<PeopleDiscoveryRow>> searchPeopleDiscovery(String query);
 
   /// In-app inbox: likes, comments, and friend requests for the signed-in user.
   Future<List<UserFeedNotificationModel>> fetchMyUserNotifications({int limit = 50});
@@ -53,6 +72,9 @@ abstract class HomeDatasource {
     required String requestId,
     required bool accept,
   });
+
+  /// Deletes the accepted [friend_requests] row between the signed-in user and [friendUserId].
+  Future<void> removeAcceptedFriendship({required String friendUserId});
 
   Future<TeamCloudSnapshot> fetchTeamCloudSnapshot();
 

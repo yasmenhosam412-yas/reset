@@ -4,7 +4,9 @@ import 'dart:typed_data';
 import 'package:new_project/features/authentication/data/models/user_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/datasource/home_datasource.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/datasource/home_supabase_tables.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/post_reactions_codec.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/comment_model.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/models/people_discovery_row.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/user_feed_notification_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/profile_dashboard_model.dart';
@@ -26,6 +28,7 @@ class HomeDatasourceImpl implements HomeDatasource {
       ${PostCols.postImage},
       ${PostCols.postContent},
       ${PostCols.likes},
+      ${PostCols.allowShare},
       ${PostCols.createdAt},
       ${HomeTable.profiles}!inner(${ProfileCols.id}, ${ProfileCols.username}, ${ProfileCols.avatarUrl}),
       ${HomeTable.postComments}(
@@ -42,6 +45,7 @@ class HomeDatasourceImpl implements HomeDatasource {
     String postImage = '',
     Uint8List? imageBytes,
     String? imageContentType,
+    bool allowShare = true,
   }) async {
     final uid = _currentUserId;
     if (uid == null) {
@@ -60,6 +64,7 @@ class HomeDatasourceImpl implements HomeDatasource {
       PostCols.postContent: postContent,
       PostCols.postImage: imageUrl,
       PostCols.likes: <String>[],
+      PostCols.allowShare: allowShare,
     });
   }
 
@@ -94,6 +99,62 @@ class HomeDatasourceImpl implements HomeDatasource {
         .eq(PostCols.userId, uid);
 
     await _removePostImageByPublicUrl(imageUrl);
+  }
+
+  @override
+  Future<void> updateOwnPost({
+    required String postId,
+    required String postContent,
+    Uint8List? imageBytes,
+    String? imageContentType,
+    bool clearImage = false,
+    required bool allowShare,
+  }) async {
+    final uid = _currentUserId;
+    if (uid == null) {
+      throw StateError('Cannot update a post while signed out.');
+    }
+    final id = postId.trim();
+    if (id.isEmpty) {
+      throw ArgumentError.value(postId, 'postId', 'must not be empty');
+    }
+
+    final row = await _client
+        .from(HomeTable.posts)
+        .select(PostCols.postImage)
+        .eq(PostCols.id, id)
+        .eq(PostCols.userId, uid)
+        .maybeSingle();
+
+    if (row == null) {
+      throw StateError('Post not found or you cannot edit it.');
+    }
+
+    var imageUrl = row[PostCols.postImage]?.toString() ?? '';
+    final previousStored = imageUrl;
+
+    if (clearImage) {
+      if (imageUrl.isNotEmpty) {
+        await _removePostImageByPublicUrl(imageUrl);
+      }
+      imageUrl = '';
+    } else if (imageBytes != null && imageBytes.isNotEmpty) {
+      final uploaded = await _uploadPostImage(
+        uid: uid,
+        bytes: imageBytes,
+        contentType: imageContentType ?? 'image/jpeg',
+      );
+      if (previousStored.isNotEmpty && previousStored != uploaded) {
+        await _removePostImageByPublicUrl(previousStored);
+      }
+      imageUrl = uploaded;
+    }
+
+    await _client.from(HomeTable.posts).update({
+      PostCols.postContent: postContent,
+      PostCols.postImage: imageUrl,
+      PostCols.allowShare: allowShare,
+    }).eq(PostCols.id, id).eq(PostCols.userId, uid);
   }
 
   Future<void> _removePostImageByPublicUrl(String imageUrl) async {
@@ -160,10 +221,13 @@ class HomeDatasourceImpl implements HomeDatasource {
   }
 
   @override
-  Future<void> togglePostLike({required String postId}) async {
+  Future<void> setPostReaction({
+    required String postId,
+    String? reaction,
+  }) async {
     final uid = _currentUserId;
     if (uid == null) {
-      throw StateError('Cannot like a post while signed out.');
+      throw StateError('Cannot react to a post while signed out.');
     }
 
     final row = await _client
@@ -177,11 +241,19 @@ class HomeDatasourceImpl implements HomeDatasource {
     }
 
     final likes = _parseLikesField(row[PostCols.likes]);
-    if (likes.contains(uid)) {
-      likes.remove(uid);
-    } else {
-      likes.add(uid);
+    final uidNorm = uid.trim().toLowerCase();
+    likes.removeWhere(
+      (e) => postReactionEntryUserId(e).trim().toLowerCase() == uidNorm,
+    );
+
+    final r = reaction?.trim().toLowerCase();
+    if (r != null && r.isNotEmpty) {
+      if (!kPostReactionKeys.contains(r)) {
+        throw ArgumentError.value(reaction, 'reaction', 'unknown reaction');
+      }
+      likes.add(encodePostReactionEntry(uid, r));
     }
+
     await _client
         .from(HomeTable.posts)
         .update({PostCols.likes: likes})
@@ -190,13 +262,113 @@ class HomeDatasourceImpl implements HomeDatasource {
 
   @override
   Future<List<PostModel>> getPosts() async {
+    final uid = _currentUserId;
+    if (uid == null) {
+      return const [];
+    }
+
+    final friendIds = await _acceptedFriendIdSet(uid);
+    final allowedAuthors = <String>[uid, ...friendIds];
+
     final response = await _client
         .from(HomeTable.posts)
         .select(_postsSelect)
+        .inFilter(PostCols.userId, allowedAuthors)
         .order(PostCols.createdAt, ascending: false);
 
     final rows = _asMapList(response);
     return rows.map(_mapPostRow).toList(growable: false);
+  }
+
+  @override
+  Future<List<PeopleDiscoveryRow>> searchPeopleDiscovery(String rawQuery) async {
+    final uid = _currentUserId;
+    if (uid == null) return const [];
+
+    final q = rawQuery.trim();
+    if (q.length < 2) return const [];
+
+    final safe = q.replaceAll('%', '').replaceAll('_', '');
+    if (safe.length < 2) return const [];
+
+    final profilesRaw = await _client
+        .from(HomeTable.profiles)
+        .select(
+          '${ProfileCols.id}, ${ProfileCols.username}, ${ProfileCols.avatarUrl}',
+        )
+        .ilike(ProfileCols.username, '%$safe%')
+        .neq(ProfileCols.id, uid)
+        .limit(40);
+
+    final profileRows = _asMapList(profilesRaw);
+    if (profileRows.isEmpty) return const [];
+
+    final users = profileRows
+        .map(UserModel.fromJson)
+        .where((u) => u.id.trim().isNotEmpty)
+        .toList(growable: false);
+
+    final idList = users.map((u) => u.id.trim()).toList();
+    if (idList.isEmpty) return const [];
+
+    final outgoingRaw = await _client
+        .from(HomeTable.friendRequests)
+        .select(
+          '${FriendRequestCols.toUserId}, ${FriendRequestCols.status}',
+        )
+        .eq(FriendRequestCols.fromUserId, uid)
+        .inFilter(FriendRequestCols.toUserId, idList);
+
+    final incomingRaw = await _client
+        .from(HomeTable.friendRequests)
+        .select(
+          '${FriendRequestCols.fromUserId}, ${FriendRequestCols.status}',
+        )
+        .eq(FriendRequestCols.toUserId, uid)
+        .inFilter(FriendRequestCols.fromUserId, idList);
+
+    final linkById = <String, PeopleDiscoveryLink>{
+      for (final id in idList) id: PeopleDiscoveryLink.none,
+    };
+
+    for (final m in _asMapList(outgoingRaw)) {
+      final tid = m[FriendRequestCols.toUserId]?.toString().trim() ?? '';
+      if (tid.isEmpty) continue;
+      final st =
+          (m[FriendRequestCols.status]?.toString() ?? '').toLowerCase().trim();
+      if (st == FriendRequestStatus.accepted) {
+        linkById[tid] = PeopleDiscoveryLink.friend;
+      } else if (st == FriendRequestStatus.pending) {
+        linkById[tid] = PeopleDiscoveryLink.pendingOutgoing;
+      }
+    }
+
+    for (final m in _asMapList(incomingRaw)) {
+      final fid = m[FriendRequestCols.fromUserId]?.toString().trim() ?? '';
+      if (fid.isEmpty) continue;
+      final st =
+          (m[FriendRequestCols.status]?.toString() ?? '').toLowerCase().trim();
+      if (st == FriendRequestStatus.accepted) {
+        linkById[fid] = PeopleDiscoveryLink.friend;
+      } else if (st == FriendRequestStatus.pending) {
+        linkById[fid] = PeopleDiscoveryLink.pendingIncoming;
+      }
+    }
+
+    final out = <PeopleDiscoveryRow>[
+      for (final u in users)
+        PeopleDiscoveryRow(
+          user: _mergeSessionProfileIfNeeded(u, u.id.trim()),
+          link: linkById[u.id.trim()] ?? PeopleDiscoveryLink.none,
+        ),
+    ];
+
+    out.sort(
+      (a, b) => a.user.username.toLowerCase().compareTo(
+            b.user.username.toLowerCase(),
+          ),
+    );
+    return out;
   }
 
   PostModel _mapPostRow(Map<String, dynamic> row) {
@@ -249,7 +421,18 @@ class HomeDatasourceImpl implements HomeDatasource {
       likes: _parseLikesField(row[PostCols.likes]),
       comments: comments,
       createdAt: _parsePostCreatedAt(row[PostCols.createdAt]),
+      allowShare: _parseAllowShareColumn(row[PostCols.allowShare]),
     );
+  }
+
+  static bool _parseAllowShareColumn(dynamic raw) {
+    if (raw == null) return true;
+    if (raw is bool) return raw;
+    if (raw is String) {
+      final s = raw.toLowerCase();
+      return s == 'true' || s == 't' || s == '1';
+    }
+    return true;
   }
 
   static DateTime? _parsePostCreatedAt(dynamic raw) {
@@ -313,12 +496,8 @@ class HomeDatasourceImpl implements HomeDatasource {
     );
   }
 
-  List<String> _parseLikesField(dynamic raw) {
-    if (raw is List) {
-      return raw.map((e) => e.toString()).toList(growable: true);
-    }
-    return <String>[];
-  }
+  List<String> _parseLikesField(dynamic raw) =>
+      List<String>.from(normalizeLikesJson(raw), growable: true);
 
   List<Map<String, dynamic>> _asMapList(dynamic response) {
     if (response is! List) return const [];
@@ -668,6 +847,41 @@ class HomeDatasourceImpl implements HomeDatasource {
         })
         .eq(FriendRequestCols.id, id)
         .eq(FriendRequestCols.toUserId, uid);
+  }
+
+  @override
+  Future<void> removeAcceptedFriendship({required String friendUserId}) async {
+    final uid = _currentUserId;
+    if (uid == null) {
+      throw StateError('Cannot unfriend while signed out.');
+    }
+    final fid = friendUserId.trim();
+    if (fid.isEmpty) {
+      throw ArgumentError.value(friendUserId, 'friendUserId', 'must not be empty');
+    }
+
+    final row = await _client
+        .from(HomeTable.friendRequests)
+        .select(FriendRequestCols.id)
+        .eq(FriendRequestCols.status, FriendRequestStatus.accepted)
+        .or(
+          'and(${FriendRequestCols.fromUserId}.eq.$uid,${FriendRequestCols.toUserId}.eq.$fid),'
+          'and(${FriendRequestCols.fromUserId}.eq.$fid,${FriendRequestCols.toUserId}.eq.$uid)',
+        )
+        .maybeSingle();
+
+    if (row == null) {
+      throw StateError('No friendship found with this user.');
+    }
+    final rid = row[FriendRequestCols.id]?.toString() ?? '';
+    if (rid.isEmpty) {
+      throw StateError('No friendship found with this user.');
+    }
+
+    await _client
+        .from(HomeTable.friendRequests)
+        .delete()
+        .eq(FriendRequestCols.id, rid);
   }
 
   String _utcDateString(DateTime utc) {
