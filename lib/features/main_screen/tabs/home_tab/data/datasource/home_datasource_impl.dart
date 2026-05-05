@@ -6,6 +6,7 @@ import 'package:new_project/features/main_screen/tabs/home_tab/data/datasource/h
 import 'package:new_project/features/main_screen/tabs/home_tab/data/datasource/home_supabase_tables.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/comment_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/models/user_feed_notification_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/profile_dashboard_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/lineup_race_board_row.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/team_cloud_snapshot.dart';
@@ -60,6 +61,53 @@ class HomeDatasourceImpl implements HomeDatasource {
       PostCols.postImage: imageUrl,
       PostCols.likes: <String>[],
     });
+  }
+
+  @override
+  Future<void> deleteOwnPost({required String postId}) async {
+    final uid = _currentUserId;
+    if (uid == null) {
+      throw StateError('Cannot delete a post while signed out.');
+    }
+    final id = postId.trim();
+    if (id.isEmpty) {
+      throw ArgumentError.value(postId, 'postId', 'must not be empty');
+    }
+
+    final row = await _client
+        .from(HomeTable.posts)
+        .select(PostCols.postImage)
+        .eq(PostCols.id, id)
+        .eq(PostCols.userId, uid)
+        .maybeSingle();
+
+    if (row == null) {
+      throw StateError('Post not found or you cannot delete it.');
+    }
+
+    final imageUrl = row[PostCols.postImage]?.toString() ?? '';
+
+    await _client
+        .from(HomeTable.posts)
+        .delete()
+        .eq(PostCols.id, id)
+        .eq(PostCols.userId, uid);
+
+    await _removePostImageByPublicUrl(imageUrl);
+  }
+
+  Future<void> _removePostImageByPublicUrl(String imageUrl) async {
+    final t = imageUrl.trim();
+    if (t.isEmpty) return;
+    final bucket = HomeStorage.postImagesBucket;
+    final marker = '/object/public/$bucket/';
+    final i = t.indexOf(marker);
+    if (i < 0) return;
+    final path = Uri.decodeFull(t.substring(i + marker.length));
+    if (path.isEmpty) return;
+    try {
+      await _client.storage.from(bucket).remove([path]);
+    } catch (_) {}
   }
 
   Future<String> _uploadPostImage({
@@ -449,9 +497,13 @@ class HomeDatasourceImpl implements HomeDatasource {
     if (uid == null) {
       throw StateError('Not signed in.');
     }
-    await _client.from(HomeTable.profiles).update({
+    final patch = <String, dynamic>{
       ProfileCols.pushNotificationsEnabled: enabled,
-    }).eq(ProfileCols.id, uid);
+    };
+    if (!enabled) {
+      patch[ProfileCols.fcmToken] = null;
+    }
+    await _client.from(HomeTable.profiles).update(patch).eq(ProfileCols.id, uid);
   }
 
   @override
@@ -804,5 +856,29 @@ class HomeDatasourceImpl implements HomeDatasource {
     if (raw is Map<String, dynamic>) return raw;
     if (raw is Map) return Map<String, dynamic>.from(raw);
     throw StateError('Unexpected RPC response');
+  }
+
+  @override
+  Future<List<UserFeedNotificationModel>> fetchMyUserNotifications({
+    int limit = 50,
+  }) async {
+    final uid = _currentUserId;
+    if (uid == null) return const [];
+
+    final response = await _client
+        .from(HomeTable.userNotifications)
+        .select(
+          '${UserNotificationCols.id}, ${UserNotificationCols.kind}, '
+          '${UserNotificationCols.title}, ${UserNotificationCols.body}, '
+          '${UserNotificationCols.data}, ${UserNotificationCols.createdAt}',
+        )
+        .eq(UserNotificationCols.userId, uid)
+        .order(UserNotificationCols.createdAt, ascending: false)
+        .limit(limit);
+
+    final rows = _asMapList(response);
+    return rows
+        .map(UserFeedNotificationModel.fromJson)
+        .toList(growable: false);
   }
 }

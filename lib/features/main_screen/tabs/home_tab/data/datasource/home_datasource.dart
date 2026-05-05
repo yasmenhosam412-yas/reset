@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:new_project/features/authentication/data/models/user_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/models/user_feed_notification_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/profile_dashboard_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/lineup_race_board_row.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/team_cloud_snapshot.dart';
@@ -14,11 +15,17 @@ abstract class HomeDatasource {
     String? imageContentType,
   });
 
+  /// Deletes a post authored by the signed-in user ([postId] must match).
+  Future<void> deleteOwnPost({required String postId});
+
   Future<void> addComment({required String postId, required String comment});
 
   Future<void> togglePostLike({required String postId});
 
   Future<List<PostModel>> getPosts();
+
+  /// In-app inbox: likes, comments, and friend requests for the signed-in user.
+  Future<List<UserFeedNotificationModel>> fetchMyUserNotifications({int limit = 50});
 
   /// User ids with an accepted `friend_requests` row involving the current user.
   Future<Set<String>> getAcceptedFriendUserIds();

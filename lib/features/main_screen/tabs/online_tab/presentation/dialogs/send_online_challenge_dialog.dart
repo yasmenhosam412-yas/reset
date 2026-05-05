@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:new_project/features/authentication/data/models/user_model.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_challenge_games.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/bloc/online_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/bloc/online_event.dart';
-
-const int _kPenaltyGameId = 1;
-const int _kRimShotGameId = 2;
-const int _kFantasyGameId = 3;
 
 /// Game picker + send invite (uses [OnlineBloc] from context).
 void showSendOnlineChallengeDialog(BuildContext context, UserModel friend) {
@@ -17,7 +14,7 @@ void showSendOnlineChallengeDialog(BuildContext context, UserModel friend) {
       ? 'this friend'
       : friend.username;
 
-  var selectedId = _kPenaltyGameId;
+  var selectedId = OnlineChallengeGames.penaltyShootout;
 
   showDialog<void>(
     context: context,
@@ -47,30 +44,15 @@ void showSendOnlineChallengeDialog(BuildContext context, UserModel friend) {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  _ChallengeGameTile(
-                    gameId: _kPenaltyGameId,
-                    title: 'Penalty shootout',
-                    icon: Icons.sports_soccer_rounded,
-                    selectedId: selectedId,
-                    scheme: scheme,
-                    onTap: () => setState(() => selectedId = _kPenaltyGameId),
-                  ),
-                  _ChallengeGameTile(
-                    gameId: _kRimShotGameId,
-                    title: 'Rim shot',
-                    icon: Icons.sports_basketball_rounded,
-                    selectedId: selectedId,
-                    scheme: scheme,
-                    onTap: () => setState(() => selectedId = _kRimShotGameId),
-                  ),
-                  _ChallengeGameTile(
-                    gameId: _kFantasyGameId,
-                    title: 'Fantasy cards',
-                    icon: Icons.auto_awesome_rounded,
-                    selectedId: selectedId,
-                    scheme: scheme,
-                    onTap: () => setState(() => selectedId = _kFantasyGameId),
-                  ),
+                  for (final game in OnlineChallengeGames.all)
+                    _ChallengeGameTile(
+                      gameId: game.id,
+                      title: game.title,
+                      icon: game.icon,
+                      selectedId: selectedId,
+                      scheme: scheme,
+                      onTap: () => setState(() => selectedId = game.id),
+                    ),
                 ],
               ),
             ),

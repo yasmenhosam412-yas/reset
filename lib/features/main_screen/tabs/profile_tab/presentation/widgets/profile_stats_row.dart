@@ -7,18 +7,35 @@ class ProfileStatsOverviewRow extends StatelessWidget {
     required this.theme,
     required this.scheme,
     required this.stats,
+    this.onPostsTap,
+    this.onFriendsTap,
+    this.onChallengesTap,
   });
 
   final ThemeData theme;
   final ColorScheme scheme;
   final UserProfileStats stats;
+  final VoidCallback? onPostsTap;
+  final VoidCallback? onFriendsTap;
+  final VoidCallback? onChallengesTap;
 
   @override
   Widget build(BuildContext context) {
     final tiles = [
-      (Icons.article_outlined, 'Posts', stats.postsCount),
-      (Icons.groups_outlined, 'Friends', stats.friendsCount),
-      (Icons.sports_esports_outlined, 'Challenges', stats.challengesCount),
+      (Icons.article_outlined, 'Posts', stats.postsCount, () {
+        onPostsTap?.call();
+      }),
+      (Icons.groups_outlined, 'Friends', stats.friendsCount, () {
+        onFriendsTap?.call();
+      }),
+      (
+        Icons.sports_esports_outlined,
+        'Challenges',
+        stats.challengesCount,
+        () {
+          onChallengesTap?.call();
+        },
+      ),
     ];
 
     return Row(
@@ -32,6 +49,7 @@ class ProfileStatsOverviewRow extends StatelessWidget {
               value: '${tiles[i].$3}',
               scheme: scheme,
               theme: theme,
+              onTap: tiles[i].$4,
             ),
           ),
         ],
@@ -47,6 +65,7 @@ class _ProfileStatTile extends StatelessWidget {
     required this.value,
     required this.scheme,
     required this.theme,
+    required this.onTap,
   });
 
   final IconData icon;
@@ -54,6 +73,7 @@ class _ProfileStatTile extends StatelessWidget {
   final String value;
   final ColorScheme scheme;
   final ThemeData theme;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -64,29 +84,33 @@ class _ProfileStatTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: scheme.outline.withValues(alpha: 0.08)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        child: Column(
-          children: [
-            Icon(icon, color: scheme.primary, size: 22),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w900,
-                fontFeatures: const [FontFeature.tabularFigures()],
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          child: Column(
+            children: [
+              Icon(icon, color: scheme.primary, size: 22),
+              const SizedBox(height: 8),
+              Text(
+                value,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
+              const SizedBox(height: 2),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

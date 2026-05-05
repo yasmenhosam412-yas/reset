@@ -4,15 +4,19 @@ import 'package:new_project/features/main_screen/tabs/online_tab/presentation/ga
 abstract final class PenaltyShootoutRules {
   static const int secondsPerRound = 11;
   static const int totalRounds = 10;
-  /// Min shot power [0–1] to score when keeper dives the same way.
-  static const double powerBlastThreshold = 0.78;
-  /// Drag norm outside ±this maps to left/right; tighter = trickier center aim.
+
+  /// Drag norm outside ±this maps to side lanes in **classic 3** mode.
   static const double aimSideThreshold = 0.32;
-  /// Local AI keeper: chance to read the shot and dive the same way (low power still saves).
+
+  /// Local AI keeper: chance to read the shot and dive the same way.
   static const double aiKeeperReadShotChance = 0.36;
 
-  static int get powerBlastPercentRounded =>
-      (powerBlastThreshold * 100).round();
+  /// Wide mode: boundaries on normalized drag [-1, 1] for five lanes.
+  static const double fiveLaneOuter = 0.56;
+  static const double fiveLaneInner = 0.2;
+
+  /// Kick animation length (no shot-power variation).
+  static const int kickAnimationDurationMs = 760;
 
   static bool uidEq(String? a, String? b) {
     if (a == null || b == null) return false;
@@ -20,41 +24,47 @@ abstract final class PenaltyShootoutRules {
   }
 
   static int dirToInt(PenaltyShootoutDir d) => switch (d) {
+        PenaltyShootoutDir.farLeft => -2,
         PenaltyShootoutDir.left => -1,
         PenaltyShootoutDir.center => 0,
         PenaltyShootoutDir.right => 1,
+        PenaltyShootoutDir.farRight => 2,
       };
 
   static PenaltyShootoutDir intToDir(int i) {
-    if (i < 0) return PenaltyShootoutDir.left;
-    if (i > 0) return PenaltyShootoutDir.right;
-    return PenaltyShootoutDir.center;
+    if (i <= -2) return PenaltyShootoutDir.farLeft;
+    if (i == -1) return PenaltyShootoutDir.left;
+    if (i == 0) return PenaltyShootoutDir.center;
+    if (i == 1) return PenaltyShootoutDir.right;
+    return PenaltyShootoutDir.farRight;
   }
 
+  /// Goal only when the keeper does **not** dive the shot lane (same lane = save).
   static bool computeScored(
     PenaltyShootoutDir shot,
     PenaltyShootoutDir dive,
-    double power,
   ) {
-    if (shot != dive) return true;
-    return power >= powerBlastThreshold;
+    return shot != dive;
   }
 
-  static int kickDurationMs(double power) {
-    return (920 * (1.05 - 0.42 * power.clamp(0.0, 1.0)))
-        .round()
-        .clamp(420, 1040);
-  }
-
-  static PenaltyShootoutDir normToDir(double n) {
-    if (n < -aimSideThreshold) return PenaltyShootoutDir.left;
-    if (n > aimSideThreshold) return PenaltyShootoutDir.right;
-    return PenaltyShootoutDir.center;
+  static PenaltyShootoutDir normToDir(double n, {required PenaltyAimLanes lanes}) {
+    if (lanes == PenaltyAimLanes.classic3) {
+      if (n < -aimSideThreshold) return PenaltyShootoutDir.left;
+      if (n > aimSideThreshold) return PenaltyShootoutDir.right;
+      return PenaltyShootoutDir.center;
+    }
+    if (n < -fiveLaneOuter) return PenaltyShootoutDir.farLeft;
+    if (n < -fiveLaneInner) return PenaltyShootoutDir.left;
+    if (n <= fiveLaneInner) return PenaltyShootoutDir.center;
+    if (n < fiveLaneOuter) return PenaltyShootoutDir.right;
+    return PenaltyShootoutDir.farRight;
   }
 
   static String dirLabel(PenaltyShootoutDir d) => switch (d) {
+        PenaltyShootoutDir.farLeft => 'Far left',
         PenaltyShootoutDir.left => 'Left',
         PenaltyShootoutDir.center => 'Center',
         PenaltyShootoutDir.right => 'Right',
+        PenaltyShootoutDir.farRight => 'Far right',
       };
 }

@@ -9,6 +9,7 @@ import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/team_challenge_results.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/team_cloud_snapshot.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/profile_dashboard_model.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/models/user_feed_notification_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/repositories/home_repository.dart';
 
 class HomeRepositoryImpl implements HomeRepository {
@@ -52,6 +53,16 @@ class HomeRepositoryImpl implements HomeRepository {
         imageBytes: imageBytes,
         imageContentType: imageContentType,
       );
+      return Right(null);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> deletePost({required String postId}) async {
+    try {
+      await homeDatasource.deleteOwnPost(postId: postId);
       return Right(null);
     } catch (e) {
       return Left(failureFromException(e));
@@ -423,6 +434,18 @@ class HomeRepositoryImpl implements HomeRepository {
       return Left(
         ServerFailure(message: _lineupRaceRpcError(m['error'])),
       );
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<UserFeedNotificationModel>>> getMyUserNotifications({
+    int limit = 50,
+  }) async {
+    try {
+      final list = await homeDatasource.fetchMyUserNotifications(limit: limit);
+      return Right(list);
     } catch (e) {
       return Left(failureFromException(e));
     }

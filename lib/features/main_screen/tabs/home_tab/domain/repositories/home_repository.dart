@@ -5,6 +5,7 @@ import 'package:new_project/core/errors/failure.dart';
 import 'package:new_project/features/authentication/data/models/user_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/lineup_race_board_row.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/models/user_feed_notification_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/profile_dashboard_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/team_challenge_results.dart'
     show
@@ -22,6 +23,8 @@ abstract class HomeRepository {
     String? imageContentType,
   });
 
+  Future<Either<Failure, void>> deletePost({required String postId});
+
   Future<Either<Failure, void>> addComment({
     required String postId,
     required String comment,
@@ -30,6 +33,10 @@ abstract class HomeRepository {
   Future<Either<Failure, void>> togglePostLike({required String postId});
 
   Future<Either<Failure, List<PostModel>>> getPosts();
+
+  Future<Either<Failure, List<UserFeedNotificationModel>>> getMyUserNotifications({
+    int limit = 50,
+  });
 
   Future<Either<Failure, Set<String>>> getAcceptedFriendUserIds();
 

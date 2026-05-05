@@ -10,8 +10,8 @@ import 'package:new_project/features/main_screen/tabs/online_tab/presentation/ga
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/penalty_shootout/penalty_shootout_online_config.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/fantasy_cards/fantasy_duel_game.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/fantasy_cards/fantasy_duel_online_config.dart';
-import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/rim_shot/rim_shot_game.dart';
-import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/rim_shot/rim_shot_online_config.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/rps_duel/rps_duel_game.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/rps_duel/rps_duel_online_config.dart';
 
 class OnlineGameSessionPage extends StatefulWidget {
   const OnlineGameSessionPage({super.key, required this.args});
@@ -122,7 +122,7 @@ class _GameBody extends StatelessWidget {
           challengeToUserId: challengeToUserId,
         );
       case 2:
-        return _RimShotOnlineSlot(
+        return _RpsDuelOnlineSlot(
           scheme: scheme,
           theme: theme,
           opponentName: opponentName,
@@ -196,8 +196,8 @@ class _PenaltyOnlineShootoutSlotState extends State<_PenaltyOnlineShootoutSlot> 
   }
 }
 
-class _RimShotOnlineSlot extends StatefulWidget {
-  const _RimShotOnlineSlot({
+class _RpsDuelOnlineSlot extends StatefulWidget {
+  const _RpsDuelOnlineSlot({
     required this.scheme,
     required this.theme,
     required this.opponentName,
@@ -214,20 +214,20 @@ class _RimShotOnlineSlot extends StatefulWidget {
   final String challengeToUserId;
 
   @override
-  State<_RimShotOnlineSlot> createState() => _RimShotOnlineSlotState();
+  State<_RpsDuelOnlineSlot> createState() => _RpsDuelOnlineSlotState();
 }
 
-class _RimShotOnlineSlotState extends State<_RimShotOnlineSlot> {
+class _RpsDuelOnlineSlotState extends State<_RpsDuelOnlineSlot> {
   int _bootKey = 0;
 
   @override
   Widget build(BuildContext context) {
-    return RimShotGame(
+    return RpsDuelGame(
       key: ValueKey(_bootKey),
       scheme: widget.scheme,
       theme: widget.theme,
       opponentName: widget.opponentName,
-      online: RimShotOnlineConfig(
+      online: RpsDuelOnlineConfig(
         challengeId: widget.challengeId,
         fromUserId: widget.challengeFromUserId,
         toUserId: widget.challengeToUserId,
@@ -279,3 +279,4 @@ class _FantasyDuelOnlineSlotState extends State<_FantasyDuelOnlineSlot> {
     );
   }
 }
+

@@ -1,37 +1,24 @@
 import 'dart:math';
 import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
+import 'package:new_project/core/di/di.dart';
+import 'package:new_project/core/navigation/main_shell_controller.dart';
+import 'package:new_project/core/widgets/tab_loading_skeletons.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/bottom_sheets/home_comments_sheet.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/bottom_sheets/home_new_post_sheet.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/presentation/bottom_sheets/home_post_author_actions_sheet.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_event.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_state.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/presentation/navigation/open_author_posts_screen.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/widgets/home_feed_empty_placeholder.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/widgets/home_feed_list.dart';
 
-class _ChallengeGame {
-  const _ChallengeGame({
-    required this.id,
-    required this.title,
-    required this.icon,
-  });
-
-  final int id;
-  final String title;
-  final IconData icon;
-}
-
-const List<_ChallengeGame> _kChallengeGames = [
-  _ChallengeGame(id: 1, title: 'Chess', icon: Icons.grid_on_rounded),
-  _ChallengeGame(id: 2, title: 'Quick duel', icon: Icons.flash_on_rounded),
-  _ChallengeGame(id: 3, title: 'Trivia rush', icon: Icons.quiz_outlined),
-];
 
 enum _FeedSort { latest, mostLiked }
+
 
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key});
@@ -40,11 +27,14 @@ class HomeTab extends StatefulWidget {
   State<HomeTab> createState() => _HomeTabState();
 }
 
-class _HomeTabState extends State<HomeTab> {
+class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
   final _newPostController = TextEditingController();
   final _commentController = TextEditingController();
   final _scrollController = ScrollController();
   final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
+  late final MainShellController _mainShell;
+  late final AnimationController _headerAccentController;
 
   String _searchQuery = '';
   _FeedSort _feedSort = _FeedSort.latest;
@@ -53,11 +43,68 @@ class _HomeTabState extends State<HomeTab> {
   @override
   void initState() {
     super.initState();
+    _headerAccentController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 6),
+    )..repeat(reverse: true);
     _scrollController.addListener(_onScrollOffset);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<HomeBloc>().add(HomePostsRequested());
     });
+    _mainShell = getIt<MainShellController>();
+    _mainShell.addListener(_onShellDeepLink);
+  }
+
+  void _onShellDeepLink() {
+    final focus = _mainShell.peekHomePost();
+    if (focus == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _handlePostDeepLink(focus.postId, focus.openComments);
+    });
+  }
+
+  Future<void> _handlePostDeepLink(String postId, bool openComments) async {
+    final shell = getIt<MainShellController>();
+    final id = postId.trim();
+    if (id.isEmpty) {
+      shell.clearHomePost();
+      return;
+    }
+    if (!mounted) return;
+
+    setState(() => _searchQuery = '');
+
+    PostModel? findInState(HomeState s) {
+      for (final p in s.posts) {
+        if (p.id.trim() == id) return p;
+      }
+      return null;
+    }
+
+    var post = findInState(context.read<HomeBloc>().state);
+    if (post == null) {
+      context.read<HomeBloc>().add(HomePostsRequested());
+      await context.read<HomeBloc>().stream.firstWhere(
+            (s) => s.status != HomeStatus.loading,
+          );
+      if (!mounted) return;
+      post = findInState(context.read<HomeBloc>().state);
+    }
+
+    if (post == null) {
+      shell.clearHomePost();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Couldn’t find that post on the feed.')),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+    shell.clearHomePost();
+    _openAuthorPostsFromNotification(post, openComments: openComments);
   }
 
   void _onScrollOffset() {
@@ -70,11 +117,14 @@ class _HomeTabState extends State<HomeTab> {
 
   @override
   void dispose() {
+    _headerAccentController.dispose();
     _scrollController.removeListener(_onScrollOffset);
     _scrollController.dispose();
+    _searchFocusNode.dispose();
     _searchController.dispose();
     _newPostController.dispose();
     _commentController.dispose();
+    _mainShell.removeListener(_onShellDeepLink);
     super.dispose();
   }
 
@@ -120,6 +170,59 @@ class _HomeTabState extends State<HomeTab> {
     );
   }
 
+  Widget _buildQuickActivityCard({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required VoidCallback onTap,
+    Color? iconColor,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    final accent = iconColor ?? scheme.primary;
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: Material(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            width: 108,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 26, color: accent),
+                  const SizedBox(height: 8),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildInteractiveHeader(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
@@ -131,78 +234,210 @@ class _HomeTabState extends State<HomeTab> {
         : 'Good evening';
 
     return Material(
-      color: scheme.surfaceContainerLow,
+      color: scheme.surface,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: _onGreetingTap,
-                    borderRadius: BorderRadius.circular(14),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 6,
-                        horizontal: 4,
+            AnimatedBuilder(
+              animation: _headerAccentController,
+              builder: (context, child) {
+                final t = CurvedAnimation(
+                  parent: _headerAccentController,
+                  curve: Curves.easeInOut,
+                ).value;
+                return DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(22),
+                    gradient: LinearGradient(
+                      begin: Alignment(-0.8 + t * 0.15, -1),
+                      end: Alignment(0.9 - t * 0.1, 1.1),
+                      colors: [
+                        Color.lerp(
+                          scheme.primaryContainer,
+                          scheme.tertiaryContainer,
+                          t * 0.55,
+                        )!,
+                        Color.lerp(
+                          scheme.secondaryContainer,
+                          scheme.primaryContainer,
+                          0.35 + t * 0.35,
+                        )!,
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: scheme.primary.withValues(alpha: 0.12),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.waving_hand_rounded,
-                            color: scheme.primary,
-                            size: 28,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                    ],
+                  ),
+                  child: child,
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 10, 14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _onGreetingTap,
+                          borderRadius: BorderRadius.circular(16),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 4,
+                              horizontal: 2,
+                            ),
+                            child: Row(
                               children: [
-                                Text(
-                                  greeting,
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                                TweenAnimationBuilder<double>(
+                                  tween: Tween(begin: 0, end: 1),
+                                  duration: const Duration(milliseconds: 650),
+                                  curve: Curves.elasticOut,
+                                  builder: (context, v, _) {
+                                    return Transform.rotate(
+                                      angle: (1 - v) * 0.35,
+                                      child: Icon(
+                                        Icons.waving_hand_rounded,
+                                        color: scheme.primary,
+                                        size: 32,
+                                      ),
+                                    );
+                                  },
                                 ),
-                                Text(
-                                  'Tap for a quick tip',
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: scheme.onSurfaceVariant,
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        greeting,
+                                        style: theme.textTheme.titleLarge
+                                            ?.copyWith(
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: -0.3,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Tap for a feed tip · your community hub',
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                          color: scheme.onSurface
+                                              .withValues(alpha: 0.75),
+                                          height: 1.25,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
+                    AnimatedOpacity(
+                      opacity: _showScrollTop ? 1 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: IconButton.filledTonal(
+                        style: IconButton.styleFrom(
+                          backgroundColor: scheme.surface.withValues(
+                            alpha: 0.55,
+                          ),
+                        ),
+                        onPressed: _showScrollTop
+                            ? () {
+                                _scrollController.animateTo(
+                                  0,
+                                  duration: const Duration(milliseconds: 450),
+                                  curve: Curves.easeOutCubic,
+                                );
+                              }
+                            : null,
+                        icon: const Icon(Icons.vertical_align_top_rounded),
+                        tooltip: 'Back to top',
+                      ),
+                    ),
+                  ],
                 ),
-                AnimatedOpacity(
-                  opacity: _showScrollTop ? 1 : 0,
-                  duration: const Duration(milliseconds: 200),
-                  child: IconButton.filledTonal(
-                    onPressed: _showScrollTop
-                        ? () {
-                            _scrollController.animateTo(
-                              0,
-                              duration: const Duration(milliseconds: 400),
-                              curve: Curves.easeOutCubic,
-                            );
-                          }
-                        : null,
-                    icon: const Icon(Icons.vertical_align_top_rounded),
-                    tooltip: 'Back to top',
-                  ),
-                ),
-              ],
+              ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 14),
+            Text(
+              'Jump in',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 100,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.only(right: 6),
+                children: [
+                  _buildQuickActivityCard(
+                    context: context,
+                    icon: Icons.edit_note_rounded,
+                    label: 'New post',
+                    subtitle: 'Share an update',
+                    onTap: _openNewPostSheet,
+                    iconColor: scheme.tertiary,
+                  ),
+                  _buildQuickActivityCard(
+                    context: context,
+                    icon: Icons.sports_esports_rounded,
+                    label: 'Play online',
+                    subtitle: 'Challenges & duels',
+                    onTap: () => _mainShell.goToMainTab(1),
+                    iconColor: scheme.primary,
+                  ),
+                  _buildQuickActivityCard(
+                    context: context,
+                    icon: Icons.notifications_active_outlined,
+                    label: 'Alerts',
+                    subtitle: 'Replies & invites',
+                    onTap: () => _mainShell.goToMainTab(2),
+                  ),
+                  _buildQuickActivityCard(
+                    context: context,
+                    icon: Icons.groups_outlined,
+                    label: 'Battles',
+                    subtitle: 'Team events',
+                    onTap: () => _mainShell.goToMainTab(3),
+                    iconColor: scheme.secondary,
+                  ),
+                  _buildQuickActivityCard(
+                    context: context,
+                    icon: Icons.person_rounded,
+                    label: 'Profile',
+                    subtitle: 'You & friends',
+                    onTap: () => _mainShell.goToMainTab(4),
+                  ),
+                  _buildQuickActivityCard(
+                    context: context,
+                    icon: Icons.search_rounded,
+                    label: 'Find',
+                    subtitle: 'Search the feed',
+                    onTap: () =>
+                        _searchFocusNode.requestFocus(),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
             TextField(
               controller: _searchController,
+              focusNode: _searchFocusNode,
               onChanged: (v) => setState(() => _searchQuery = v),
               decoration: InputDecoration(
                 hintText: 'Search posts or people…',
@@ -217,6 +452,7 @@ class _HomeTabState extends State<HomeTab> {
                       )
                     : null,
                 filled: true,
+                fillColor: scheme.surfaceContainerLow,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
@@ -290,139 +526,17 @@ class _HomeTabState extends State<HomeTab> {
     );
   }
 
-  void _openPostAuthorActions(BuildContext context, PostModel post) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final author = post.userModel.username;
-    final state = context.read<HomeBloc>().state;
-    final authorIdNorm = post.userModel.id.trim().toLowerCase();
-    final alreadyFriend = authorIdNorm.isNotEmpty &&
-        state.acceptedFriendUserIds.contains(authorIdNorm);
-    final myId =
-        Supabase.instance.client.auth.currentUser?.id.trim().toLowerCase();
-    final isSelf =
-        myId != null && myId.isNotEmpty && myId == authorIdNorm;
-
-    showModalBottomSheet<void>(
+  void _openAuthorPostsFromNotification(
+    PostModel post, {
+    required bool openComments,
+  }) {
+    openAuthorPostsScreen(
       context: context,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  author,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                if (isSelf)
-                  Text(
-                    'This is your post.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  )
-                else ...[
-                  if (alreadyFriend)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading:
-                          Icon(Icons.people_rounded, color: scheme.primary),
-                      title: const Text('Friends'),
-                      subtitle: Text(
-                        'You are already connected — no new request needed.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    )
-                  else
-                    FilledButton.icon(
-                      onPressed: () {
-                        Navigator.of(sheetContext).pop();
-                        context.read<HomeBloc>().add(
-                              HomeSendFriendRequest(
-                                userModel: post.userModel,
-                              ),
-                            );
-                      },
-                      icon: const Icon(Icons.person_add_rounded),
-                      label: const Text('Send friend request'),
-                    ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.of(sheetContext).pop();
-                      _showChallengeGamePicker(context, post);
-                    },
-                    icon: const Icon(Icons.sports_esports_rounded),
-                    label: const Text('Send challenge'),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showChallengeGamePicker(BuildContext context, PostModel post) {
-    var selectedId = _kChallengeGames.first.id;
-    final homeContext = context;
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (_, setDialogState) {
-            return AlertDialog(
-              title: const Text('Choose a game'),
-              content: SingleChildScrollView(
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    for (final game in _kChallengeGames)
-                      FilterChip(
-                        avatar: Icon(game.icon, size: 20),
-                        label: Text(game.title),
-                        selected: selectedId == game.id,
-                        onSelected: (_) {
-                          setDialogState(() => selectedId = game.id);
-                        },
-                      ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-                    homeContext.read<HomeBloc>().add(
-                      HomeSendChallenge(
-                        userModel: post.userModel,
-                        gameId: selectedId,
-                      ),
-                    );
-                  },
-                  child: const Text('Send challenge'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      authorId: post.userModel.id,
+      authorName: post.userModel.username,
+      commentController: _commentController,
+      focusPostId: post.id,
+      openCommentsAfterScroll: openComments,
     );
   }
 
@@ -463,70 +577,73 @@ class _HomeTabState extends State<HomeTab> {
           ),
           body: SafeArea(
             child: loading && empty
-                ? const Center(child: CircularProgressIndicator())
+                ? TabLoadingSkeletons.homeFeed(context)
                 : empty && state.status == HomeStatus.loaded
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      header,
-                      const Expanded(child: HomeFeedEmptyPlaceholder()),
-                    ],
+                ? RefreshIndicator(
+                    onRefresh: _refreshFeed,
+                    child: CustomScrollView(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        SliverToBoxAdapter(child: header),
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: HomeFeedEmptyPlaceholder(),
+                        ),
+                      ],
+                    ),
                   )
                 : displayed.isEmpty
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      header,
-                      Expanded(
-                        child: RefreshIndicator(
-                          onRefresh: _refreshFeed,
-                          child: ListView(
-                            controller: _scrollController,
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(24, 32, 24, 100),
-                            children: [
-                              Icon(
-                                Icons.search_off_rounded,
-                                size: 48,
-                                color: Theme.of(context).colorScheme.outline,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No posts match your search.',
-                                textAlign: TextAlign.center,
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Try another keyword or clear the search box.',
-                                textAlign: TextAlign.center,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                    ),
-                              ),
-                            ],
+                ? RefreshIndicator(
+                    onRefresh: _refreshFeed,
+                    child: CustomScrollView(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        SliverToBoxAdapter(child: header),
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(24, 32, 24, 100),
+                          sliver: SliverToBoxAdapter(
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.search_off_rounded,
+                                  size: 48,
+                                  color: Theme.of(context).colorScheme.outline,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No posts match your search.',
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Try another keyword or clear the search box.',
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                      ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      header,
-                      Expanded(
-                        child: HomeFeedList(
-                          posts: displayed,
-                          scrollController: _scrollController,
-                          onOpenComments: _openComments,
-                          onAuthorTap: (post) =>
-                              _openPostAuthorActions(context, post),
-                        ),
-                      ),
-                    ],
+                : HomeFeedList(
+                    posts: displayed,
+                    scrollController: _scrollController,
+                    feedHeader: header,
+                    onOpenComments: _openComments,
+                    onAuthorTap: (post) =>
+                        showHomePostAuthorActionsSheet(context, post),
                   ),
           ),
         );

@@ -3,13 +3,13 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:new_project/features/main_screen/tabs/home_tab/data/datasource/home_supabase_tables.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/data/models/penalty_shootout_online_models.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/penalty_shootout/penalty_shootout_controls.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/penalty_shootout/penalty_shootout_hud_bar.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/penalty_shootout/penalty_shootout_online_config.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/penalty_shootout/penalty_shootout_pitch_view.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/penalty_shootout/penalty_shootout_rules.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/game_match_outcome_fx.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/game_result_feed_share.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/penalty_shootout/penalty_shootout_types.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -65,13 +65,13 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
   double _dragNorm = 0;
   bool _dragging = false;
 
-  double _powerNorm = 0.62;
-  double _strikerPower = 0.62;
+  /// Offline only; online matches always use [PenaltyAimLanes.wide5] on the server.
+  PenaltyAimLanes _aimLanes = PenaltyAimLanes.wide5;
 
-  RealtimeChannel? _penaltyChannel;
+  Timer? _onlineBgSyncTimer;
   Timer? _onlinePickPoll;
-  Timer? _sessionPullDebounce;
   bool _sessionPullInFlight = false;
+  bool _sessionPullPending = false;
   String? _myUserId;
   bool _onlineBootstrap = true;
   int _roundBeingResolved = 0;
@@ -85,6 +85,16 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
 
   void _mutate(VoidCallback fn) {
     if (mounted) setState(fn);
+  }
+
+  /// Online sync without Realtime (avoids client parse failures on postgres payloads).
+  void _startOnlineBackgroundSyncTimer() {
+    _onlineBgSyncTimer?.cancel();
+    if (widget.online == null) return;
+    _onlineBgSyncTimer = Timer.periodic(const Duration(milliseconds: 300), (_) {
+      if (!mounted || widget.online == null) return;
+      unawaited(_play.backgroundOnlineSyncTick());
+    });
   }
 
   void _onPlayAgainPressed() {
@@ -112,8 +122,6 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
       _lastResultLine = null;
       _dragNorm = 0;
       _dragging = false;
-      _powerNorm = 0.62;
-      _strikerPower = 0.62;
       _kickOutcomeHandled = false;
       _onlinePickSubmitting = false;
       _onlineWaitingForOpponent = false;
@@ -131,7 +139,9 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
 
     _kickCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 920),
+      duration: const Duration(
+        milliseconds: PenaltyShootoutRules.kickAnimationDurationMs,
+      ),
     );
     _kickCurve = CurvedAnimation(
       parent: _kickCtrl,
@@ -159,13 +169,8 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
   @override
   void dispose() {
     _countdown?.cancel();
+    _onlineBgSyncTimer?.cancel();
     _onlinePickPoll?.cancel();
-    _sessionPullDebounce?.cancel();
-    final ch = _penaltyChannel;
-    _penaltyChannel = null;
-    if (ch != null) {
-      unawaited(Supabase.instance.client.removeChannel(ch));
-    }
     if (widget.online != null &&
         _phase == PenaltyShootoutPhase.finished &&
         !_onlineMatchCleanupDone) {
@@ -202,75 +207,123 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
           : _oppGoals > _myGoals
               ? '${widget.opponentName} wins'
               : 'Draw';
-      return Card(
-        elevation: 2,
-        shadowColor: s.shadow.withValues(alpha: 0.35),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        clipBehavior: Clip.antiAlias,
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                s.primaryContainer.withValues(alpha: 0.55),
-                s.tertiaryContainer.withValues(alpha: 0.35),
+      final outcome = gameMatchOutcomeFromScores(
+        myScore: _myGoals,
+        oppScore: _oppGoals,
+      );
+      final resultIcon = switch (outcome) {
+        GameMatchOutcome.win => Icons.emoji_events_rounded,
+        GameMatchOutcome.loss => Icons.auto_fix_high_rounded,
+        GameMatchOutcome.draw => Icons.handshake_rounded,
+      };
+      final resultAccent = switch (outcome) {
+        GameMatchOutcome.win => s.primary,
+        GameMatchOutcome.loss => s.tertiary,
+        GameMatchOutcome.draw => s.secondary,
+      };
+      final subline = switch (outcome) {
+        GameMatchOutcome.win => 'Clinical finishing — share the highlight!',
+        GameMatchOutcome.loss => 'Heartbreaker — one more shootout?',
+        GameMatchOutcome.draw => 'Deadlock on the line — honor is even.',
+      };
+      return GameMatchOutcomeLayer(
+        outcome: outcome,
+        scheme: s,
+        child: Card(
+          elevation: 2,
+          shadowColor: s.shadow.withValues(alpha: 0.35),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          clipBehavior: Clip.antiAlias,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  resultAccent.withValues(alpha: 0.22),
+                  s.surfaceContainerLow.withValues(alpha: 0.9),
+                  s.tertiaryContainer.withValues(alpha: 0.28),
+                ],
+              ),
+            ),
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: 1),
+                  duration: const Duration(milliseconds: 640),
+                  curve: Curves.elasticOut,
+                  builder: (context, v, child) {
+                    return Transform.scale(
+                      scale: 0.72 + 0.28 * v,
+                      child: Transform.rotate(
+                        angle: (1 - v) * 0.12,
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: Icon(resultIcon, size: 64, color: resultAccent),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Shootout over',
+                  style: t.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'You $_myGoals  —  ${widget.opponentName} $_oppGoals',
+                  style: t.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  winner,
+                  style: t.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    color: resultAccent,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  subline,
+                  style: t.textTheme.bodyMedium?.copyWith(
+                    color: s.onSurfaceVariant,
+                    height: 1.35,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 28),
+                FilledButton.tonal(
+                  onPressed: (widget.onPlayAgain == null && widget.online != null)
+                      ? null
+                      : _onPlayAgainPressed,
+                  child: const Text('Play again'),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () => unawaited(
+                    showShareGameResultToFeedDialog(
+                      context,
+                      title: 'Share to home feed',
+                      initialBody:
+                          'Penalty shootout vs ${widget.opponentName}\n'
+                          'Final: $_myGoals — $_oppGoals\n'
+                          '$winner',
+                    ),
+                  ),
+                  icon: const Icon(Icons.feed_rounded),
+                  label: const Text('Share result'),
+                ),
               ],
             ),
-          ),
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Icon(Icons.emoji_events_rounded, size: 56, color: s.primary),
-              const SizedBox(height: 16),
-              Text(
-                'Shootout over',
-                style: t.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'You $_myGoals  —  ${widget.opponentName} $_oppGoals',
-                style: t.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              Text(
-                winner,
-                style: t.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w900,
-                  color: s.primary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 28),
-              FilledButton.tonal(
-                onPressed: (widget.onPlayAgain == null && widget.online != null)
-                    ? null
-                    : _onPlayAgainPressed,
-                child: const Text('Play again'),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () => unawaited(
-                  showShareGameResultToFeedDialog(
-                    context,
-                    title: 'Share to home feed',
-                    initialBody:
-                        'Penalty shootout vs ${widget.opponentName}\n'
-                        'Final: $_myGoals — $_oppGoals\n'
-                        '$winner',
-                  ),
-                ),
-                icon: const Icon(Icons.feed_rounded),
-                label: const Text('Share result'),
-              ),
-            ],
           ),
         ),
       );
@@ -284,6 +337,49 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (widget.online == null) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Goal lanes',
+                      style: t.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: s.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  SegmentedButton<PenaltyAimLanes>(
+                    segments: const [
+                      ButtonSegment<PenaltyAimLanes>(
+                        value: PenaltyAimLanes.classic3,
+                        label: Text('3'),
+                        tooltip: 'Left · center · right',
+                      ),
+                      ButtonSegment<PenaltyAimLanes>(
+                        value: PenaltyAimLanes.wide5,
+                        label: Text('5'),
+                        tooltip: 'Far left through far right',
+                      ),
+                    ],
+                    emptySelectionAllowed: false,
+                    multiSelectionEnabled: false,
+                    showSelectedIcon: false,
+                    selected: {_aimLanes},
+                    onSelectionChanged: (Set<PenaltyAimLanes> next) {
+                      if (!mounted || _phase != PenaltyShootoutPhase.pick) {
+                        return;
+                      }
+                      if (next.isEmpty) return;
+                      setState(() => _aimLanes = next.first);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
           PenaltyShootoutHudBar(
             theme: t,
             scheme: s,
@@ -318,7 +414,7 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
                   dragging: _dragging,
                   bannerScale: _bannerScale,
                   resultLine: _lastResultLine,
-                  strikerPower: _strikerPower,
+                  aimLanes: _play.effectiveAimLanes,
                 ),
                 if (_phase == PenaltyShootoutPhase.reveal &&
                     _lastResultLine != null) ...[
@@ -373,18 +469,10 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
                   ],
                   if (!(widget.online != null &&
                       (_onlinePickSubmitting || _onlineWaitingForOpponent))) ...[
-                    if (_play.iAmStriker) ...[
-                      PenaltyShootoutPowerSlider(
-                        theme: t,
-                        scheme: s,
-                        power: _powerNorm,
-                        onChanged: (v) => setState(() => _powerNorm = v),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
                     PenaltyShootoutDragAimStrip(
                       theme: t,
                       scheme: s,
+                      aimLanes: _play.effectiveAimLanes,
                       dragNorm: _dragNorm,
                       dragging: _dragging,
                       isStriker: _play.iAmStriker,

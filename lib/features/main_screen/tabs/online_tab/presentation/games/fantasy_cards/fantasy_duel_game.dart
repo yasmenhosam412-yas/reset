@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/data/models/fantasy_duel_session_model.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/domain/repositories/online_repository.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/fantasy_cards/fantasy_card_catalog.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/game_match_outcome_fx.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/game_result_feed_share.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/fantasy_cards/fantasy_duel_online_config.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -68,9 +69,6 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
   int _oppMatchWins = 0;
   int _roundIndex = 1;
 
-  /// Offline only: one zone gets +1 for the away side ("crowd behind the ball").
-  int _crowdBoostLane = -1;
-
   /// Per-lane suit demand this fixture (same for both sides — from deck seed).
   List<FantasyCardSuit> _zoneSuits = FantasyCardDef.zoneCallsForLanes(1);
 
@@ -109,7 +107,6 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
   }
 
   void _dealOffline({bool notify = true}) {
-    _crowdBoostLane = _rng.nextInt(3);
     _zoneSuits = FantasyCardDef.zoneCallsForLanes(_deckSeed);
     _myHand = FantasyCardDef.dealHand(_deckSeed, 1);
     _oppHand = FantasyCardDef.dealHand(_deckSeed, 2);
@@ -121,12 +118,8 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
     return c.suit == _zoneSuits[lane] ? FantasyCardDef.kZoneSuitBonus : 0;
   }
 
-  int _effectiveLanePower(int lane, FantasyCardDef c, {required bool isOpponent}) {
-    var e = c.power + _zoneSuitBonus(lane, c);
-    if (isOpponent && !_online && _crowdBoostLane == lane) {
-      e += 1;
-    }
-    return e;
+  int _effectiveLanePower(int lane, FantasyCardDef c) {
+    return c.power + _zoneSuitBonus(lane, c);
   }
 
   Future<void> _bootstrapOnline() async {
@@ -136,7 +129,6 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
       if (!mounted || m == null) return;
       final both = m.bothSubmitted;
       setState(() {
-        _crowdBoostLane = -1;
         _applyMatchScoresFromModel(m);
         _roundIndex = m.roundNumber;
         _deckSeed = m.deckSeed;
@@ -343,7 +335,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
   }
 
   /// Exhaustive search over all 6·5·4 ordered starters — maximizes zones won
-  /// using **effective** power (suit + shirt + crowd), then total.
+  /// using **effective** power (suit + shirt), then total.
   List<int> _aiBestLineup(List<FantasyCardDef> aiHand, List<int> playerTrioIds) {
     final pcs = playerTrioIds.map((id) => FantasyCardDef.byId(id)!).toList();
     var best = <int>[aiHand[0].id, aiHand[1].id, aiHand[2].id];
@@ -356,8 +348,8 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
       for (var lane = 0; lane < _starters; lane++) {
         final ac = FantasyCardDef.byId(orderedIds[lane])!;
         final pc = pcs[lane];
-        final ae = _effectiveLanePower(lane, ac, isOpponent: true);
-        final pe = _effectiveLanePower(lane, pc, isOpponent: false);
+        final ae = _effectiveLanePower(lane, ac);
+        final pe = _effectiveLanePower(lane, pc);
         sum += ae;
         if (ae > pe) {
           z++;
@@ -392,8 +384,8 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
     for (var i = 0; i < _starters; i++) {
       final mc = FantasyCardDef.byId(a[i])!;
       final oc = FantasyCardDef.byId(b[i])!;
-      final fp = _effectiveLanePower(i, mc, isOpponent: false);
-      final tp = _effectiveLanePower(i, oc, isOpponent: true);
+      final fp = _effectiveLanePower(i, mc);
+      final tp = _effectiveLanePower(i, oc);
       ms += fp;
       os += tp;
       if (fp > tp) {
@@ -620,7 +612,37 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
     final scheme = widget.scheme;
     final theme = widget.theme;
 
-    return Column(
+    final matchOutcome = _phase == _DuelPhase.matchComplete
+        ? gameMatchOutcomeFromScores(
+            myScore: _myMatchWins,
+            oppScore: _oppMatchWins,
+          )
+        : null;
+
+    var duelSummaryIcon = Icons.military_tech_rounded;
+    var duelSummaryBg = scheme.tertiaryContainer.withValues(alpha: 0.65);
+    var duelSummaryFg = scheme.onTertiaryContainer;
+    if (_phase == _DuelPhase.matchComplete && matchOutcome != null) {
+      switch (matchOutcome) {
+        case GameMatchOutcome.win:
+          duelSummaryIcon = Icons.emoji_events_rounded;
+          duelSummaryBg = scheme.primaryContainer.withValues(alpha: 0.72);
+          duelSummaryFg = scheme.onPrimaryContainer;
+        case GameMatchOutcome.loss:
+          duelSummaryIcon = Icons.auto_fix_high_rounded;
+          duelSummaryBg = scheme.surfaceContainerHigh.withValues(alpha: 0.92);
+          duelSummaryFg = scheme.onSurface;
+        case GameMatchOutcome.draw:
+          duelSummaryIcon = Icons.handshake_rounded;
+          duelSummaryBg = scheme.tertiaryContainer.withValues(alpha: 0.62);
+          duelSummaryFg = scheme.onTertiaryContainer;
+      }
+    }
+
+    return GameMatchOutcomeLayer(
+      outcome: matchOutcome,
+      scheme: scheme,
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _matchdayHeader(theme, scheme),
@@ -727,17 +749,6 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
             ],
           ],
         ),
-        if (!_online && _phase == _DuelPhase.picking && _crowdBoostLane >= 0)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              'Away crowd fires up ${FantasyDuelGame.zoneLabels[_crowdBoostLane]} (+1 there for ${widget.opponentName}).',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ),
         if (_phase == _DuelPhase.waitingOnline)
           Padding(
             padding: const EdgeInsets.only(top: 16),
@@ -795,14 +806,28 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
           ),
           if (_duelSummaryLine != null) ...[
             const SizedBox(height: 12),
-            _resultBanner(
-              theme,
-              scheme,
-              icon: Icons.military_tech_rounded,
-              text: _duelSummaryLine!,
-              background: scheme.tertiaryContainer.withValues(alpha: 0.65),
-              foreground: scheme.onTertiaryContainer,
-              isLarge: true,
+            TweenAnimationBuilder<double>(
+              key: ValueKey<String>(
+                '${_phase.name}${_duelSummaryLine!}${matchOutcome?.name ?? ''}',
+              ),
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 520),
+              curve: Curves.easeOutCubic,
+              builder: (context, t, child) {
+                return Transform.scale(
+                  scale: 0.94 + 0.06 * t,
+                  child: Opacity(opacity: t.clamp(0.0, 1.0), child: child),
+                );
+              },
+              child: _resultBanner(
+                theme,
+                scheme,
+                icon: duelSummaryIcon,
+                text: _duelSummaryLine!,
+                background: duelSummaryBg,
+                foreground: duelSummaryFg,
+                isLarge: true,
+              ),
             ),
           ],
         ],
@@ -840,6 +865,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
           ),
         ],
       ],
+    ),
     );
   }
 
@@ -1307,13 +1333,6 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
               _ruleLine(
                 theme,
                 scheme,
-                '!',
-                'Away support: one random zone gives ${widget.opponentName} +1 there (offline).',
-              ),
-            if (!_online)
-              _ruleLine(
-                theme,
-                scheme,
                 '#',
                 'Offline duel: first to ${FantasyDuelGame.kRoundWinsNeeded} round wins; each round is a fresh hand and pitch.',
               ),
@@ -1693,8 +1712,8 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
         children: List.generate(_starters, (lane) {
           final mc = FantasyCardDef.byId(a[lane])!;
           final oc = FantasyCardDef.byId(b[lane])!;
-          final pe = _effectiveLanePower(lane, mc, isOpponent: false);
-          final tp = _effectiveLanePower(lane, oc, isOpponent: true);
+          final pe = _effectiveLanePower(lane, mc);
+          final tp = _effectiveLanePower(lane, oc);
           final mw = pe > tp;
           final ow = tp > pe;
           return Expanded(
@@ -1743,7 +1762,6 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
                         theme,
                         scheme,
                         mw ? scheme.primary : null,
-                        isOpponent: false,
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 6),
@@ -1769,7 +1787,6 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
                         theme,
                         scheme,
                         ow ? scheme.secondary : null,
-                        isOpponent: true,
                       ),
                     ],
                   ),
@@ -1787,20 +1804,15 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
     int lane,
     ThemeData theme,
     ColorScheme scheme,
-    Color? winBorder, {
-    required bool isOpponent,
-  }) {
+    Color? winBorder,
+  ) {
     final base = c.power;
     final suitB = _zoneSuitBonus(lane, c);
-    final crowd = isOpponent && !_online && _crowdBoostLane == lane ? 1 : 0;
-    final total = base + suitB + crowd;
+    final total = base + suitB;
 
     final parts = <String>[];
     if (suitB > 0) {
       parts.add('+${FantasyCardDef.kZoneSuitBonus} ${_zoneSuits[lane].fullName}');
-    }
-    if (crowd > 0) {
-      parts.add('+1 crowd');
     }
     final hasExtras = parts.isNotEmpty;
     final detail = hasExtras ? '$base ${parts.join(' ')} = $total' : null;

@@ -8,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:new_project/core/di/di.dart';
+import 'package:new_project/core/widgets/tab_loading_skeletons.dart';
 import 'package:new_project/core/routing/app_router.dart';
 import 'package:new_project/features/authentication/presentation/controller/auth_bloc.dart';
 import 'package:new_project/features/authentication/presentation/controller/auth_bloc_event.dart';
@@ -22,6 +23,9 @@ import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/w
 import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/widgets/profile_preferences_card.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/widgets/profile_section_sliver.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/widgets/profile_sign_out_button.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/presentation/navigation/open_author_posts_screen.dart';
+import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/pages/profile_friends_screen.dart';
+import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/pages/profile_online_challenges_screen.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/widgets/profile_stats_row.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -29,8 +33,7 @@ const _kAppVersion = '0.1.0';
 
 const _kPlayStoreListing =
     'https://play.google.com/store/apps/details?id=com.example.new_project';
-const _kAppStoreListing =
-    'https://apps.apple.com/app/id0000000000';
+const _kAppStoreListing = 'https://apps.apple.com/app/id0000000000';
 
 class ProfileTab extends StatefulWidget {
   const ProfileTab({super.key});
@@ -41,6 +44,7 @@ class ProfileTab extends StatefulWidget {
 
 class _ProfileTabState extends State<ProfileTab> {
   late final ProfileBloc _bloc;
+  final _authorPostsCommentController = TextEditingController();
 
   @override
   void initState() {
@@ -50,6 +54,7 @@ class _ProfileTabState extends State<ProfileTab> {
 
   @override
   void dispose() {
+    _authorPostsCommentController.dispose();
     _bloc.close();
     super.dispose();
   }
@@ -60,7 +65,9 @@ class _ProfileTabState extends State<ProfileTab> {
   }
 
   void _showSnack(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _onEditProfile(
@@ -161,6 +168,26 @@ class _ProfileTabState extends State<ProfileTab> {
             theme: theme,
             scheme: scheme,
             stats: dashboard.stats,
+            onPostsTap: () => openAuthorPostsScreen(
+                  context: context,
+                  authorId: dashboard.user.id,
+                  authorName: dashboard.user.username,
+                  commentController: _authorPostsCommentController,
+                ),
+            onFriendsTap: () {
+              Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => const ProfileFriendsScreen(),
+                ),
+              );
+            },
+            onChallengesTap: () {
+              Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => const ProfileOnlineChallengesScreen(),
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -199,12 +226,12 @@ class _ProfileTabState extends State<ProfileTab> {
       SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         sliver: SliverToBoxAdapter(
+          // Push off → clears FCM token + deletes device token (PushBootstrap).
           child: ProfilePreferencesCard(
             scheme: scheme,
             pushNotifications: dashboard.pushNotificationsEnabled,
             matchInvites: dashboard.acceptsMatchInvites,
-            onPushChanged: (v) =>
-                _bloc.add(ProfilePushNotificationsChanged(v)),
+            onPushChanged: (v) => _bloc.add(ProfilePushNotificationsChanged(v)),
             onMatchInvitesChanged: (v) =>
                 _bloc.add(ProfileMatchInvitesChanged(v)),
           ),
@@ -268,13 +295,15 @@ class _ProfileTabState extends State<ProfileTab> {
           if (ok != null) _showSnack(context, ok);
         },
         builder: (context, state) {
-          if (state.status == ProfileStatus.loading && state.dashboard == null) {
-            return const Scaffold(
-              body: SafeArea(child: Center(child: CircularProgressIndicator())),
+          if (state.status == ProfileStatus.loading &&
+              state.dashboard == null) {
+            return Scaffold(
+              body: SafeArea(child: TabLoadingSkeletons.profileTab(context)),
             );
           }
 
-          if (state.status == ProfileStatus.failure && state.dashboard == null) {
+          if (state.status == ProfileStatus.failure &&
+              state.dashboard == null) {
             return ProfileErrorView(
               message: state.errorMessage ?? 'Could not load profile',
               onRetry: () => _bloc.add(ProfileLoadRequested()),
@@ -363,9 +392,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
             children: [
               TextFormField(
                 controller: _nameCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Display name',
-                ),
+                decoration: const InputDecoration(labelText: 'Display name'),
                 textCapitalization: TextCapitalization.words,
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) {
@@ -375,10 +402,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                 },
               ),
               const SizedBox(height: 16),
-              Text(
-                _pickedLabel,
-                style: theme.textTheme.bodySmall,
-              ),
+              Text(_pickedLabel, style: theme.textTheme.bodySmall),
               const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: () async {

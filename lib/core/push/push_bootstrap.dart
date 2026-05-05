@@ -7,6 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/datasource/home_supabase_tables.dart';
 
 /// Registers FCM, syncs [profiles.fcm_token] when signed in, and listens for refresh.
+/// Honors [profiles.push_notifications_enabled]: when off, deletes the device token and
+/// clears [fcm_token] so the server queue cannot target this device.
 class PushBootstrap {
   PushBootstrap._();
 
@@ -30,7 +32,9 @@ class PushBootstrap {
     _tokenRefreshSub = FirebaseMessaging.instance.onTokenRefresh.listen(
       (t) {
         final uid = client.auth.currentUser?.id;
-        if (uid != null) unawaited(_writeToken(client, uid, t));
+        if (uid != null) {
+          unawaited(_onTokenRefresh(client, uid, t));
+        }
       },
     );
 
@@ -46,6 +50,19 @@ class PushBootstrap {
     _authSub = null;
   }
 
+  /// Call after [profiles.push_notifications_enabled] changes (e.g. Profile toggle).
+  static Future<void> syncPushPreferenceWithProfile(SupabaseClient client) async {
+    if (kIsWeb) return;
+    final uid = client.auth.currentUser?.id;
+    if (uid == null) return;
+    final enabled = await _readPushEnabled(client, uid);
+    if (!enabled) {
+      await _optOutDeviceAndClearRow(client, uid);
+      return;
+    }
+    await _syncTokenForUser(client, uid);
+  }
+
   static Future<void> _syncTokenForUser(
     SupabaseClient client,
     String? uid,
@@ -56,6 +73,12 @@ class PushBootstrap {
       );
       return;
     }
+    final enabled = await _readPushEnabled(client, uid);
+    if (!enabled) {
+      await _optOutDeviceAndClearRow(client, uid);
+      return;
+    }
+
     final token = await FirebaseMessaging.instance.getToken();
     if (token == null || token.isEmpty) {
       debugPrint(
@@ -68,6 +91,63 @@ class PushBootstrap {
     await _writeToken(client, uid, token);
   }
 
+  static Future<void> _onTokenRefresh(
+    SupabaseClient client,
+    String uid,
+    String newToken,
+  ) async {
+    final enabled = await _readPushEnabled(client, uid);
+    if (!enabled) {
+      await _optOutDeviceAndClearRow(client, uid);
+      return;
+    }
+    await _writeToken(client, uid, newToken);
+  }
+
+  static Future<bool> _readPushEnabled(
+    SupabaseClient client,
+    String uid,
+  ) async {
+    try {
+      final row = await client
+          .from(HomeTable.profiles)
+          .select(ProfileCols.pushNotificationsEnabled)
+          .eq(ProfileCols.id, uid)
+          .maybeSingle();
+      if (row == null) return true;
+      final v = row[ProfileCols.pushNotificationsEnabled];
+      if (v is bool) return v;
+      if (v is num) return v != 0;
+      if (v is String) {
+        final s = v.toLowerCase();
+        if (s == 'false' || s == 'f' || s == '0') return false;
+      }
+      return true;
+    } catch (e, st) {
+      debugPrint('PushBootstrap: read push flag failed: $e\n$st');
+      return true;
+    }
+  }
+
+  static Future<void> _optOutDeviceAndClearRow(
+    SupabaseClient client,
+    String uid,
+  ) async {
+    try {
+      await FirebaseMessaging.instance.deleteToken();
+    } catch (e, st) {
+      debugPrint('PushBootstrap: deleteToken: $e\n$st');
+    }
+    try {
+      await client.from(HomeTable.profiles).update({
+        ProfileCols.fcmToken: null,
+      }).eq(ProfileCols.id, uid);
+      debugPrint('PushBootstrap: cleared fcm_token (push disabled) for $uid');
+    } catch (e, st) {
+      debugPrint('PushBootstrap: failed to clear fcm_token: $e\n$st');
+    }
+  }
+
   static Future<void> _writeToken(
     SupabaseClient client,
     String uid,
@@ -75,7 +155,7 @@ class PushBootstrap {
   ) async {
     try {
       await client.from(HomeTable.profiles).update({
-        'fcm_token': token,
+        ProfileCols.fcmToken: token,
       }).eq(ProfileCols.id, uid);
       debugPrint('PushBootstrap: saved fcm_token for user $uid');
     } catch (e, st) {

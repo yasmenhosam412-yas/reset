@@ -1,8 +1,8 @@
 import 'package:new_project/features/main_screen/tabs/online_tab/domain/repositories/online_repository.dart';
 
-/// Supabase-backed rim shot session for [challengeId] (`from` / `to` users).
-class RimShotOnlineConfig {
-  const RimShotOnlineConfig({
+/// Supabase session for game ID 2 (`rps_sessions`).
+class RpsDuelOnlineConfig {
+  const RpsDuelOnlineConfig({
     required this.challengeId,
     required this.fromUserId,
     required this.toUserId,

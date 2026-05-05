@@ -1,4 +1,5 @@
 import 'package:get_it/get_it.dart';
+import 'package:new_project/core/navigation/main_shell_controller.dart';
 import 'package:new_project/features/authentication/data/datasource/remote/auth_remote_datasource.dart';
 import 'package:new_project/features/authentication/data/datasource/remote/auth_remote_datasource_impl.dart';
 import 'package:new_project/features/authentication/data/repositories/auth_repository_impl.dart';
@@ -13,11 +14,14 @@ import 'package:new_project/features/main_screen/tabs/home_tab/data/repositories
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_comment_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_post_like_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_post_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/delete_home_post_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_home_accepted_friend_ids_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_home_posts_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_my_user_notifications_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/send_home_challenge_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/send_home_friend_request_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
+import 'package:new_project/features/main_screen/tabs/team_tab/data/global_battles_repository.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/domain/usecases/claim_team_daily_challenge_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/domain/usecases/claim_team_academy_scrim_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/domain/usecases/claim_team_squad_spar_usecase.dart';
@@ -45,6 +49,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 final getIt = GetIt.instance;
 
 void configureDependencies() {
+  getIt.registerLazySingleton<MainShellController>(MainShellController.new);
+
   getIt.registerLazySingleton<SupabaseClient>(() => Supabase.instance.client);
 
   //------------------AUTH------------------------------------
@@ -95,6 +101,12 @@ void configureDependencies() {
     () => GetHomePostsUsecase(homeRepository: getIt<HomeRepositoryImpl>()),
   );
 
+  getIt.registerLazySingleton<GetMyUserNotificationsUsecase>(
+    () => GetMyUserNotificationsUsecase(
+      homeRepository: getIt<HomeRepositoryImpl>(),
+    ),
+  );
+
   getIt.registerLazySingleton<GetHomeAcceptedFriendIdsUsecase>(
     () => GetHomeAcceptedFriendIdsUsecase(
       homeRepository: getIt<HomeRepositoryImpl>(),
@@ -103,6 +115,10 @@ void configureDependencies() {
 
   getIt.registerLazySingleton<AddHomePostUsecase>(
     () => AddHomePostUsecase(homeRepository: getIt<HomeRepositoryImpl>()),
+  );
+
+  getIt.registerLazySingleton<DeleteHomePostUsecase>(
+    () => DeleteHomePostUsecase(homeRepository: getIt<HomeRepositoryImpl>()),
   );
 
   getIt.registerLazySingleton<AddHomeCommentUsecase>(
@@ -171,11 +187,16 @@ void configureDependencies() {
     ),
   );
 
+  getIt.registerLazySingleton<GlobalBattlesRepository>(
+    () => GlobalBattlesRepository(client: getIt<SupabaseClient>()),
+  );
+
   getIt.registerFactory(
     () => HomeBloc(
       getHomePostsUsecase: getIt(),
       getHomeAcceptedFriendIdsUsecase: getIt(),
       addHomePostUsecase: getIt(),
+      deleteHomePostUsecase: getIt(),
       addHomeCommentUsecase: getIt(),
       addHomePostLikeUsecase: getIt(),
       sendHomeFriendRequestUsecase: getIt(),

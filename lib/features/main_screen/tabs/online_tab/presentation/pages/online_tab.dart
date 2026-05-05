@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:new_project/core/widgets/tab_loading_skeletons.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:new_project/core/routing/app_router.dart';
@@ -9,7 +10,7 @@ import 'package:new_project/features/main_screen/tabs/online_tab/presentation/ga
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_titles.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/penalty_shootout/penalty_shootout_game_screen.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/fantasy_cards/fantasy_duel_game.dart';
-import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/rim_shot/rim_shot_game.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/rps_duel/rps_duel_game.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/dialogs/send_online_challenge_dialog.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/bloc/online_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/bloc/online_event.dart';
@@ -67,16 +68,18 @@ List<ChallengeRequestModel> _onlineAcceptedLobbyChallenges(
   AcceptedMatchPreview? pendingLobby,
 ) {
   if (uid == null) return const [];
-  return challenges.where((c) {
-    final cid = c.id?.trim();
-    if (cid == null || cid.isEmpty) return false;
-    if (c.status.toLowerCase() != 'accepted') return false;
-    if (c.fromId != uid && c.toId != uid) return false;
-    if (pendingLobby != null && pendingLobby.challengeId == cid) {
-      return false;
-    }
-    return true;
-  }).toList(growable: false);
+  return challenges
+      .where((c) {
+        final cid = c.id?.trim();
+        if (cid == null || cid.isEmpty) return false;
+        if (c.status.toLowerCase() != 'accepted') return false;
+        if (c.fromId != uid && c.toId != uid) return false;
+        if (pendingLobby != null && pendingLobby.challengeId == cid) {
+          return false;
+        }
+        return true;
+      })
+      .toList(growable: false);
 }
 
 void _showAcceptedMatchLobbyDialog(
@@ -119,8 +122,7 @@ void _showAcceptedMatchLobbyDialog(
                     radius: 26,
                     backgroundColor: _onlineAvatarColor(name),
                     foregroundColor: Colors.white,
-                    backgroundImage:
-                        hasAvatar ? NetworkImage(avatarUrl) : null,
+                    backgroundImage: hasAvatar ? NetworkImage(avatarUrl) : null,
                     child: hasAvatar
                         ? null
                         : Text(
@@ -163,9 +165,7 @@ void _showAcceptedMatchLobbyDialog(
           FilledButton(
             onPressed: () {
               bloc.add(
-                OnlineChallengeReadyRequested(
-                  challengeId: preview.challengeId,
-                ),
+                OnlineChallengeReadyRequested(challengeId: preview.challengeId),
               );
               Navigator.pop(dialogContext);
             },
@@ -252,11 +252,7 @@ void _openGameVsAi(BuildContext context, _GameItem g) {
                   ),
                 ),
                 const SizedBox(height: 24),
-                RimShotGame(
-                  scheme: scheme,
-                  theme: theme,
-                  opponentName: 'AI',
-                ),
+                RpsDuelGame(scheme: scheme, theme: theme, opponentName: 'AI'),
               ],
             ),
           ),
@@ -306,6 +302,120 @@ void _openGameVsAi(BuildContext context, _GameItem g) {
   }
 }
 
+class _OnlineGameCard extends StatelessWidget {
+  const _OnlineGameCard({
+    required this.game,
+    required this.scheme,
+    required this.theme,
+    required this.compact,
+    required this.onTap,
+  });
+
+  final _GameItem game;
+  final ColorScheme scheme;
+  final ThemeData theme;
+  final bool compact;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.all(compact ? 12 : 14),
+          child: compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Align(
+                      alignment: Alignment.center,
+                      child: CircleAvatar(
+                        radius: 22,
+                        backgroundColor: scheme.primaryContainer,
+                        foregroundColor: scheme.onPrimaryContainer,
+                        child: Icon(game.icon, size: 24),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      game.title,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        height: 1.15,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      game.subtitle,
+                      textAlign: TextAlign.center,
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        height: 1.3,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.play_circle_fill_rounded,
+                        color: scheme.primary,
+                        size: 32,
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    CircleAvatar(
+                      radius: 26,
+                      backgroundColor: scheme.primaryContainer,
+                      foregroundColor: scheme.onPrimaryContainer,
+                      child: Icon(game.icon),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            game.title,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            game.subtitle,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.play_circle_fill_rounded,
+                      color: scheme.primary,
+                      size: 36,
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
+
 class OnlineTab extends StatelessWidget {
   const OnlineTab({super.key});
 
@@ -327,10 +437,10 @@ class _OnlineTabView extends StatelessWidget {
     ),
     _GameItem(
       gameId: 2,
-      title: 'Rim shot',
+      title: 'Rock paper scissors',
       subtitle:
-          'Free throws — tight power window, wing pads, first to ${RimShotGame.winningScore}',
-      icon: Icons.sports_basketball_rounded,
+          'Same-time throws — first to ${RpsDuelGame.roundWinsToFinish} rounds wins',
+      icon: Icons.balance_rounded,
     ),
     _GameItem(
       gameId: 3,
@@ -415,8 +525,8 @@ class _OnlineTabView extends StatelessWidget {
                   .toList(growable: false);
 
         if (loading && empty) {
-          return const Scaffold(
-            body: SafeArea(child: Center(child: CircularProgressIndicator())),
+          return Scaffold(
+            body: SafeArea(child: TabLoadingSkeletons.onlineTab(context)),
           );
         }
 
@@ -464,57 +574,6 @@ class _OnlineTabView extends StatelessWidget {
                         'Online',
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    sliver: SliverToBoxAdapter(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: scheme.primaryContainer.withValues(alpha: 0.35),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: scheme.outline.withValues(alpha: 0.12),
-                          ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                Icons.workspace_premium_outlined,
-                                color: scheme.primary,
-                                size: 22,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Win a challenge, earn 10 skill points',
-                                      style: theme.textTheme.titleSmall?.copyWith(
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'When you finish an online match ahead on the scoreboard, '
-                                      'your Team tab balance gets +10 points. Ties award nothing here. '
-                                      'Losers are not penalized.',
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: scheme.onSurfaceVariant,
-                                        height: 1.35,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
                       ),
                     ),
@@ -916,10 +975,8 @@ class _OnlineTabView extends StatelessWidget {
                             );
                             final gameTitle = onlineGameTitle(c.gameId);
                             final meFrom = c.fromId == uid;
-                            final iAmReady =
-                                meFrom ? c.fromReady : c.toReady;
-                            final theyReady =
-                                meFrom ? c.toReady : c.fromReady;
+                            final iAmReady = meFrom ? c.fromReady : c.toReady;
+                            final theyReady = meFrom ? c.toReady : c.fromReady;
                             final bothReady = c.fromReady && c.toReady;
                             return Card(
                               margin: EdgeInsets.zero,
@@ -931,24 +988,23 @@ class _OnlineTabView extends StatelessWidget {
                                   12,
                                 ),
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       opp,
                                       style: theme.textTheme.titleSmall
                                           ?.copyWith(
-                                        fontWeight: FontWeight.w700,
-                                      ),
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       gameTitle,
                                       style: theme.textTheme.bodyMedium
                                           ?.copyWith(
-                                        color: scheme.primary,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                            color: scheme.primary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                     ),
                                     const SizedBox(height: 10),
                                     Text(
@@ -958,23 +1014,22 @@ class _OnlineTabView extends StatelessWidget {
                                                 'Them: ${theyReady ? 'Ready' : 'Waiting'}',
                                       style: theme.textTheme.bodySmall
                                           ?.copyWith(
-                                        color: scheme.onSurfaceVariant,
-                                      ),
+                                            color: scheme.onSurfaceVariant,
+                                          ),
                                     ),
                                     if (!bothReady) ...[
                                       const SizedBox(height: 12),
                                       SizedBox(
                                         width: double.infinity,
                                         child: FilledButton(
-                                          onPressed: !iAmReady &&
-                                                  c.id != null
+                                          onPressed: !iAmReady && c.id != null
                                               ? () => context
-                                                  .read<OnlineBloc>()
-                                                  .add(
-                                                    OnlineChallengeReadyRequested(
-                                                      challengeId: c.id!,
-                                                    ),
-                                                  )
+                                                    .read<OnlineBloc>()
+                                                    .add(
+                                                      OnlineChallengeReadyRequested(
+                                                        challengeId: c.id!,
+                                                      ),
+                                                    )
                                               : null,
                                           child: Text(
                                             iAmReady
@@ -1006,45 +1061,50 @@ class _OnlineTabView extends StatelessWidget {
                   ),
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-                    sliver: SliverList.separated(
-                      itemCount: _games.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final g = _games[index];
-                        return Card(
-                          margin: EdgeInsets.zero,
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            leading: CircleAvatar(
-                              backgroundColor: scheme.primaryContainer,
-                              foregroundColor: scheme.onPrimaryContainer,
-                              child: Icon(g.icon),
-                            ),
-                            title: Text(
-                              g.title,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            subtitle: Text(
-                              g.subtitle,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                              ),
-                            ),
-                            trailing: Icon(
-                              Icons.play_circle_fill_rounded,
-                              color: scheme.primary,
-                              size: 36,
-                            ),
-                            onTap: () => _openGameVsAi(context, g),
-                          ),
-                        );
-                      },
+                    sliver: SliverToBoxAdapter(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final orientation = MediaQuery.orientationOf(context);
+                          // Row of three when there is enough width, or in landscape on typical phones.
+                          final wide =
+                              constraints.maxWidth >= 560 ||
+                              (orientation == Orientation.landscape &&
+                                  constraints.maxWidth >= 480);
+                          final cards = _games
+                              .map(
+                                (g) => _OnlineGameCard(
+                                  game: g,
+                                  scheme: scheme,
+                                  theme: theme,
+                                  compact: wide,
+                                  onTap: () => _openGameVsAi(context, g),
+                                ),
+                              )
+                              .toList(growable: false);
+                          if (wide) {
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(child: cards[0]),
+                                const SizedBox(width: 10),
+                                Expanded(child: cards[1]),
+                                const SizedBox(width: 10),
+                                Expanded(child: cards[2]),
+                              ],
+                            );
+                          }
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              cards[0],
+                              const SizedBox(height: 10),
+                              cards[1],
+                              const SizedBox(height: 10),
+                              cards[2],
+                            ],
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ],

@@ -6,7 +6,7 @@ import 'package:new_project/features/main_screen/tabs/online_tab/data/models/cha
 import 'package:new_project/features/main_screen/tabs/online_tab/data/models/game_challenge_sides_model.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/data/models/penalty_shootout_online_models.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/data/models/fantasy_duel_session_model.dart';
-import 'package:new_project/features/main_screen/tabs/online_tab/data/models/rim_shot_session_model.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/data/models/rps_session_model.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/domain/repositories/online_repository.dart';
 
 class OnlineRepositoryImpl implements OnlineRepository {
@@ -99,7 +99,6 @@ class OnlineRepositoryImpl implements OnlineRepository {
     required int roundIndex,
     required String pickKind,
     required int direction,
-    double? power,
   }) async {
     try {
       await onlineDatasourse.upsertPenaltyRoundPick(
@@ -107,7 +106,6 @@ class OnlineRepositoryImpl implements OnlineRepository {
         roundIndex: roundIndex,
         pickKind: pickKind,
         direction: direction,
-        power: power,
       );
       return const Right(null);
     } catch (e) {
@@ -190,11 +188,11 @@ class OnlineRepositoryImpl implements OnlineRepository {
   }
 
   @override
-  Future<Either<Failure, void>> ensureRimShotSession({
+  Future<Either<Failure, void>> ensureRpsSession({
     required String challengeId,
   }) async {
     try {
-      await onlineDatasourse.ensureRimShotSession(challengeId: challengeId);
+      await onlineDatasourse.ensureRpsSession(challengeId: challengeId);
       return const Right(null);
     } catch (e) {
       return Left(failureFromException(e));
@@ -202,11 +200,11 @@ class OnlineRepositoryImpl implements OnlineRepository {
   }
 
   @override
-  Future<Either<Failure, RimShotSessionModel?>> fetchRimShotSession({
+  Future<Either<Failure, RpsSessionModel?>> fetchRpsSession({
     required String challengeId,
   }) async {
     try {
-      final row = await onlineDatasourse.fetchRimShotSession(
+      final row = await onlineDatasourse.fetchRpsSession(
         challengeId: challengeId,
       );
       return Right(row);
@@ -216,43 +214,29 @@ class OnlineRepositoryImpl implements OnlineRepository {
   }
 
   @override
-  Future<Either<Failure, RimShotSessionModel?>> tryApplyRimShotTurn({
+  Future<Either<Failure, RpsPickSubmitResponse>> submitRpsPick({
     required String challengeId,
-    required String expectedTurn,
-    required double power,
-    required double aim,
-    required bool made,
-    required int nextScoreFrom,
-    required int nextScoreTo,
-    required String nextTurn,
-    required String status,
-    required int nextRoundSeq,
+    required bool asFrom,
+    required String pick,
   }) async {
     try {
-      final row = await onlineDatasourse.tryApplyRimShotTurn(
+      final res = await onlineDatasourse.submitRpsPick(
         challengeId: challengeId,
-        expectedTurn: expectedTurn,
-        power: power,
-        aim: aim,
-        made: made,
-        nextScoreFrom: nextScoreFrom,
-        nextScoreTo: nextScoreTo,
-        nextTurn: nextTurn,
-        status: status,
-        nextRoundSeq: nextRoundSeq,
+        asFrom: asFrom,
+        pick: pick,
       );
-      return Right(row);
+      return Right(res);
     } catch (e) {
       return Left(failureFromException(e));
     }
   }
 
   @override
-  Future<Either<Failure, void>> resetRimShotMatch({
+  Future<Either<Failure, void>> resetRpsMatch({
     required String challengeId,
   }) async {
     try {
-      await onlineDatasourse.resetRimShotMatch(challengeId: challengeId);
+      await onlineDatasourse.resetRpsMatch(challengeId: challengeId);
       return const Right(null);
     } catch (e) {
       return Left(failureFromException(e));

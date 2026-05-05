@@ -5,7 +5,7 @@ import 'package:new_project/features/main_screen/tabs/online_tab/data/models/cha
 import 'package:new_project/features/main_screen/tabs/online_tab/data/models/game_challenge_sides_model.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/data/models/penalty_shootout_online_models.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/data/models/fantasy_duel_session_model.dart';
-import 'package:new_project/features/main_screen/tabs/online_tab/data/models/rim_shot_session_model.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/data/models/rps_session_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class OnlineDatasourseImpl implements OnlineDatasourse {
@@ -68,7 +68,142 @@ class OnlineDatasourseImpl implements OnlineDatasourse {
           .toList(growable: false);
     }
 
+    challenges = await _mergeChallengeWinnerUserIds(challenges);
+    challenges = await _applyFinishedSessionStatusOverrides(challenges);
     return challenges;
+  }
+
+  static DateTime? _parseIsoTimestamptz(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is DateTime) return raw;
+    if (raw is String) return DateTime.tryParse(raw);
+    return null;
+  }
+
+  /// RPS / fantasy used to leave `game_challenges.status` as `accepted` after
+  /// the session finished. Profile and history expect `completed` + timestamps.
+  Future<List<ChallengeRequestModel>> _applyFinishedSessionStatusOverrides(
+    List<ChallengeRequestModel> challenges,
+  ) async {
+    final rpsIds = <String>[];
+    final fantasyIds = <String>[];
+    for (final c in challenges) {
+      if (c.status.toLowerCase() != 'accepted') continue;
+      final id = c.id?.trim();
+      if (id == null || id.isEmpty) continue;
+      if (c.gameId == 2) rpsIds.add(id);
+      if (c.gameId == 3) fantasyIds.add(id);
+    }
+
+    final completedAtByChallenge = <String, DateTime>{};
+
+    if (rpsIds.isNotEmpty) {
+      final response = await supabaseClient
+          .from(HomeTable.rpsSessions)
+          .select(
+            '${RpsSessionCols.challengeId}, ${RpsSessionCols.status}, '
+            '${RpsSessionCols.updatedAt}',
+          )
+          .inFilter(RpsSessionCols.challengeId, rpsIds);
+      for (final e in response as List<dynamic>) {
+        final m = Map<String, dynamic>.from(e as Map);
+        if ((m[RpsSessionCols.status]?.toString() ?? '').toLowerCase() !=
+            'done') {
+          continue;
+        }
+        final cid = m[RpsSessionCols.challengeId]?.toString().trim() ?? '';
+        if (cid.isEmpty) continue;
+        final at = _parseIsoTimestamptz(m[RpsSessionCols.updatedAt]) ??
+            DateTime.now().toUtc();
+        completedAtByChallenge[cid] = at;
+      }
+    }
+
+    if (fantasyIds.isNotEmpty) {
+      final response = await supabaseClient
+          .from(HomeTable.fantasyDuelSessions)
+          .select(
+            '${FantasyDuelSessionCols.challengeId}, '
+            '${FantasyDuelSessionCols.matchComplete}, '
+            '${FantasyDuelSessionCols.updatedAt}',
+          )
+          .inFilter(FantasyDuelSessionCols.challengeId, fantasyIds);
+      for (final e in response as List<dynamic>) {
+        final m = Map<String, dynamic>.from(e as Map);
+        final rawComplete = m[FantasyDuelSessionCols.matchComplete];
+        final complete = rawComplete is bool
+            ? rawComplete
+            : rawComplete is num && rawComplete != 0;
+        if (!complete) continue;
+        final cid =
+            m[FantasyDuelSessionCols.challengeId]?.toString().trim() ?? '';
+        if (cid.isEmpty) continue;
+        final at = _parseIsoTimestamptz(
+              m[FantasyDuelSessionCols.updatedAt],
+            ) ??
+            DateTime.now().toUtc();
+        completedAtByChallenge[cid] = at;
+      }
+    }
+
+    if (completedAtByChallenge.isEmpty) return challenges;
+
+    return challenges
+        .map((c) {
+          final id = c.id?.trim();
+          if (id == null || id.isEmpty) return c;
+          final at = completedAtByChallenge[id];
+          if (at == null) return c;
+          if (c.status.toLowerCase() != 'accepted') return c;
+          return c.copyWith(
+            status: 'completed',
+            completedAt: c.completedAt ?? at,
+          );
+        })
+        .toList(growable: false);
+  }
+
+  /// Loads [online_challenge_skill_rewards] in one round-trip (embedded selects
+  /// can break or omit data depending on PostgREST / RLS).
+  Future<List<ChallengeRequestModel>> _mergeChallengeWinnerUserIds(
+    List<ChallengeRequestModel> challenges,
+  ) async {
+    final ids = <String>[];
+    for (final c in challenges) {
+      final id = c.id?.trim();
+      if (id != null && id.isNotEmpty) ids.add(id);
+    }
+    if (ids.isEmpty) return challenges;
+
+    final response = await supabaseClient
+        .from(HomeTable.onlineChallengeSkillRewards)
+        .select(
+          '${OnlineChallengeSkillRewardCols.challengeId}, '
+          '${OnlineChallengeSkillRewardCols.winnerUserId}',
+        )
+        .inFilter(OnlineChallengeSkillRewardCols.challengeId, ids);
+
+    final winnerByChallenge = <String, String>{};
+    for (final e in response as List<dynamic>) {
+      final m = Map<String, dynamic>.from(e as Map);
+      final cid =
+          m[OnlineChallengeSkillRewardCols.challengeId]?.toString().trim() ??
+              '';
+      final w =
+          m[OnlineChallengeSkillRewardCols.winnerUserId]?.toString().trim() ??
+              '';
+      if (cid.isNotEmpty && w.isNotEmpty) winnerByChallenge[cid] = w;
+    }
+
+    return challenges
+        .map((c) {
+          final id = c.id?.trim();
+          if (id == null || id.isEmpty) return c;
+          final w = winnerByChallenge[id];
+          if (w == null || w.isEmpty) return c;
+          return c.copyWith(winnerUserId: w);
+        })
+        .toList(growable: false);
   }
 
   @override
@@ -245,7 +380,7 @@ class OnlineDatasourseImpl implements OnlineDatasourse {
   Future<void> ensurePenaltyShootoutSession({
     required String challengeId,
   }) async {
-    final id = challengeId.trim();
+    final id = challengeId.trim().toLowerCase();
     if (id.isEmpty) {
       throw ArgumentError.value(challengeId, 'challengeId', 'must not be empty');
     }
@@ -259,7 +394,7 @@ class OnlineDatasourseImpl implements OnlineDatasourse {
   Future<PenaltyShootoutSessionModel?> fetchPenaltyShootoutSession({
     required String challengeId,
   }) async {
-    final id = challengeId.trim();
+    final id = challengeId.trim().toLowerCase();
     if (id.isEmpty) return null;
 
     final row = await supabaseClient
@@ -280,13 +415,12 @@ class OnlineDatasourseImpl implements OnlineDatasourse {
     required int roundIndex,
     required String pickKind,
     required int direction,
-    double? power,
   }) async {
     final uid = supabaseClient.auth.currentUser?.id;
     if (uid == null) {
       throw StateError('Cannot submit pick while signed out.');
     }
-    final id = challengeId.trim();
+    final id = challengeId.trim().toLowerCase();
     if (id.isEmpty) {
       throw ArgumentError.value(challengeId, 'challengeId', 'must not be empty');
     }
@@ -297,7 +431,7 @@ class OnlineDatasourseImpl implements OnlineDatasourse {
       PenaltyPickCols.userId: uid,
       PenaltyPickCols.pickKind: pickKind,
       PenaltyPickCols.direction: direction,
-      PenaltyPickCols.power: power,
+      PenaltyPickCols.power: null,
     };
 
     await supabaseClient.from(HomeTable.penaltyRoundPicks).upsert(
@@ -311,7 +445,7 @@ class OnlineDatasourseImpl implements OnlineDatasourse {
     required String challengeId,
     required int roundIndex,
   }) async {
-    final id = challengeId.trim();
+    final id = challengeId.trim().toLowerCase();
     if (id.isEmpty) return const [];
 
     final response = await supabaseClient
@@ -337,7 +471,7 @@ class OnlineDatasourseImpl implements OnlineDatasourse {
     required int fromGoalsDelta,
     required int toGoalsDelta,
   }) async {
-    final id = challengeId.trim();
+    final id = challengeId.trim().toLowerCase();
     if (id.isEmpty) {
       throw ArgumentError.value(challengeId, 'challengeId', 'must not be empty');
     }
@@ -381,7 +515,7 @@ class OnlineDatasourseImpl implements OnlineDatasourse {
 
   @override
   Future<void> finishPenaltyMatchCleanup({required String challengeId}) async {
-    final id = challengeId.trim();
+    final id = challengeId.trim().toLowerCase();
     if (id.isEmpty) {
       throw ArgumentError.value(challengeId, 'challengeId', 'must not be empty');
     }
@@ -404,88 +538,70 @@ class OnlineDatasourseImpl implements OnlineDatasourse {
   }
 
   @override
-  Future<void> ensureRimShotSession({required String challengeId}) async {
+  Future<void> ensureRpsSession({required String challengeId}) async {
     final id = challengeId.trim();
     if (id.isEmpty) {
       throw ArgumentError.value(challengeId, 'challengeId', 'must not be empty');
     }
     await supabaseClient.rpc<void>(
-      'ensure_rim_shot_session',
+      'ensure_rps_session',
       params: {'p_challenge_id': id},
     );
   }
 
   @override
-  Future<RimShotSessionModel?> fetchRimShotSession({
+  Future<RpsSessionModel?> fetchRpsSession({
     required String challengeId,
   }) async {
     final id = challengeId.trim();
     if (id.isEmpty) return null;
 
     final row = await supabaseClient
-        .from(HomeTable.rimShotSessions)
+        .from(HomeTable.rpsSessions)
         .select()
-        .eq(RimShotSessionCols.challengeId, id)
+        .eq(RpsSessionCols.challengeId, id)
         .maybeSingle();
 
     if (row == null) return null;
-    return RimShotSessionModel.fromJson(
+    return RpsSessionModel.fromJson(
       Map<String, dynamic>.from(row as Map),
     );
   }
 
   @override
-  Future<RimShotSessionModel?> tryApplyRimShotTurn({
+  Future<RpsPickSubmitResponse> submitRpsPick({
     required String challengeId,
-    required String expectedTurn,
-    required double power,
-    required double aim,
-    required bool made,
-    required int nextScoreFrom,
-    required int nextScoreTo,
-    required String nextTurn,
-    required String status,
-    required int nextRoundSeq,
+    required bool asFrom,
+    required String pick,
   }) async {
     final id = challengeId.trim();
     if (id.isEmpty) {
       throw ArgumentError.value(challengeId, 'challengeId', 'must not be empty');
     }
-
-    final payload = <String, dynamic>{
-      RimShotSessionCols.scoreFrom: nextScoreFrom,
-      RimShotSessionCols.scoreTo: nextScoreTo,
-      RimShotSessionCols.whoseTurn: nextTurn,
-      RimShotSessionCols.roundSeq: nextRoundSeq,
-      RimShotSessionCols.lastPower: power,
-      RimShotSessionCols.lastAim: aim,
-      RimShotSessionCols.lastMade: made,
-      RimShotSessionCols.status: status,
-      RimShotSessionCols.updatedAt: DateTime.now().toUtc().toIso8601String(),
-    };
-
-    final row = await supabaseClient
-        .from(HomeTable.rimShotSessions)
-        .update(payload)
-        .eq(RimShotSessionCols.challengeId, id)
-        .eq(RimShotSessionCols.whoseTurn, expectedTurn)
-        .select()
-        .maybeSingle();
-
-    if (row == null) return null;
-    return RimShotSessionModel.fromJson(
-      Map<String, dynamic>.from(row as Map),
+    final raw = await supabaseClient.rpc<dynamic>(
+      'submit_rps_pick',
+      params: {
+        'p_challenge_id': id,
+        'p_as_from': asFrom,
+        'p_pick': pick,
+      },
+    );
+    if (raw is! Map) {
+      throw StateError('submit_rps_pick: expected map, got $raw');
+    }
+    return RpsPickSubmitResponse.fromJson(
+      Map<String, dynamic>.from(raw),
     );
   }
 
   @override
-  Future<void> resetRimShotMatch({required String challengeId}) async {
+  Future<void> resetRpsMatch({required String challengeId}) async {
     final id = challengeId.trim();
     if (id.isEmpty) {
       throw ArgumentError.value(challengeId, 'challengeId', 'must not be empty');
     }
     await supabaseClient.rpc<void>(
-      'reset_rim_shot_match',
+      'reset_rps_match',
       params: {'p_challenge_id': id},
     );
   }

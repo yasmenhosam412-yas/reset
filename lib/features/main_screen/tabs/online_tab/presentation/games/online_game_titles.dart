@@ -3,7 +3,7 @@ String onlineGameTitle(int gameId) {
     case 1:
       return 'Penalty shootout';
     case 2:
-      return 'Rim shot';
+      return 'Rock paper scissors';
     case 3:
       return 'Fantasy cards';
     default:

@@ -517,7 +517,7 @@ class _TeamBattleActivitiesCardState extends State<TeamBattleActivitiesCard> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Penalty, rim shot, fantasy cards — head-to-head matches. '
+                          'Penalty, rock–paper–scissors, fantasy cards — head-to-head matches. '
                           'Random roster stat swings apply in friend spar above; live games fuel your daily "Match-day rhythm" claim.',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,

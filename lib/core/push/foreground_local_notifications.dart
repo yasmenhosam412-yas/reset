@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/datasource/home_supabase_tables.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// FCM does not show a system notification on Android while the app is in the
 /// foreground. This uses [flutter_local_notifications] to mirror server pushes
@@ -15,6 +17,9 @@ abstract final class ForegroundPushNotifications {
 
   static final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
+
+  /// Shared by other features (e.g. scheduled digests) after [register].
+  static FlutterLocalNotificationsPlugin get plugin => _plugin;
 
   static bool _registered = false;
 
@@ -56,7 +61,29 @@ abstract final class ForegroundPushNotifications {
     return DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
   }
 
+  static Future<bool> _profileAllowsPushMirror() async {
+    try {
+      final uid = Supabase.instance.client.auth.currentUser?.id;
+      if (uid == null) return false;
+      final row = await Supabase.instance.client
+          .from(HomeTable.profiles)
+          .select(ProfileCols.pushNotificationsEnabled)
+          .eq(ProfileCols.id, uid)
+          .maybeSingle();
+      if (row == null) return true;
+      final v = row[ProfileCols.pushNotificationsEnabled];
+      if (v is bool) return v;
+      if (v is num) return v != 0;
+      return true;
+    } catch (_) {
+      return true;
+    }
+  }
+
   static Future<void> _onForegroundMessage(RemoteMessage message) async {
+    if (!await _profileAllowsPushMirror()) {
+      return;
+    }
     final n = message.notification;
     final title =
         n?.title ?? (message.data['title'] as String?) ?? 'Notification';

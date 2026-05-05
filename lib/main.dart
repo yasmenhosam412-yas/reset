@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -8,6 +10,9 @@ import 'package:new_project/core/push/foreground_local_notifications.dart';
 import 'package:new_project/core/push/push_bootstrap.dart';
 import 'package:new_project/core/routing/app_router.dart';
 import 'package:new_project/core/utils/theme_data.dart';
+import 'package:new_project/features/main_screen/tabs/team_tab/data/global_battle_daily_digest.dart';
+import 'package:new_project/features/main_screen/tabs/team_tab/data/global_battle_digest_notifications.dart';
+import 'package:new_project/features/main_screen/tabs/team_tab/data/global_battles_repository.dart';
 import 'package:new_project/features/authentication/presentation/controller/auth_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/bloc/online_bloc.dart';
@@ -47,17 +52,33 @@ Future<void> main() async {
 
   configureDependencies();
 
+  if (!kIsWeb) {
+    unawaited(_bootstrapGlobalBattleDigest());
+  }
+
   runApp(
     MultiBlocProvider(
       providers: [
         BlocProvider(create: (context) => getIt<AuthBloc>()),
         BlocProvider(create: (context) => getIt<HomeBloc>()),
-        BlocProvider(create: (context) => getIt<ProfileBloc>()),
         BlocProvider(create: (context) => getIt<OnlineBloc>()),
+        BlocProvider(create: (context) => getIt<ProfileBloc>()),
       ],
       child: MyApp(),
     ),
   );
+}
+
+Future<void> _bootstrapGlobalBattleDigest() async {
+  try {
+    if (Supabase.instance.client.auth.currentUser == null) return;
+    await GlobalBattleDailyDigest.loadYesterdayDigest(
+      getIt<GlobalBattlesRepository>(),
+    );
+    await GlobalBattleDigestNotifications.ensureScheduled();
+  } catch (e, st) {
+    debugPrint('Global battle digest bootstrap: $e\n$st');
+  }
 }
 
 class MyApp extends StatelessWidget {

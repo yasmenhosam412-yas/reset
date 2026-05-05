@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:new_project/core/di/di.dart';
+import 'package:new_project/core/navigation/main_shell_controller.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/pages/home_tab.dart';
+import 'package:new_project/features/main_screen/tabs/notifications_tab/notifications_tab.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/bloc/online_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/bloc/online_event.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/online_tab.dart';
@@ -17,22 +19,47 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
+  late final MainShellController _mainShell;
+  BuildContext? _blocSubtreeContext;
 
   static const List<Widget> _pages = [
     HomeTab(),
     OnlineTab(),
+    NotificationsTab(),
     TeamTab(),
     ProfileTab(),
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _mainShell = getIt<MainShellController>();
+    _mainShell.addListener(_onMainShellIntent);
+  }
+
+  @override
+  void dispose() {
+    _mainShell.removeListener(_onMainShellIntent);
+    super.dispose();
+  }
+
+  void _onMainShellIntent() {
+    final tab = _mainShell.takePendingTabIndex();
+    if (tab != null && tab >= 0 && tab < _pages.length && mounted) {
+      setState(() => _selectedIndex = tab);
+      if (tab == 1 || tab == 2 || tab == 3) {
+        _blocSubtreeContext?.read<OnlineBloc>().add(OnlineLoadRequested());
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => getIt<OnlineBloc>()..add(OnlineLoadRequested()),
-      // [State.context] is above [BlocProvider]; use a Builder below the provider
-      // for context.read<OnlineBloc>() (e.g. tab bar, dialogs).
       child: Builder(
         builder: (contextWithBloc) {
+          _blocSubtreeContext = contextWithBloc;
           return Scaffold(
             body: SafeArea(
               child: IndexedStack(index: _selectedIndex, children: _pages),
@@ -41,7 +68,7 @@ class _MainScreenState extends State<MainScreen> {
               selectedIndex: _selectedIndex,
               onDestinationSelected: (index) {
                 setState(() => _selectedIndex = index);
-                if (index == 1 || index == 2) {
+                if (index == 1 || index == 2 || index == 3) {
                   contextWithBloc.read<OnlineBloc>().add(OnlineLoadRequested());
                 }
               },
@@ -57,9 +84,14 @@ class _MainScreenState extends State<MainScreen> {
                   label: 'Online',
                 ),
                 NavigationDestination(
+                  icon: Icon(Icons.notifications_outlined),
+                  selectedIcon: Icon(Icons.notifications),
+                  label: 'Alerts',
+                ),
+                NavigationDestination(
                   icon: Icon(Icons.groups_outlined),
                   selectedIcon: Icon(Icons.groups),
-                  label: 'Team',
+                  label: 'Battles',
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.person_outline),

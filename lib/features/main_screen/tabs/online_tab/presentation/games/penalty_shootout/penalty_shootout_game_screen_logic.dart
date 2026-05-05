@@ -6,6 +6,10 @@ class _PenaltyShootoutLogic {
 
   final _PenaltyShootoutGameState _s;
 
+  /// Online challenges always use five lanes (must match DB / opponent).
+  PenaltyAimLanes get effectiveAimLanes =>
+      _s.widget.online != null ? PenaltyAimLanes.wide5 : _s._aimLanes;
+
   bool get iAmStriker =>
       _s.widget.online == null ? _s._roundIndex % 2 == 0 : _onlineStrikerForRound();
 
@@ -27,9 +31,9 @@ class _PenaltyShootoutLogic {
     }
   }
 
-  void _applyKickDurationForPower(double power) {
-    _s._kickCtrl.duration = Duration(
-      milliseconds: PenaltyShootoutRules.kickDurationMs(power),
+  void _applyKickAnimationDuration() {
+    _s._kickCtrl.duration = const Duration(
+      milliseconds: PenaltyShootoutRules.kickAnimationDurationMs,
     );
   }
 
@@ -72,16 +76,34 @@ class _PenaltyShootoutLogic {
     if (!_s.mounted) return;
     await _pullSessionAndApply();
     if (!_s.mounted) return;
-    _subscribePenaltyRealtime();
+    _s._startOnlineBackgroundSyncTimer();
     _s._mutate(() => _s._onlineBootstrap = false);
     beginRound();
+  }
+
+  /// Online-only polling (no Realtime) so inserts/updates still land reliably.
+  Future<void> backgroundOnlineSyncTick() async {
+    if (_s.widget.online == null || !_s.mounted) return;
+    if (_s._phase == PenaltyShootoutPhase.animating ||
+        _s._phase == PenaltyShootoutPhase.reveal) {
+      return;
+    }
+    await _pullSessionAndApply();
+    if (!_s.mounted) return;
+    if (_s._phase == PenaltyShootoutPhase.pick) {
+      await _fetchAndResolveOnlinePicksSafe();
+    }
   }
 
   Future<void> _pullSessionAndApply() async {
     final cfg = _s.widget.online;
     if (cfg == null) return;
-    if (_s._sessionPullInFlight) return;
+    if (_s._sessionPullInFlight) {
+      _s._sessionPullPending = true;
+      return;
+    }
     _s._sessionPullInFlight = true;
+    _s._sessionPullPending = false;
     try {
       final res =
           await cfg.repository.fetchPenaltyShootoutSession(challengeId: cfg.challengeId);
@@ -93,6 +115,10 @@ class _PenaltyShootoutLogic {
       _s._mutate(() => _applySession(sess));
     } finally {
       _s._sessionPullInFlight = false;
+      if (_s._sessionPullPending && _s.mounted) {
+        _s._sessionPullPending = false;
+        unawaited(_pullSessionAndApply());
+      }
     }
   }
 
@@ -120,50 +146,6 @@ class _PenaltyShootoutLogic {
     return my == _s._myGoals && opp == _s._oppGoals;
   }
 
-  void _subscribePenaltyRealtime() {
-    final cfg = _s.widget.online!;
-    final id = cfg.challengeId;
-    _s._penaltyChannel?.unsubscribe();
-    _s._penaltyChannel = Supabase.instance.client
-        .channel('penalty_match_$id')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: HomeTable.penaltyRoundPicks,
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: PenaltyPickCols.challengeId,
-            value: id,
-          ),
-          callback: (_) => unawaited(_fetchAndResolveOnlinePicks()),
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: HomeTable.penaltyShootoutSessions,
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: PenaltySessionCols.challengeId,
-            value: id,
-          ),
-          callback: (_) => unawaited(_onSessionRemoteUpdate()),
-        )
-        .subscribe();
-  }
-
-  Future<void> _onSessionRemoteUpdate() async {
-    if (_s.widget.online == null || !_s.mounted) return;
-    if (_s._phase == PenaltyShootoutPhase.animating ||
-        _s._phase == PenaltyShootoutPhase.reveal) {
-      return;
-    }
-    _s._sessionPullDebounce?.cancel();
-    _s._sessionPullDebounce = Timer(const Duration(milliseconds: 200), () {
-      if (!_s.mounted) return;
-      unawaited(_pullSessionAndApply());
-    });
-  }
-
   Future<void> _completeKickOutcome() async {
     if (!_s.mounted || _s._kickOutcomeHandled) return;
     if (_s._phase != PenaltyShootoutPhase.animating) return;
@@ -187,9 +169,6 @@ class _PenaltyShootoutLogic {
       if (_s.widget.online == null) {
         _s._strikerPick = iAmStriker ? null : _randomDir();
         _s._keeperPick = null;
-        if (!iAmStriker) {
-          _s._strikerPower = 0.38 + _s._random.nextDouble() * 0.55;
-        }
       } else {
         _s._strikerPick = null;
         _s._keeperPick = null;
@@ -199,7 +178,6 @@ class _PenaltyShootoutLogic {
       _s._secondsLeft = PenaltyShootoutRules.secondsPerRound;
       _s._dragNorm = 0;
       _s._dragging = false;
-      _s._powerNorm = 0.62;
       _s._onlinePickSubmitting = false;
       _s._onlineWaitingForOpponent = false;
     });
@@ -225,8 +203,17 @@ class _PenaltyShootoutLogic {
     });
   }
 
-  PenaltyShootoutDir _randomDir() =>
-      PenaltyShootoutDir.values[_s._random.nextInt(3)];
+  PenaltyShootoutDir _randomDir() {
+    if (effectiveAimLanes == PenaltyAimLanes.wide5) {
+      return PenaltyShootoutDir.values[_s._random.nextInt(5)];
+    }
+    const classic = [
+      PenaltyShootoutDir.left,
+      PenaltyShootoutDir.center,
+      PenaltyShootoutDir.right,
+    ];
+    return classic[_s._random.nextInt(3)];
+  }
 
   PenaltyShootoutDir _keeperPickVsStrikerShot(PenaltyShootoutDir shot) {
     if (_s._random.nextDouble() < PenaltyShootoutRules.aiKeeperReadShotChance) {
@@ -267,7 +254,7 @@ class _PenaltyShootoutLogic {
 
   Future<void> _commitFromDragNorm(double n) async {
     if (_s._phase != PenaltyShootoutPhase.pick) return;
-    final dir = PenaltyShootoutRules.normToDir(n);
+    final dir = PenaltyShootoutRules.normToDir(n, lanes: effectiveAimLanes);
 
     if (_s.widget.online != null) {
       await _commitOnlinePick(dir);
@@ -279,18 +266,15 @@ class _PenaltyShootoutLogic {
       if (iAmStriker) {
         _s._strikerPick = dir;
         _s._keeperPick = _keeperPickVsStrikerShot(dir);
-        _s._strikerPower = _s._powerNorm.clamp(0.0, 1.0);
       } else {
         _s._keeperPick = dir;
         _s._strikerPick ??= _randomDir();
-        _s._strikerPower = 0.38 + _s._random.nextDouble() * 0.55;
       }
     });
 
     final shot = _s._strikerPick!;
     final dive = _s._keeperPick!;
-    _s._lastKickScored =
-        PenaltyShootoutRules.computeScored(shot, dive, _s._strikerPower);
+    _s._lastKickScored = PenaltyShootoutRules.computeScored(shot, dive);
 
     if (iAmStriker) {
       if (_s._lastKickScored) _s._myGoals++;
@@ -298,7 +282,7 @@ class _PenaltyShootoutLogic {
       if (_s._lastKickScored) _s._oppGoals++;
     }
 
-    _applyKickDurationForPower(_s._strikerPower);
+    _applyKickAnimationDuration();
     _s._mutate(() => _s._phase = PenaltyShootoutPhase.animating);
     HapticFeedback.selectionClick();
     _s._kickOutcomeHandled = false;
@@ -320,14 +304,12 @@ class _PenaltyShootoutLogic {
     final isShot = PenaltyShootoutRules.uidEq(_s._myUserId, strikerUid);
     final kind = isShot ? PenaltyPickKind.shot : PenaltyPickKind.dive;
     final direction = PenaltyShootoutRules.dirToInt(dir);
-    final power = isShot ? _s._powerNorm.clamp(0.0, 1.0) : null;
 
     final up = await cfg.repository.upsertPenaltyRoundPick(
       challengeId: cfg.challengeId,
       roundIndex: _s._roundIndex,
       pickKind: kind,
       direction: direction,
-      power: power,
     );
     if (!_s.mounted) return;
     up.fold(
@@ -348,7 +330,7 @@ class _PenaltyShootoutLogic {
           _s._onlinePickSubmitting = false;
           _s._onlineWaitingForOpponent = true;
         });
-        unawaited(_fetchAndResolveOnlinePicks());
+        unawaited(_fetchAndResolveOnlinePicksSafe());
         _startOnlinePickPoll();
       },
     );
@@ -370,8 +352,16 @@ class _PenaltyShootoutLogic {
         _s._onlinePickPoll?.cancel();
         return;
       }
-      unawaited(_fetchAndResolveOnlinePicks());
+      unawaited(_fetchAndResolveOnlinePicksSafe());
     });
+  }
+
+  Future<void> _fetchAndResolveOnlinePicksSafe() async {
+    try {
+      await _fetchAndResolveOnlinePicks();
+    } catch (e, st) {
+      debugPrint('Penalty picks resolve error: $e\n$st');
+    }
   }
 
   Future<void> _fetchAndResolveOnlinePicks() async {
@@ -411,15 +401,13 @@ class _PenaltyShootoutLogic {
 
     final shot = PenaltyShootoutRules.intToDir(shotPick.direction);
     final dive = PenaltyShootoutRules.intToDir(divePick.direction);
-    final power = shotPick.power ?? 0.62;
 
     _s._onlinePickPoll?.cancel();
     _s._countdown?.cancel();
 
     _s._roundBeingResolved = _s._roundIndex;
     _s._lastStrikerUserId = shotPick.userId;
-    _s._strikerPower = power;
-    _s._lastKickScored = PenaltyShootoutRules.computeScored(shot, dive, power);
+    _s._lastKickScored = PenaltyShootoutRules.computeScored(shot, dive);
 
     _s._mutate(() {
       _s._strikerPick = shot;
@@ -429,7 +417,7 @@ class _PenaltyShootoutLogic {
       _s._onlinePickSubmitting = false;
     });
 
-    _applyKickDurationForPower(power);
+    _applyKickAnimationDuration();
     HapticFeedback.selectionClick();
     _s._kickOutcomeHandled = false;
     _s._kickCtrl.forward(from: 0);

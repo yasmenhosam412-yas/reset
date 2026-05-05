@@ -1,66 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/penalty_shootout/penalty_shootout_rules.dart';
-
-class PenaltyShootoutPowerSlider extends StatelessWidget {
-  const PenaltyShootoutPowerSlider({
-    super.key,
-    required this.theme,
-    required this.scheme,
-    required this.power,
-    required this.onChanged,
-  });
-
-  final ThemeData theme;
-  final ColorScheme scheme;
-  final double power;
-  final ValueChanged<double> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.bolt_rounded, size: 18, color: scheme.primary),
-            const SizedBox(width: 6),
-            Text(
-              'Shot power',
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              '${(power * 100).round()}%',
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-        Slider(
-          value: power.clamp(0.0, 1.0),
-          onChanged: onChanged,
-        ),
-        Text(
-          'Higher power: faster shot and can beat the keeper on the same side '
-          'above ${PenaltyShootoutRules.powerBlastPercentRounded}%.',
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: scheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-}
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/penalty_shootout/penalty_shootout_types.dart';
 
 class PenaltyShootoutDragAimStrip extends StatelessWidget {
   const PenaltyShootoutDragAimStrip({
     super.key,
     required this.theme,
     required this.scheme,
+    required this.aimLanes,
     required this.dragNorm,
     required this.dragging,
     required this.isStriker,
@@ -70,11 +16,15 @@ class PenaltyShootoutDragAimStrip extends StatelessWidget {
 
   final ThemeData theme;
   final ColorScheme scheme;
+  final PenaltyAimLanes aimLanes;
   final double dragNorm;
   final bool dragging;
   final bool isStriker;
   final void Function(DragUpdateDetails d, double width) onUpdate;
   final VoidCallback onEnd;
+
+  static const _wideLabels = ['FL', 'L', 'C', 'R', 'FR'];
+  static const _classicLabels = ['LEFT', 'CENTER', 'RIGHT'];
 
   @override
   Widget build(BuildContext context) {
@@ -82,6 +32,9 @@ class PenaltyShootoutDragAimStrip extends StatelessWidget {
       builder: (context, c) {
         final w = c.maxWidth;
         final puckX = w * 0.5 + dragNorm * (w * 0.38) - 22;
+
+        final labels =
+            aimLanes == PenaltyAimLanes.wide5 ? _wideLabels : _classicLabels;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -120,42 +73,20 @@ class PenaltyShootoutDragAimStrip extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Expanded(
-                          child: Center(
-                            child: Text(
-                              'LEFT',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: scheme.outline,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 1.2,
+                        for (final lab in labels)
+                          Expanded(
+                            child: Center(
+                              child: Text(
+                                lab,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: scheme.outline,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: lab.length <= 2 ? 0.6 : 1.1,
+                                  fontSize: lab.length <= 2 ? 11 : null,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: Center(
-                            child: Text(
-                              'CENTER',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: scheme.outline,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 1.2,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Center(
-                            child: Text(
-                              'RIGHT',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: scheme.outline,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 1.2,
-                              ),
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                     Positioned(

@@ -13,11 +13,12 @@ bool homePostLikedByCurrentUser(PostModel post) {
   return post.likes.contains(uid);
 }
 
-/// True when the signed-in user can open author actions (not self, known author id).
+/// True when the author row can open the actions sheet (signed in + known author id).
+/// Same user still gets the sheet so they can delete their own post.
 bool homePostAuthorActionsAvailable(PostModel post) {
   final uid = Supabase.instance.client.auth.currentUser?.id;
-  if (uid == null || post.userModel.id.isEmpty) return false;
-  return post.userModel.id != uid;
+  if (uid == null) return false;
+  return post.userModel.id.trim().isNotEmpty;
 }
 
 /// Short relative label, e.g. `5m ago`, `2h ago`, `3d ago`.

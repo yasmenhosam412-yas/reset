@@ -20,7 +20,7 @@ class PenaltyShootoutPitchView extends StatelessWidget {
     required this.dragging,
     required this.bannerScale,
     required this.resultLine,
-    required this.strikerPower,
+    required this.aimLanes,
   });
 
   final ThemeData theme;
@@ -35,13 +35,18 @@ class PenaltyShootoutPitchView extends StatelessWidget {
   final bool dragging;
   final Animation<double> bannerScale;
   final String? resultLine;
-  final double strikerPower;
+  final PenaltyAimLanes aimLanes;
+
+  /// Ball “drive” for save-miss animation (replaces former shot-power slider).
+  static const double _shotDriveNorm = 0.68;
 
   double _goalXForDir(PenaltyShootoutDir d, double w) {
     return switch (d) {
-      PenaltyShootoutDir.left => w * 0.22,
+      PenaltyShootoutDir.farLeft => w * 0.11,
+      PenaltyShootoutDir.left => w * 0.30,
       PenaltyShootoutDir.center => w * 0.5,
-      PenaltyShootoutDir.right => w * 0.78,
+      PenaltyShootoutDir.right => w * 0.70,
+      PenaltyShootoutDir.farRight => w * 0.89,
     };
   }
 
@@ -92,6 +97,7 @@ class PenaltyShootoutPitchView extends StatelessWidget {
                   height: h * 0.52,
                   child: _GoalFrame(
                     scheme: scheme,
+                    aimLanes: aimLanes,
                     dragNorm: phase == PenaltyShootoutPhase.pick ? dragNorm : null,
                     dragging: dragging,
                   ),
@@ -145,7 +151,7 @@ class PenaltyShootoutPitchView extends StatelessWidget {
                       final targetY = grassTop + h * 0.2;
                       final startX = w * 0.5;
                       final startY = h * 0.88;
-                      final drive = strikerPower.clamp(0.0, 1.0);
+                      const drive = _shotDriveNorm;
 
                       final endY = scored
                           ? targetY
@@ -216,13 +222,36 @@ class PenaltyShootoutPitchView extends StatelessWidget {
 class _GoalFrame extends StatelessWidget {
   const _GoalFrame({
     required this.scheme,
+    required this.aimLanes,
     required this.dragNorm,
     required this.dragging,
   });
 
   final ColorScheme scheme;
+  final PenaltyAimLanes aimLanes;
   final double? dragNorm;
   final bool dragging;
+
+  static bool _activeFive(int i, double n) {
+    const o = PenaltyShootoutRules.fiveLaneOuter;
+    const inn = PenaltyShootoutRules.fiveLaneInner;
+    return switch (i) {
+      0 => n < -o,
+      1 => n >= -o && n < -inn,
+      2 => n >= -inn && n <= inn,
+      3 => n > inn && n < o,
+      _ => n >= o,
+    };
+  }
+
+  static bool _activeThree(int i, double n) {
+    final t = PenaltyShootoutRules.aimSideThreshold;
+    return switch (i) {
+      0 => n < -t,
+      1 => n >= -t && n <= t,
+      _ => n > t,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -249,27 +278,25 @@ class _GoalFrame extends StatelessWidget {
             CustomPaint(painter: _NetPainter(scheme: scheme)),
             if (dragNorm != null)
               Row(
-                children: [
-                  Expanded(
-                    child: _ZoneHint(
-                      active: dragNorm! < -PenaltyShootoutRules.aimSideThreshold,
-                      dragging: dragging,
-                    ),
-                  ),
-                  Expanded(
-                    child: _ZoneHint(
-                      active: dragNorm! >= -PenaltyShootoutRules.aimSideThreshold &&
-                          dragNorm! <= PenaltyShootoutRules.aimSideThreshold,
-                      dragging: dragging,
-                    ),
-                  ),
-                  Expanded(
-                    child: _ZoneHint(
-                      active: dragNorm! > PenaltyShootoutRules.aimSideThreshold,
-                      dragging: dragging,
-                    ),
-                  ),
-                ],
+                children: aimLanes == PenaltyAimLanes.wide5
+                    ? List.generate(
+                        5,
+                        (i) => Expanded(
+                          child: _ZoneHint(
+                            active: _activeFive(i, dragNorm!),
+                            dragging: dragging,
+                          ),
+                        ),
+                      )
+                    : List.generate(
+                        3,
+                        (i) => Expanded(
+                          child: _ZoneHint(
+                            active: _activeThree(i, dragNorm!),
+                            dragging: dragging,
+                          ),
+                        ),
+                      ),
               ),
           ],
         ),

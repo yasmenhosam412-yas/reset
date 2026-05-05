@@ -1,12 +1,14 @@
 abstract final class HomeTable {
   static const posts = 'posts';
   static const profiles = 'profiles';
+  static const userNotifications = 'user_notifications';
   static const postComments = 'post_comments';
   static const friendRequests = 'friend_requests';
   static const gameChallenges = 'game_challenges';
+  static const onlineChallengeSkillRewards = 'online_challenge_skill_rewards';
   static const penaltyShootoutSessions = 'penalty_shootout_sessions';
   static const penaltyRoundPicks = 'penalty_round_picks';
-  static const rimShotSessions = 'rim_shot_sessions';
+  static const rpsSessions = 'rps_sessions';
   static const fantasyDuelSessions = 'fantasy_duel_sessions';
   static const teamChallengeDailyClaims = 'team_challenge_daily_claims';
   static const teamLineupRaceEntries = 'team_lineup_race_entries';
@@ -30,6 +32,17 @@ abstract final class PostCommentCols {
   static const postId = 'post_id';
   static const userId = 'user_id';
   static const comment = 'comment';
+  static const createdAt = 'created_at';
+}
+
+abstract final class UserNotificationCols {
+  static const id = 'id';
+  static const userId = 'user_id';
+  static const kind = 'kind';
+  static const title = 'title';
+  static const body = 'body';
+  static const data = 'data';
+  static const createdAt = 'created_at';
 }
 
 abstract final class ProfileCols {
@@ -74,6 +87,11 @@ abstract final class GameChallengeCols {
   static const toReady = 'to_ready';
 }
 
+abstract final class OnlineChallengeSkillRewardCols {
+  static const challengeId = 'challenge_id';
+  static const winnerUserId = 'winner_user_id';
+}
+
 abstract final class FriendRequestStatus {
   static const pending = 'pending';
   static const accepted = 'accepted';
@@ -103,20 +121,13 @@ abstract final class PenaltyPickCols {
   static const createdAt = 'created_at';
 }
 
-abstract final class PenaltyPickKind {
-  static const shot = 'shot';
-  static const dive = 'dive';
-}
-
-abstract final class RimShotSessionCols {
+abstract final class RpsSessionCols {
   static const challengeId = 'challenge_id';
   static const scoreFrom = 'score_from';
   static const scoreTo = 'score_to';
-  static const whoseTurn = 'whose_turn';
+  static const fromPick = 'from_pick';
+  static const toPick = 'to_pick';
   static const roundSeq = 'round_seq';
-  static const lastPower = 'last_power';
-  static const lastAim = 'last_aim';
-  static const lastMade = 'last_made';
   static const status = 'status';
   static const updatedAt = 'updated_at';
 }

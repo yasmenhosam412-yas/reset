@@ -3,7 +3,7 @@ import 'package:new_project/features/main_screen/tabs/online_tab/data/models/cha
 import 'package:new_project/features/main_screen/tabs/online_tab/data/models/game_challenge_sides_model.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/data/models/penalty_shootout_online_models.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/data/models/fantasy_duel_session_model.dart';
-import 'package:new_project/features/main_screen/tabs/online_tab/data/models/rim_shot_session_model.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/data/models/rps_session_model.dart';
 
 abstract class OnlineDatasourse {
   Future<List<UserModel>> getFriends();
@@ -30,7 +30,6 @@ abstract class OnlineDatasourse {
     required int roundIndex,
     required String pickKind,
     required int direction,
-    double? power,
   });
 
   Future<List<PenaltyRoundPickModel>> fetchPenaltyRoundPicks({
@@ -57,27 +56,17 @@ abstract class OnlineDatasourse {
   /// Deletes all online session rows for this challenge and sets status to cancelled.
   Future<void> abandonOnlineGameSession({required String challengeId});
 
-  Future<void> ensureRimShotSession({required String challengeId});
+  Future<void> ensureRpsSession({required String challengeId});
 
-  Future<RimShotSessionModel?> fetchRimShotSession({required String challengeId});
+  Future<RpsSessionModel?> fetchRpsSession({required String challengeId});
 
-  /// Applies one shot if [expectedTurn] still matches server row (optimistic lock).
-  /// Returns the updated row, or null if the turn was already consumed.
-  Future<RimShotSessionModel?> tryApplyRimShotTurn({
+  Future<RpsPickSubmitResponse> submitRpsPick({
     required String challengeId,
-    required String expectedTurn,
-    required double power,
-    required double aim,
-    required bool made,
-    required int nextScoreFrom,
-    required int nextScoreTo,
-    required String nextTurn,
-    required String status,
-    required int nextRoundSeq,
+    required bool asFrom,
+    required String pick,
   });
 
-  /// Clears scores and last shot so the same challenge can start a new rim game.
-  Future<void> resetRimShotMatch({required String challengeId});
+  Future<void> resetRpsMatch({required String challengeId});
 
   Future<void> ensureFantasyDuelSession({required String challengeId});
 

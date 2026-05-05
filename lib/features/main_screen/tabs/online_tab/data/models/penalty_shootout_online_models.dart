@@ -1,3 +1,9 @@
+/// Values for `penalty_round_picks.pick_kind` (must match Supabase).
+abstract final class PenaltyPickKind {
+  static const shot = 'shot';
+  static const dive = 'dive';
+}
+
 /// Row from `penalty_shootout_sessions`.
 class PenaltyShootoutSessionModel {
   const PenaltyShootoutSessionModel({
@@ -28,20 +34,17 @@ class PenaltyRoundPickModel {
     required this.userId,
     required this.pickKind,
     required this.direction,
-    this.power,
   });
 
   final String userId;
   final String pickKind;
   final int direction;
-  final double? power;
 
   factory PenaltyRoundPickModel.fromJson(Map<String, dynamic> json) {
     return PenaltyRoundPickModel(
       userId: json['user_id']?.toString() ?? '',
       pickKind: json['pick_kind']?.toString() ?? '',
       direction: _parseSmallInt(json['direction']),
-      power: _parseOptionalDouble(json['power']),
     );
   }
 
@@ -52,12 +55,4 @@ class PenaltyRoundPickModel {
     return 0;
   }
 
-  static double? _parseOptionalDouble(dynamic raw) {
-    if (raw == null) return null;
-    if (raw is double) return raw;
-    if (raw is int) return raw.toDouble();
-    if (raw is num) return raw.toDouble();
-    if (raw is String) return double.tryParse(raw.trim());
-    return null;
-  }
 }

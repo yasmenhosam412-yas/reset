@@ -20,6 +20,12 @@ final class HomePostCreateRequested extends HomeEvent {
   final String? imageContentType;
 }
 
+final class HomePostDeleteRequested extends HomeEvent {
+  HomePostDeleteRequested({required this.postId});
+
+  final String postId;
+}
+
 final class HomeCommentCreateRequested extends HomeEvent {
   HomeCommentCreateRequested({required this.postId, required this.comment});
 

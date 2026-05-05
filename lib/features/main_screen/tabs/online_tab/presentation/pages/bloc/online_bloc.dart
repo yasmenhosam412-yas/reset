@@ -7,6 +7,7 @@ import 'package:new_project/features/main_screen/tabs/online_tab/domain/usecases
 import 'package:new_project/features/main_screen/tabs/online_tab/domain/usecases/get_online_friends_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/datasource/home_supabase_tables.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/domain/usecases/set_online_challenge_ready_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_titles.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/bloc/online_event.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/bloc/online_state.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -239,7 +240,8 @@ class OnlineBloc extends Bloc<OnlineEvent, OnlineState> {
             : raw.split(' ').first;
         emit(
           state.copyWith(
-            successMessage: 'Challenge sent to $short',
+            successMessage:
+                '${onlineGameTitle(event.gameId)} challenge sent to $short',
             clearError: true,
           ),
         );

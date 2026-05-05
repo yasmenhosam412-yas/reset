@@ -31,7 +31,8 @@ class ProfilePreferencesCard extends StatelessWidget {
             ),
             title: const Text('Push notifications'),
             subtitle: const Text(
-              'Likes and comments on your posts, friend requests, and match invites',
+              'Turn off to stop server pushes and in-app notification mirrors. '
+              'Your device token is removed so nothing is sent until you turn this back on.',
             ),
           ),
           const Divider(height: 1),

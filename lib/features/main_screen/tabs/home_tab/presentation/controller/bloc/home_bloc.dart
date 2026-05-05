@@ -3,12 +3,14 @@ import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_comment_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_post_like_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_post_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/delete_home_post_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_home_accepted_friend_ids_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_home_posts_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/send_home_challenge_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/send_home_friend_request_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_event.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_state.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_titles.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomeBloc extends Bloc<HomeEvent, HomeState> {
@@ -16,6 +18,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     required GetHomePostsUsecase getHomePostsUsecase,
     required GetHomeAcceptedFriendIdsUsecase getHomeAcceptedFriendIdsUsecase,
     required AddHomePostUsecase addHomePostUsecase,
+    required DeleteHomePostUsecase deleteHomePostUsecase,
     required AddHomeCommentUsecase addHomeCommentUsecase,
     required AddHomePostLikeUsecase addHomePostLikeUsecase,
     required SendHomeFriendRequestUsecase sendHomeFriendRequestUsecase,
@@ -23,6 +26,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   })  : _getHomePostsUsecase = getHomePostsUsecase,
         _getHomeAcceptedFriendIdsUsecase = getHomeAcceptedFriendIdsUsecase,
         _addHomePostUsecase = addHomePostUsecase,
+        _deleteHomePostUsecase = deleteHomePostUsecase,
         _addHomeCommentUsecase = addHomeCommentUsecase,
         _addHomePostLikeUsecase = addHomePostLikeUsecase,
         _sendHomeFriendRequestUsecase = sendHomeFriendRequestUsecase,
@@ -30,6 +34,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         super(HomeState.initial()) {
     on<HomePostsRequested>(_onPostsRequested);
     on<HomePostCreateRequested>(_onPostCreateRequested);
+    on<HomePostDeleteRequested>(_onPostDeleteRequested);
     on<HomeCommentCreateRequested>(_onCommentCreateRequested);
     on<HomePostLikeRequested>(_onPostLikeRequested);
     on<HomeSendFriendRequest>(_onSendFriendRequest);
@@ -39,6 +44,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final GetHomePostsUsecase _getHomePostsUsecase;
   final GetHomeAcceptedFriendIdsUsecase _getHomeAcceptedFriendIdsUsecase;
   final AddHomePostUsecase _addHomePostUsecase;
+  final DeleteHomePostUsecase _deleteHomePostUsecase;
   final AddHomeCommentUsecase _addHomeCommentUsecase;
   final AddHomePostLikeUsecase _addHomePostLikeUsecase;
   final SendHomeFriendRequestUsecase _sendHomeFriendRequestUsecase;
@@ -123,6 +129,49 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
             posts: List.of(posts, growable: false),
             acceptedFriendUserIds: friendIds,
             clearSuccess: true,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _onPostDeleteRequested(
+    HomePostDeleteRequested event,
+    Emitter<HomeState> emit,
+  ) async {
+    emit(state.copyWith(status: HomeStatus.loading, clearError: true));
+    final del = await _deleteHomePostUsecase(postId: event.postId);
+
+    final failure = del.fold((l) => l, (_) => null);
+    if (failure != null) {
+      emit(
+        state.copyWith(
+          status: HomeStatus.failure,
+          errorMessage: failure.message,
+          clearSuccess: true,
+        ),
+      );
+      return;
+    }
+
+    final listResult = await _getHomePostsUsecase();
+    await listResult.fold(
+      (f) async => emit(
+        state.copyWith(
+          status: HomeStatus.failure,
+          errorMessage: f.message,
+          clearSuccess: true,
+        ),
+      ),
+      (posts) async {
+        final friendIds = await _fetchAcceptedFriendIds();
+        emit(
+          state.copyWith(
+            status: HomeStatus.loaded,
+            posts: List.of(posts, growable: false),
+            acceptedFriendUserIds: friendIds,
+            successMessage: 'Post deleted',
+            clearError: true,
           ),
         );
       },
@@ -261,7 +310,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       ),
       (_) => emit(
         state.copyWith(
-          successMessage: 'Challenge sent to $name',
+          successMessage:
+              '${onlineGameTitle(event.gameId)} challenge sent to $name',
           clearError: true,
         ),
       ),

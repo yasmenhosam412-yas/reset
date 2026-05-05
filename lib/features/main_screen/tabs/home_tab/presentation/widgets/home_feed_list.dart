@@ -14,12 +14,18 @@ class HomeFeedList extends StatelessWidget {
     required this.onOpenComments,
     required this.onAuthorTap,
     this.scrollController,
+    this.feedHeader,
+    this.postKeyBuilder,
   });
 
   final List<PostModel> posts;
   final void Function(PostModel post) onOpenComments;
   final void Function(PostModel post) onAuthorTap;
   final ScrollController? scrollController;
+  /// Keys for scrolling to a post (e.g. from Alerts deep link).
+  final Key Function(PostModel post)? postKeyBuilder;
+  /// When set, pinned above the feed inside the same scroll view as the posts.
+  final Widget? feedHeader;
 
   Future<void> _onRefresh(BuildContext context) async {
     final bloc = context.read<HomeBloc>();
@@ -30,24 +36,40 @@ class HomeFeedList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final listChildCount = posts.isEmpty ? 0 : posts.length * 2 - 1;
+
     return RefreshIndicator(
       onRefresh: () => _onRefresh(context),
-      child: ListView.separated(
+      child: CustomScrollView(
         controller: scrollController,
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-        itemCount: posts.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final post = posts[index];
-          return HomePostCard(
-            post: post,
-            likedByMe: homePostLikedByCurrentUser(post),
-            onOpenComments: () => onOpenComments(post),
-            onAuthorTap: homePostAuthorActionsAvailable(post)
-                ? () => onAuthorTap(post)
-                : null,
-          );
-        },
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          if (feedHeader != null) SliverToBoxAdapter(child: feedHeader!),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  if (index.isOdd) {
+                    return const SizedBox(height: 12);
+                  }
+                  final postIndex = index ~/ 2;
+                  final post = posts[postIndex];
+                  return HomePostCard(
+                    key: postKeyBuilder?.call(post),
+                    post: post,
+                    likedByMe: homePostLikedByCurrentUser(post),
+                    onOpenComments: () => onOpenComments(post),
+                    onAuthorTap: homePostAuthorActionsAvailable(post)
+                        ? () => onAuthorTap(post)
+                        : null,
+                  );
+                },
+                childCount: listChildCount,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

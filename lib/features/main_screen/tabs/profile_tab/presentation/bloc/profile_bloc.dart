@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:new_project/core/push/push_bootstrap.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/profile_dashboard_model.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/domain/usecases/load_profile_dashboard_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/domain/usecases/respond_profile_friend_request_usecase.dart';
@@ -7,6 +10,7 @@ import 'package:new_project/features/main_screen/tabs/profile_tab/domain/usecase
 import 'package:new_project/features/main_screen/tabs/profile_tab/domain/usecases/update_profile_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/bloc/profile_event.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/bloc/profile_state.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
   ProfileBloc({
@@ -243,6 +247,11 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
         }
       },
       (_) async {
+        unawaited(
+          PushBootstrap.syncPushPreferenceWithProfile(
+            Supabase.instance.client,
+          ),
+        );
         add(ProfileLoadRequested());
       },
     );
