@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:new_project/core/routing/app_router.dart';
 import 'package:new_project/features/authentication/presentation/controller/auth_bloc.dart';
 import 'package:new_project/features/authentication/presentation/controller/auth_bloc_event.dart';
 import 'package:new_project/features/authentication/presentation/controller/auth_bloc_state.dart';
@@ -99,7 +100,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               ),
             );
             context.read<AuthBloc>().add(AuthResetToIdleEvent());
-            context.pop();
+            context.go(AppRouter.loginPath);
           }
         },
         builder: (context, state) {
@@ -227,7 +228,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 14),
           TextButton(
-            onPressed: isLoading ? null : () => context.pop(),
+            onPressed: isLoading
+                ? null
+                : () => context.go(AppRouter.loginPath),
             child: const Text('Back to login'),
           ),
         ],

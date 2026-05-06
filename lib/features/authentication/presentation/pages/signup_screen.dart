@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:new_project/core/routing/app_router.dart';
 import 'package:new_project/features/authentication/presentation/controller/auth_bloc.dart';
 import 'package:new_project/features/authentication/presentation/controller/auth_bloc_event.dart';
 import 'package:new_project/features/authentication/presentation/controller/auth_bloc_state.dart';
@@ -52,7 +53,7 @@ class _SignupScreenState extends State<SignupScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Account created successfully')),
             );
-            context.pop();
+            context.go(AppRouter.loginPath);
           }
         },
         builder: (context, state) {
@@ -241,7 +242,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                 TextButton(
                                   onPressed: isLoading
                                       ? null
-                                      : () => context.pop(),
+                                      : () => context.go(AppRouter.loginPath),
                                   child: const Text(
                                     'Already have an account? Login',
                                   ),

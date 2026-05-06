@@ -55,12 +55,16 @@ class AuthBloc extends Bloc<AuthBlocEvent, AuthBlocState> {
       email: event.email,
       password: event.password,
     );
-    result.fold(
-      (failure) => emit(
+    final failure = result.fold((left) => left, (_) => null);
+    if (failure != null) {
+      emit(
         AuthBlocState(authState: AuthState.errorSignup, error: failure.message),
-      ),
-      (_) => emit(AuthBlocState(authState: AuthState.loadedSignup)),
-    );
+      );
+      return;
+    }
+
+    // await logoutUsecase();
+    emit(AuthBlocState(authState: AuthState.loadedSignup));
   }
 
   Future<void> _onLogout(

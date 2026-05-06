@@ -4,7 +4,6 @@ enum AuthState {
   loadedLogin,
   loadedSignup,
   loadedOut,
-  /// Email OTP was sent; user should enter code and new password.
   recoveryOtpSent,
   loadedForgotPassword,
   errorLogin,
