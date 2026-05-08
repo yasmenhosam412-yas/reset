@@ -4,6 +4,7 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/data/models/rps_session_model.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/domain/repositories/online_repository.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/game_match_outcome_fx.dart';
@@ -417,33 +418,39 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
   }
 
   String? _errorToUser(String? code) {
+    final l10n = context.l10n;
     switch (code) {
       case 'invalid_pick':
-        return 'Invalid throw';
+        return l10n.rpsInvalidThrow;
       case 'not_participant':
-        return 'You are not in this match';
+        return l10n.rpsNotInThisMatch;
       case 'match_over':
-        return 'Match already finished';
+        return l10n.rpsMatchAlreadyFinished;
       case 'already_submitted':
-        return 'Already locked for this round';
+        return l10n.rpsAlreadyLockedForRound;
       default:
-        return code ?? 'Something went wrong';
+        return code ?? l10n.somethingWentWrong;
     }
   }
 
   String _roundMessage(int? roundWinner, {required bool online}) {
-    if (roundWinner == null) return 'Round complete';
-    if (roundWinner == -1) return 'Draw — replay the round';
+    final l10n = context.l10n;
+    if (roundWinner == null) return l10n.roundComplete;
+    if (roundWinner == -1) return l10n.drawReplayRound;
     if (!online) {
-      if (roundWinner == 0) return 'You take the round';
-      return 'AI takes the round';
+      if (roundWinner == 0) return l10n.youTakeRound;
+      return l10n.aiTakesRound;
     }
     final u = _uid;
-    if (u == null) return roundWinner == 0 ? 'Challenger wins the round' : 'Host wins the round';
+    if (u == null) {
+      return roundWinner == 0
+          ? l10n.challengerWinsRound
+          : l10n.hostWinsRound;
+    }
     final iAmFrom = u == widget.online!.fromUserId;
     final youWon = (roundWinner == 0) == iAmFrom;
-    if (youWon) return 'You take the round';
-    return '${widget.opponentName} takes the round';
+    if (youWon) return l10n.youTakeRound;
+    return l10n.opponentTakesRound(widget.opponentName);
   }
 
   Future<void> _onPlayAgainPressed() async {
@@ -453,8 +460,7 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
       res.fold(
         (_) {
           setState(() {
-            _banner =
-                'Could not reset the bout. Check connection, then try again.';
+            _banner = context.l10n.couldNotResetBout;
           });
         },
         (_) {
@@ -597,13 +603,14 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
     final scheme = widget.scheme;
     final theme = widget.theme;
     final uid = _uid;
+    final l10n = context.l10n;
     // Columns always match server: left = challenger (`from`), right = host (`to`).
     // Labels swap so "You" sits under your score (fixes both sides showing the same number).
     final fromIsViewer =
         !_online || uid == null || uid == widget.online!.fromUserId;
     final leftScore = _scoreFrom;
     final rightScore = _scoreTo;
-    const myLabel = 'You';
+    final myLabel = l10n.you;
     final oppLabel = widget.opponentName;
     final leftLabel = fromIsViewer ? myLabel : oppLabel;
     final rightLabel = fromIsViewer ? oppLabel : myLabel;
@@ -683,7 +690,7 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
           rightScore: rightScore,
           leftAccent: scheme.primary,
           rightAccent: scheme.tertiary,
-          roundLabel: _status == 'done' ? null : 'Set ${_roundSeq + 1}',
+          roundLabel: _status == 'done' ? null : l10n.rpsSetNumber(_roundSeq + 1),
           roundAnimKey: _roundSeq,
         ),
         const SizedBox(height: 20),
@@ -758,7 +765,7 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Choose your throw',
+                    l10n.chooseYourThrow,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w900,
                       letterSpacing: -0.3,
@@ -767,10 +774,10 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
                   const SizedBox(height: 2),
                   Text(
                     _status == 'done'
-                        ? 'Bout finished'
+                        ? l10n.boutFinished
                         : _canPickThisRound
-                            ? 'Tap a card — simultaneous reveal vs $oppLabel'
-                            : 'Waiting for the round…',
+                            ? l10n.tapCardRevealVs(oppLabel)
+                            : l10n.waitingForRound,
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                       height: 1.25,
@@ -789,9 +796,11 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
             padding: const EdgeInsets.only(bottom: 10),
             child: Text(
               _online
-                  ? (_busy ? 'Sending your pick…' : 'Opponent is still choosing…')
+                  ? (_busy
+                        ? l10n.sendingYourPick
+                        : l10n.opponentStillChoosing)
                   : (_fromPick != null && _toPick == null
-                        ? 'AI is thinking…'
+                        ? l10n.aiThinking
                         : ''),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
@@ -806,14 +815,26 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
             Expanded(
               child: _slideFadePick(
                 0,
-                _pickCard(theme, scheme, 'rock', Icons.landscape_rounded, 'Rock'),
+                _pickCard(
+                  theme,
+                  scheme,
+                  'rock',
+                  Icons.landscape_rounded,
+                  l10n.rpsRock,
+                ),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: _slideFadePick(
                 1,
-                _pickCard(theme, scheme, 'paper', Icons.description_rounded, 'Paper'),
+                _pickCard(
+                  theme,
+                  scheme,
+                  'paper',
+                  Icons.description_rounded,
+                  l10n.rpsPaper,
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -825,7 +846,7 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
                   scheme,
                   'scissors',
                   Icons.content_cut_rounded,
-                  'Scissors',
+                  l10n.rpsScissors,
                 ),
               ),
             ),
@@ -850,6 +871,12 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
   Widget _lockedThrowRibbon(ThemeData theme, ColorScheme scheme) {
     final p = _myCommittedPick;
     if (p == null || _status != 'playing') return const SizedBox.shrink();
+    final pickLabel = switch (p) {
+      'rock' => context.l10n.rpsRock,
+      'paper' => context.l10n.rpsPaper,
+      'scissors' => context.l10n.rpsScissors,
+      _ => p,
+    };
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: TweenAnimationBuilder<double>(
@@ -880,7 +907,7 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Throw locked in',
+                        context.l10n.throwLockedIn,
                         style: theme.textTheme.labelLarge?.copyWith(
                           fontWeight: FontWeight.w900,
                           color: scheme.onTertiaryContainer,
@@ -888,8 +915,8 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
                       ),
                       Text(
                         _online
-                            ? 'Hidden from your opponent until both sides throw.'
-                            : 'Hang tight — AI is picking next.',
+                            ? context.l10n.hiddenUntilBothThrow
+                            : context.l10n.aiPickingNext,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: scheme.onTertiaryContainer.withValues(alpha: 0.85),
                           height: 1.25,
@@ -910,7 +937,7 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
                       Icon(_iconForPick(p), size: 26, color: scheme.primary),
                       const SizedBox(width: 6),
                       Text(
-                        p[0].toUpperCase() + p.substring(1),
+                        pickLabel,
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w900,
                         ),
@@ -1035,7 +1062,7 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
                   Icon(Icons.leaderboard_rounded, size: 20, color: scheme.primary),
                   const SizedBox(width: 8),
                   Text(
-                    'Scoreboard',
+                    context.l10n.scoreboard,
                     style: theme.textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w900,
                       letterSpacing: 0.6,
@@ -1079,7 +1106,7 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
               ),
               const SizedBox(height: 6),
               Text(
-                'First to $cap round wins takes the bout',
+                context.l10n.firstToRoundWinsTakesBout(cap),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                   height: 1.3,
@@ -1160,7 +1187,7 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
                           ],
                         ),
                         child: Text(
-                          'VS',
+                          context.l10n.vsUpper,
                           style: theme.textTheme.labelLarge?.copyWith(
                             fontWeight: FontWeight.w900,
                             color: scheme.primary,
@@ -1379,7 +1406,10 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
                 child: Semantics(
                   button: true,
                   enabled: enabled,
-                  label: 'Throw $label. ${_pickSubtitle(pick)}',
+                  label: context.l10n.throwLabelWithHint(
+                    label,
+                    _pickSubtitle(pick),
+                  ),
                   child: Padding(
                     padding: EdgeInsets.symmetric(
                       vertical: short ? 16 : 20,
@@ -1457,11 +1487,11 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
   String _pickSubtitle(String pick) {
     switch (pick) {
       case 'rock':
-        return 'Crushes scissors';
+        return context.l10n.crushesScissors;
       case 'paper':
-        return 'Covers rock';
+        return context.l10n.coversRock;
       case 'scissors':
-        return 'Cuts paper';
+        return context.l10n.cutsPaper;
       default:
         return '';
     }
@@ -1496,22 +1526,24 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
     if (draw) {
       icon = Icons.handshake_rounded;
       accent = scheme.tertiary;
-      headline = 'Dead heat';
-      subline = 'Honor shared — rematch for the crown?';
+      headline = context.l10n.deadHeat;
+      subline = context.l10n.honorSharedRematch;
     } else if (youWon == true) {
       icon = Icons.emoji_events_rounded;
       accent = scheme.primary;
-      headline = 'You win';
-      subline = 'What a bout — soak it in!';
+      headline = context.l10n.youWon;
+      subline = context.l10n.whatABoutSoakItIn;
     } else if (youWon == false) {
       icon = Icons.auto_fix_high_rounded;
       accent = scheme.tertiary;
-      headline = '${widget.opponentName} wins';
-      subline = 'Close fight — one tap away from a rematch.';
+      headline = context.l10n.opponentWins(widget.opponentName);
+      subline = context.l10n.closeFightRematch;
     } else {
       icon = Icons.flag_rounded;
       accent = scheme.secondary;
-      headline = fromWins ? 'Challenger side wins' : 'Host side wins';
+      headline = fromWins
+          ? context.l10n.challengerSideWins
+          : context.l10n.hostSideWins;
       subline = null;
     }
 
@@ -1558,7 +1590,7 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Bout over',
+                        context.l10n.boutOver,
                         style: theme.textTheme.labelLarge?.copyWith(
                           color: scheme.onSurfaceVariant,
                           fontWeight: FontWeight.w800,
@@ -1636,7 +1668,7 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
               ),
               onPressed: () => unawaited(_onPlayAgainPressed()),
               icon: const Icon(Icons.replay_rounded),
-              label: const Text('Play again'),
+              label: Text(context.l10n.playAgain),
             ),
             const SizedBox(height: 10),
             OutlinedButton.icon(
@@ -1649,15 +1681,20 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
               onPressed: () => unawaited(
                 showShareGameResultToFeedDialog(
                   context,
-                  title: 'Share to home feed',
+                  title: context.l10n.shareToHomeFeed,
                   initialBody:
-                      'Rock paper scissors vs ${widget.opponentName}\n'
-                      'Final: $leftScore — $rightScore ($leftLabel / $rightLabel)\n'
-                      '$headline',
+                      context.l10n.rpsShareBody(
+                        widget.opponentName,
+                        leftScore,
+                        rightScore,
+                        leftLabel,
+                        rightLabel,
+                        headline,
+                      ),
                 ),
               ),
               icon: const Icon(Icons.feed_rounded),
-              label: const Text('Share result'),
+              label: Text(context.l10n.shareResult),
             ),
           ],
         ),
@@ -1721,7 +1758,7 @@ class _PulsingWaitChipState extends State<_PulsingWaitChip>
               ),
               const SizedBox(width: 8),
               Text(
-                'Wait',
+                context.l10n.wait,
                 style: theme.textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.w800,
                   color: scheme.onSecondaryContainer,
@@ -1775,6 +1812,7 @@ class _RpsDecorHeaderState extends State<_RpsDecorHeader>
   Widget build(BuildContext context) {
     final theme = widget.theme;
     final scheme = widget.scheme;
+    final l10n = context.l10n;
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (context, child) => child!,
@@ -1831,7 +1869,7 @@ class _RpsDecorHeaderState extends State<_RpsDecorHeader>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Rock · Paper · Scissors',
+                        l10n.rpsHeaderTitle,
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w900,
                           letterSpacing: -0.5,
@@ -1841,8 +1879,8 @@ class _RpsDecorHeaderState extends State<_RpsDecorHeader>
                       const SizedBox(height: 6),
                       Text(
                         widget.online
-                            ? 'vs ${widget.opponentName} · live bout'
-                            : 'Practice vs ${widget.opponentName}',
+                            ? l10n.rpsHeaderOnlineSubtitle(widget.opponentName)
+                            : l10n.rpsHeaderOfflineSubtitle(widget.opponentName),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                           height: 1.35,
@@ -1858,21 +1896,21 @@ class _RpsDecorHeaderState extends State<_RpsDecorHeader>
                             theme,
                             scheme,
                             Icons.landscape_rounded,
-                            'Rock',
+                            l10n.rpsRock,
                             scheme.outline,
                           ),
                           _rpsMiniChip(
                             theme,
                             scheme,
                             Icons.description_rounded,
-                            'Paper',
+                            l10n.rpsPaper,
                             scheme.primary,
                           ),
                           _rpsMiniChip(
                             theme,
                             scheme,
                             Icons.content_cut_rounded,
-                            'Scissors',
+                            l10n.rpsScissors,
                             scheme.tertiary,
                           ),
                         ],
@@ -1948,16 +1986,17 @@ class _RpsRoundClashOverlay extends StatelessWidget {
     }
   }
 
-  static String _outcomeLine(String from, String to, int rw) {
-    if (rw == -1) return 'Draw — replay the round';
+  String _outcomeLine(BuildContext context, String from, String to, int rw) {
+    final l10n = context.l10n;
+    if (rw == -1) return l10n.drawReplayRound;
     final paperRock =
         (from == 'paper' && to == 'rock') || (from == 'rock' && to == 'paper');
     if (paperRock) {
-      if (rw == 0) return 'Paper covers rock · challenger wins the throw';
-      return 'Paper covers rock · host wins the throw';
+      if (rw == 0) return l10n.rpsPaperCoversRockChallengerWins;
+      return l10n.rpsPaperCoversRockHostWins;
     }
-    if (rw == 0) return 'Challenger wins the throw';
-    return 'Host wins the throw';
+    if (rw == 0) return l10n.rpsChallengerWinsThrow;
+    return l10n.rpsHostWinsThrow;
   }
 
   @override
@@ -1995,7 +2034,7 @@ class _RpsRoundClashOverlay extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Throw',
+                        context.l10n.throwLabel,
                         style: theme.textTheme.labelLarge?.copyWith(
                           fontWeight: FontWeight.w800,
                           color: scheme.primary,
@@ -2056,7 +2095,7 @@ class _RpsRoundClashOverlay extends StatelessWidget {
                                     ),
                                     const SizedBox(height: 6),
                                     Text(
-                                      'Challenger',
+                                      context.l10n.challenger,
                                       style: theme.textTheme.labelSmall?.copyWith(
                                         fontWeight: FontWeight.w700,
                                         color: scheme.onSurfaceVariant,
@@ -2074,7 +2113,7 @@ class _RpsRoundClashOverlay extends StatelessWidget {
                                     ),
                                     const SizedBox(height: 6),
                                     Text(
-                                      'Host',
+                                      context.l10n.host,
                                       style: theme.textTheme.labelSmall?.copyWith(
                                         fontWeight: FontWeight.w700,
                                         color: scheme.onSurfaceVariant,
@@ -2089,7 +2128,7 @@ class _RpsRoundClashOverlay extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        _outcomeLine(fromPick, toPick, rw),
+                        _outcomeLine(context, fromPick, toPick, rw),
                         textAlign: TextAlign.center,
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w800,

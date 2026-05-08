@@ -21,6 +21,8 @@ class AuthSignupEvent extends AuthBlocEvent {
 
 class AuthLogoutEvent extends AuthBlocEvent {}
 
+class AuthDeleteAccountEvent extends AuthBlocEvent {}
+
 class AuthSendRecoveryOtpEvent extends AuthBlocEvent {
   final String email;
 

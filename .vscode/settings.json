@@ -2,5 +2,6 @@
   "deno.enable": true,
   "deno.enablePaths": ["supabase/functions"],
   "deno.lint": true,
-  "deno.config": "supabase/functions/deno.json"
+  "deno.config": "supabase/functions/deno.json",
+  "cmake.sourceDirectory": "E:/improve/new_proj/new_project/linux"
 }

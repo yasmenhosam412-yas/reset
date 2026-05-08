@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:new_project/core/widgets/tab_loading_skeletons.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/core/routing/app_router.dart';
 import 'package:new_project/features/authentication/data/models/user_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/utils/home_feed_ui.dart';
@@ -32,58 +33,64 @@ class _GameItem {
   final IconData icon;
 }
 
-const List<_GameItem> _kOnlineTabGames = [
-  _GameItem(
-    gameId: 1,
-    title: 'Penalty shootout',
-    subtitle: 'Tap to play vs AI on this device',
-    icon: Icons.sports_soccer_rounded,
-  ),
-  _GameItem(
-    gameId: 2,
-    title: 'Rock paper scissors',
-    subtitle:
-        'Same-time throws — first to ${RpsDuelGame.roundWinsToFinish} rounds wins',
-    icon: Icons.balance_rounded,
-  ),
-  _GameItem(
-    gameId: 3,
-    title: 'Fantasy cards',
-    subtitle: 'Glyph duel — pick 3 of 5 lanes vs AI here',
-    icon: Icons.auto_awesome_rounded,
-  ),
-  _GameItem(
-    gameId: 4,
-    title: 'Reaction relay',
-    subtitle: 'Party game · 2-5 players on one device',
-    icon: Icons.flash_on_rounded,
-  ),
-  _GameItem(
-    gameId: 5,
-    title: 'Flash match',
-    subtitle: 'Party game · rounds get harder (flash, grid, penalties)',
-    icon: Icons.grid_view_rounded,
-  ),
-];
+List<_GameItem> _onlineTabGames(BuildContext context) {
+  final l10n = context.l10n;
+  return [
+    _GameItem(
+      gameId: 1,
+      title: onlineGameTitleL10n(l10n, 1),
+      subtitle: l10n.singleDeviceNotOnlineMatch,
+      icon: Icons.sports_soccer_rounded,
+    ),
+    _GameItem(
+      gameId: 2,
+      title: onlineGameTitleL10n(l10n, 2),
+      subtitle: l10n.singleDeviceChallengeFriendHint,
+      icon: Icons.balance_rounded,
+    ),
+    _GameItem(
+      gameId: 3,
+      title: onlineGameTitleL10n(l10n, 3),
+      subtitle: l10n.singleDeviceSameDuelHint,
+      icon: Icons.auto_awesome_rounded,
+    ),
+    _GameItem(
+      gameId: 4,
+      title: onlineGameTitleL10n(l10n, 4),
+      subtitle: l10n.onlinePartyGameTwoToFive,
+      icon: Icons.flash_on_rounded,
+    ),
+    _GameItem(
+      gameId: 5,
+      title: onlineGameTitleL10n(l10n, 5),
+      subtitle: l10n.onlinePartyGameRoundsGetHarder,
+      icon: Icons.grid_view_rounded,
+    ),
+  ];
+}
 
 Color _onlineAvatarColor(String name) {
   final i = name.hashCode.abs() % Colors.primaries.length;
   return Colors.primaries[i];
 }
 
-String _onlineDisplayNameForFromId(String fromId, List<UserModel> friends) {
+String _onlineDisplayNameForFromId(
+  String fromId,
+  List<UserModel> friends, {
+  required String fallbackPlayerLabel,
+}) {
   for (final f in friends) {
     if (f.id == fromId) {
       final n = f.username.trim();
-      return n.isEmpty ? 'Player' : n;
+      return n.isEmpty ? fallbackPlayerLabel : n;
     }
   }
   if (fromId.length <= 12) return fromId;
   return '${fromId.substring(0, 10)}…';
 }
 
-_GameItem? _onlineGameItemForId(int id) {
-  for (final g in _kOnlineTabGames) {
+_GameItem? _onlineGameItemForId(BuildContext context, int id) {
+  for (final g in _onlineTabGames(context)) {
     if (g.gameId == id) return g;
   }
   return null;
@@ -93,9 +100,14 @@ String _onlineOpponentNameForChallenge(
   ChallengeRequestModel c,
   String uid,
   List<UserModel> friends,
+  String fallbackPlayerLabel,
 ) {
   final oid = c.fromId == uid ? c.toId : c.fromId;
-  return _onlineDisplayNameForFromId(oid, friends);
+  return _onlineDisplayNameForFromId(
+    oid,
+    friends,
+    fallbackPlayerLabel: fallbackPlayerLabel,
+  );
 }
 
 List<ChallengeRequestModel> _onlineAcceptedLobbyChallenges(
@@ -122,11 +134,12 @@ void _showAcceptedMatchLobbyDialog(
   BuildContext context,
   AcceptedMatchPreview preview,
 ) {
+  final l10n = context.l10n;
   final theme = Theme.of(context);
   final scheme = theme.colorScheme;
   final bloc = context.read<OnlineBloc>();
-  final g = _onlineGameItemForId(preview.gameId);
-  final gameTitle = g?.title ?? onlineGameTitle(preview.gameId);
+  final g = _onlineGameItemForId(context, preview.gameId);
+  final gameTitle = g?.title ?? onlineGameTitleL10n(l10n, preview.gameId);
   final gameSubtitle = g?.subtitle ?? '';
   final gameIcon = g?.icon ?? Icons.sports_esports_rounded;
 
@@ -138,14 +151,14 @@ void _showAcceptedMatchLobbyDialog(
     context: context,
     builder: (dialogContext) {
       return AlertDialog(
-        title: const Text('Match accepted'),
+        title: Text(l10n.matchAccepted),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Opponent',
+                l10n.opponent,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -182,7 +195,7 @@ void _showAcceptedMatchLobbyDialog(
               ),
               const SizedBox(height: 16),
               Text(
-                'Game',
+                l10n.game,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -205,7 +218,7 @@ void _showAcceptedMatchLobbyDialog(
               );
               Navigator.pop(dialogContext);
             },
-            child: const Text('Ready'),
+            child: Text(l10n.ready),
           ),
         ],
       );
@@ -227,6 +240,7 @@ Future<void> _openGameVsAi(
   _GameItem g,
   List<UserModel> friends,
 ) async {
+  final l10n = context.l10n;
   final theme = Theme.of(context);
   final scheme = theme.colorScheme;
 
@@ -243,14 +257,14 @@ Future<void> _openGameVsAi(
               padding: const EdgeInsets.all(24),
               children: [
                 Text(
-                  'Practice vs AI',
+                  l10n.practiceVsAi,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Single device — not an online match.',
+                  l10n.singleDeviceNotOnlineMatch,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -259,7 +273,7 @@ Future<void> _openGameVsAi(
                 PenaltyShootoutGame(
                   scheme: scheme,
                   theme: theme,
-                  opponentName: 'AI',
+                  opponentName: l10n.aiLabel,
                 ),
               ],
             ),
@@ -279,20 +293,24 @@ Future<void> _openGameVsAi(
               padding: const EdgeInsets.all(24),
               children: [
                 Text(
-                  'Practice vs AI',
+                  l10n.practiceVsAi,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Single device — challenge a friend online for a real duel.',
+                  l10n.singleDeviceChallengeFriendHint,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 24),
-                RpsDuelGame(scheme: scheme, theme: theme, opponentName: 'AI'),
+                RpsDuelGame(
+                  scheme: scheme,
+                  theme: theme,
+                  opponentName: l10n.aiLabel,
+                ),
               ],
             ),
           ),
@@ -311,14 +329,14 @@ Future<void> _openGameVsAi(
               padding: const EdgeInsets.all(24),
               children: [
                 Text(
-                  'Practice vs AI',
+                  l10n.practiceVsAi,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Single device — same duel online vs a friend.',
+                  l10n.singleDeviceSameDuelHint,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -327,7 +345,7 @@ Future<void> _openGameVsAi(
                 FantasyDuelGame(
                   scheme: scheme,
                   theme: theme,
-                  opponentName: 'AI',
+                  opponentName: l10n.aiLabel,
                 ),
               ],
             ),
@@ -355,7 +373,7 @@ Future<void> _openGameVsAi(
       return;
     default:
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${g.title} vs AI is not available yet.')),
+        SnackBar(content: Text(l10n.vsAiNotAvailableYet(g.title))),
       );
   }
 }
@@ -372,6 +390,7 @@ Future<String?> _showCreatePartyRoomDialog({
   return showDialog<String>(
     context: context,
     builder: (ctx) {
+      final l10n = ctx.l10n;
       final theme = Theme.of(ctx);
       final scheme = theme.colorScheme;
       return StatefulBuilder(
@@ -379,7 +398,7 @@ Future<String?> _showCreatePartyRoomDialog({
           final inviteLimit = maxPlayers - 1;
           final canCreate = selected.length == inviteLimit;
           return AlertDialog(
-            title: Text('Create ${game.title} room'),
+            title: Text(l10n.createRoomTitle(game.title)),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -387,12 +406,12 @@ Future<String?> _showCreatePartyRoomDialog({
                 children: [
                   DropdownButtonFormField<int>(
                     initialValue: maxPlayers,
-                    decoration: const InputDecoration(labelText: 'Room size'),
+                    decoration: InputDecoration(labelText: l10n.roomSize),
                     items: const [2, 3, 4, 5]
                         .map(
                           (v) => DropdownMenuItem(
                             value: v,
-                            child: Text('$v players max'),
+                            child: Text(l10n.playersMax(v)),
                           ),
                         )
                         .toList(growable: false),
@@ -410,7 +429,7 @@ Future<String?> _showCreatePartyRoomDialog({
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Invite exactly $inviteLimit friends',
+                    l10n.inviteExactlyFriends(inviteLimit),
                     style: theme.textTheme.bodySmall,
                   ),
                   const SizedBox(height: 8),
@@ -421,7 +440,9 @@ Future<String?> _showCreatePartyRoomDialog({
                       for (final f in friends)
                         FilterChip(
                           label: Text(
-                            f.username.trim().isEmpty ? 'Player' : f.username.trim(),
+                            f.username.trim().isEmpty
+                                ? l10n.player
+                                : f.username.trim(),
                           ),
                           selected: selected.contains(f.id),
                           onSelected: creating
@@ -446,26 +467,27 @@ Future<String?> _showCreatePartyRoomDialog({
             actions: [
               TextButton(
                 onPressed: creating ? null : () => Navigator.of(ctx).pop(),
-                child: const Text('Cancel'),
+                child: Text(l10n.cancel),
               ),
               FilledButton(
                 onPressed: canCreate && !creating
                     ? () async {
                         setDialogState(() => creating = true);
                         try {
-                          final roomId = await PartyRoomService.createRoomAndInvite(
-                            gameId: game.gameId,
-                            maxPlayers: maxPlayers,
-                            inviteUserIds: selected.toList(growable: false),
-                          );
+                          final roomId =
+                              await PartyRoomService.createRoomAndInvite(
+                                gameId: game.gameId,
+                                maxPlayers: maxPlayers,
+                                inviteUserIds: selected.toList(growable: false),
+                              );
                           if (!ctx.mounted) return;
                           Navigator.of(ctx).pop(roomId);
                         } catch (e) {
                           if (!ctx.mounted) return;
                           setDialogState(() => creating = false);
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(content: Text('$e')),
-                          );
+                          ScaffoldMessenger.of(
+                            ctx,
+                          ).showSnackBar(SnackBar(content: Text('$e')));
                         }
                       }
                     : null,
@@ -483,12 +505,12 @@ Future<String?> _showCreatePartyRoomDialog({
                           ),
                           const SizedBox(width: 10),
                           Text(
-                            'Creating…',
+                            l10n.creating,
                             style: TextStyle(color: scheme.onPrimary),
                           ),
                         ],
                       )
-                    : const Text('Create room'),
+                    : Text(l10n.createRoom),
               ),
             ],
           );
@@ -606,10 +628,7 @@ class _OnlineGameCard extends StatelessWidget {
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [
-                              scheme.primary,
-                              scheme.tertiary,
-                            ],
+                            colors: [scheme.primary, scheme.tertiary],
                           ),
                           boxShadow: [
                             BoxShadow(
@@ -619,7 +638,11 @@ class _OnlineGameCard extends StatelessWidget {
                             ),
                           ],
                         ),
-                        child: Icon(game.icon, size: 24, color: scheme.onPrimary),
+                        child: Icon(
+                          game.icon,
+                          size: 24,
+                          color: scheme.onPrimary,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -666,10 +689,7 @@ class _OnlineGameCard extends StatelessWidget {
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: [
-                            scheme.primary,
-                            scheme.tertiary,
-                          ],
+                          colors: [scheme.primary, scheme.tertiary],
                         ),
                         boxShadow: [
                           BoxShadow(
@@ -745,6 +765,7 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
@@ -759,13 +780,28 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
           (curr.pendingGameLaunch != null &&
               curr.pendingGameLaunch != prev.pendingGameLaunch),
       listener: (context, state) {
+        final l10n = context.l10n;
         final err = state.errorMessage;
         if (err != null) {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text(err)));
         }
-        final ok = state.successMessage;
+        final ok = switch (state.successType) {
+          OnlineSuccessType.challengeSent => l10n.challengeSentTo(
+            onlineGameTitleL10n(l10n, state.successGameId ?? 1),
+            (state.successName?.trim().isEmpty ?? true)
+                ? l10n.friend
+                : state.successName!.trim(),
+          ),
+          OnlineSuccessType.leftMatch => l10n.leftTheMatch(
+            (state.successName?.trim().isEmpty ?? true)
+                ? l10n.player
+                : state.successName!.trim(),
+            onlineGameTitleL10n(l10n, state.successGameId ?? 1),
+          ),
+          null => state.successMessage,
+        };
         if (ok != null) {
           ScaffoldMessenger.of(
             context,
@@ -824,7 +860,7 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
         }
 
         if (state.status == OnlineStatus.failure && empty) {
-          final msg = state.errorMessage ?? 'Something went wrong';
+          final msg = state.errorMessage ?? l10n.somethingWentWrong;
           return Scaffold(
             body: SafeArea(
               child: Center(
@@ -847,7 +883,7 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                       ),
                       const SizedBox(height: 24),
                       Text(
-                        'Could not load Online',
+                        l10n.couldNotLoadOnline,
                         textAlign: TextAlign.center,
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w800,
@@ -868,7 +904,7 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                           OnlineLoadRequested(),
                         ),
                         icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('Try again'),
+                        label: Text(l10n.tryAgain),
                       ),
                     ],
                   ),
@@ -907,7 +943,9 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                             ],
                           ),
                           border: Border.all(
-                            color: scheme.outlineVariant.withValues(alpha: 0.55),
+                            color: scheme.outlineVariant.withValues(
+                              alpha: 0.55,
+                            ),
                           ),
                           boxShadow: [
                             BoxShadow(
@@ -940,7 +978,7 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Online',
+                                    l10n.online,
                                     style: theme.textTheme.headlineSmall
                                         ?.copyWith(
                                           fontWeight: FontWeight.w900,
@@ -949,7 +987,7 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Match with friends, party rooms, and quick games',
+                                    l10n.onlineHeaderSubtitle,
                                     style: theme.textTheme.bodyMedium?.copyWith(
                                       color: scheme.onSurfaceVariant,
                                       height: 1.35,
@@ -968,10 +1006,10 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                     padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
                     sliver: SliverToBoxAdapter(
                       child: _OnlineSectionHeader(
-                        title: 'Friends',
+                        title: l10n.friends,
                         subtitle: state.friends.isEmpty
                             ? null
-                            : 'Tap someone to send an online challenge',
+                            : l10n.tapFriendToChallenge,
                         icon: Icons.people_alt_rounded,
                       ),
                     ),
@@ -1010,7 +1048,7 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                                     const SizedBox(width: 14),
                                     Expanded(
                                       child: Text(
-                                        'No friends yet. Accept requests from Home.',
+                                        l10n.noFriendsYetAcceptFromHome,
                                         style: theme.textTheme.bodyMedium
                                             ?.copyWith(
                                               color: scheme.onSurfaceVariant,
@@ -1033,7 +1071,7 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                               itemBuilder: (context, index) {
                                 final f = state.friends[index];
                                 final label = f.username.trim().isEmpty
-                                    ? 'Player'
+                                    ? l10n.player
                                     : f.username;
                                 final avatarUrl = f.avatarUrl?.trim();
                                 final hasAvatar =
@@ -1110,8 +1148,7 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                                                       ),
                                                       boxShadow: [
                                                         BoxShadow(
-                                                          color: scheme
-                                                              .tertiary
+                                                          color: scheme.tertiary
                                                               .withValues(
                                                                 alpha: 0.45,
                                                               ),
@@ -1135,7 +1172,7 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                                                   ),
                                             ),
                                             Text(
-                                              'Friend',
+                                              l10n.friend,
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                               textAlign: TextAlign.center,
@@ -1160,8 +1197,8 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                     padding: const EdgeInsets.fromLTRB(16, 22, 16, 8),
                     sliver: SliverToBoxAdapter(
                       child: _OnlineSectionHeader(
-                        title: 'Party rooms',
-                        subtitle: 'Invites and rooms you have joined',
+                        title: l10n.partyRooms,
+                        subtitle: l10n.partyRoomsSubtitle,
                         icon: Icons.groups_rounded,
                       ),
                     ),
@@ -1180,15 +1217,15 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                     padding: const EdgeInsets.fromLTRB(16, 22, 16, 8),
                     sliver: SliverToBoxAdapter(
                       child: _OnlineSectionHeader(
-                        title: 'Play invites',
-                        subtitle: 'Friends invited you to a match',
+                        title: l10n.playInvites,
+                        subtitle: l10n.playInvitesSubtitle,
                         icon: Icons.mark_email_unread_rounded,
                         trailing: TextButton.icon(
                           onPressed: () => context.read<OnlineBloc>().add(
                             OnlineLoadRequested(),
                           ),
                           icon: const Icon(Icons.refresh_rounded, size: 20),
-                          label: const Text('Refresh'),
+                          label: Text(l10n.refresh),
                         ),
                       ),
                     ),
@@ -1224,7 +1261,7 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  'No pending invites.',
+                                  l10n.noPendingInvites,
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     color: scheme.onSurfaceVariant,
                                     height: 1.3,
@@ -1248,6 +1285,7 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                           final fromName = _onlineDisplayNameForFromId(
                             inv.fromId,
                             state.friends,
+                            fallbackPlayerLabel: l10n.player,
                           );
                           String? opponentAvatarUrl;
                           for (final fr in state.friends) {
@@ -1257,7 +1295,10 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                             }
                           }
                           final firstName = fromName.split(' ').first;
-                          final gameTitle = onlineGameTitle(inv.gameId);
+                          final gameTitle = onlineGameTitleL10n(
+                            l10n,
+                            inv.gameId,
+                          );
                           final timeLabel = homeFeedTimeAgo(inv.createdAt);
                           return Card(
                             margin: EdgeInsets.zero,
@@ -1322,8 +1363,7 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                                                     ),
                                                   ),
                                                   TextSpan(
-                                                    text:
-                                                        ' invited you to play ',
+                                                    text: l10n.invitedYouToPlay,
                                                     style: TextStyle(
                                                       color: scheme
                                                           .onSurfaceVariant,
@@ -1375,7 +1415,7 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                                                         accept: false,
                                                       ),
                                                     ),
-                                          child: const Text('Decline'),
+                                          child: Text(l10n.decline),
                                         ),
                                       ),
                                       const SizedBox(width: 10),
@@ -1396,7 +1436,7 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                                                         gameId: inv.gameId,
                                                       ),
                                                     ),
-                                          child: const Text('Accept'),
+                                          child: Text(l10n.accept),
                                         ),
                                       ),
                                     ],
@@ -1421,12 +1461,10 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                         padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
                         sliver: SliverToBoxAdapter(
                           child: _OnlineSectionHeader(
-                            title: 'Active matches',
+                            title: l10n.activeMatches,
                             subtitle: lobbies.length > 1
-                                ? 'Each card is a separate game. Mark Ready per '
-                                    'match; when both players are ready on a card, '
-                                    'you can start that game from there.'
-                                : 'Tap Ready when you are set to play',
+                                ? l10n.activeMatchesMultiHint
+                                : l10n.tapReadyWhenSet,
                             icon: Icons.bolt_rounded,
                           ),
                         ),
@@ -1443,8 +1481,12 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                               c,
                               uid!,
                               state.friends,
+                              l10n.player,
                             );
-                            final gameTitle = onlineGameTitle(c.gameId);
+                            final gameTitle = onlineGameTitleL10n(
+                              l10n,
+                              c.gameId,
+                            );
                             final meFrom = c.fromId == uid;
                             final iAmReady = meFrom ? c.fromReady : c.toReady;
                             final theyReady = meFrom ? c.toReady : c.fromReady;
@@ -1491,9 +1533,15 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                                     const SizedBox(height: 10),
                                     Text(
                                       bothReady
-                                          ? 'Both players ready.'
-                                          : 'You: ${iAmReady ? 'Ready' : 'Not ready'} · '
-                                                'Them: ${theyReady ? 'Ready' : 'Waiting'}',
+                                          ? l10n.bothPlayersReady
+                                          : l10n.readyStatusLine(
+                                              iAmReady
+                                                  ? l10n.ready
+                                                  : l10n.notReady,
+                                              theyReady
+                                                  ? l10n.ready
+                                                  : l10n.waiting,
+                                            ),
                                       style: theme.textTheme.bodySmall
                                           ?.copyWith(
                                             color: scheme.onSurfaceVariant,
@@ -1515,8 +1563,8 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                                               : null,
                                           child: Text(
                                             iAmReady
-                                                ? 'Waiting for opponent'
-                                                : 'Ready',
+                                                ? l10n.waitingForOpponent
+                                                : l10n.ready,
                                           ),
                                         ),
                                       ),
@@ -1534,8 +1582,8 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                     padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
                     sliver: SliverToBoxAdapter(
                       child: _OnlineSectionHeader(
-                        title: 'Games',
-                        subtitle: 'Practice vs AI or open a party room',
+                        title: l10n.games,
+                        subtitle: l10n.gamesSubtitle,
                         icon: Icons.sports_esports_rounded,
                       ),
                     ),
@@ -1551,7 +1599,7 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                               constraints.maxWidth >= 560 ||
                               (orientation == Orientation.landscape &&
                                   constraints.maxWidth >= 480);
-                          final cards = _kOnlineTabGames
+                          final cards = _onlineTabGames(context)
                               .map(
                                 (g) => _OnlineGameCard(
                                   game: g,
@@ -1631,7 +1679,10 @@ class _PartyRoomInvitesBlockState extends State<_PartyRoomInvitesBlock> {
     });
   }
 
-  Future<void> _navigateToLobby(PartyRoomInviteRow inv, {required bool acceptFirst}) async {
+  Future<void> _navigateToLobby(
+    PartyRoomInviteRow inv, {
+    required bool acceptFirst,
+  }) async {
     if (acceptFirst) {
       await PartyRoomService.respondInvite(roomId: inv.roomId, accept: true);
     }
@@ -1641,7 +1692,7 @@ class _PartyRoomInvitesBlockState extends State<_PartyRoomInvitesBlock> {
         builder: (_) => PartyRoomLobbyScreen(
           roomId: inv.roomId,
           gameId: inv.gameId,
-          gameTitle: onlineGameTitle(inv.gameId),
+          gameTitle: onlineGameTitleL10n(context.l10n, inv.gameId),
         ),
       ),
     );
@@ -1650,6 +1701,7 @@ class _PartyRoomInvitesBlockState extends State<_PartyRoomInvitesBlock> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = widget.scheme;
     final theme = widget.theme;
 
@@ -1692,7 +1744,7 @@ class _PartyRoomInvitesBlockState extends State<_PartyRoomInvitesBlock> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'No party room invites yet.',
+                    l10n.noPartyRoomInvitesYet,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
                       height: 1.3,
@@ -1745,8 +1797,8 @@ class _PartyRoomInvitesBlockState extends State<_PartyRoomInvitesBlock> {
                               children: [
                                 Text(
                                   inv.alreadyJoined
-                                      ? 'In ${inv.hostName}\'s party room'
-                                      : '${inv.hostName} invited you',
+                                      ? l10n.inHostsPartyRoom(inv.hostName)
+                                      : l10n.hostInvitedYou(inv.hostName),
                                   style: theme.textTheme.titleSmall?.copyWith(
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: -0.15,
@@ -1754,7 +1806,10 @@ class _PartyRoomInvitesBlockState extends State<_PartyRoomInvitesBlock> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '${onlineGameTitle(inv.gameId)} · up to ${inv.maxPlayers} players',
+                                  l10n.gameUpToPlayers(
+                                    onlineGameTitleL10n(l10n, inv.gameId),
+                                    inv.maxPlayers,
+                                  ),
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: scheme.onSurfaceVariant,
                                     height: 1.35,
@@ -1800,12 +1855,14 @@ class _PartyRoomInvitesBlockState extends State<_PartyRoomInvitesBlock> {
                                   );
                                 } catch (e) {
                                   if (!context.mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('$e')),
-                                  );
+                                  ScaffoldMessenger.of(
+                                    context,
+                                  ).showSnackBar(SnackBar(content: Text('$e')));
                                 }
                               },
-                              child: Text(inv.alreadyJoined ? 'Leave' : 'Decline'),
+                              child: Text(
+                                inv.alreadyJoined ? l10n.leave : l10n.decline,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -1819,13 +1876,15 @@ class _PartyRoomInvitesBlockState extends State<_PartyRoomInvitesBlock> {
                                   );
                                 } catch (e) {
                                   if (!context.mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('$e')),
-                                  );
+                                  ScaffoldMessenger.of(
+                                    context,
+                                  ).showSnackBar(SnackBar(content: Text('$e')));
                                 }
                               },
                               child: Text(
-                                inv.alreadyJoined ? 'Open lobby' : 'Join room',
+                                inv.alreadyJoined
+                                    ? l10n.openLobby
+                                    : l10n.joinRoom,
                               ),
                             ),
                           ),

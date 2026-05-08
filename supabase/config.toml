@@ -56,6 +56,9 @@ deno_version = 2
 [functions.process-push-queue]
 verify_jwt = false
 
+[functions.delete-account]
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 54327

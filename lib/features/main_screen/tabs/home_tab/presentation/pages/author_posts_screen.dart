@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:new_project/core/l10n/l10n.dart';
+import 'package:new_project/core/utils/pagination_consts.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/bottom_sheets/home_comments_sheet.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
@@ -110,8 +112,9 @@ class _AuthorPostsScreenState extends State<AuthorPostsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l10n = context.l10n;
     final name = widget.authorName.trim().isEmpty
-        ? 'Posts'
+        ? l10n.posts
         : widget.authorName.trim();
 
     return BlocConsumer<HomeBloc, HomeState>(
@@ -134,7 +137,7 @@ class _AuthorPostsScreenState extends State<AuthorPostsScreen> {
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      'No posts from this profile in your feed yet. Pull to refresh on Home.',
+                      l10n.noPostsFromProfileYet,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: scheme.onSurfaceVariant,
@@ -144,7 +147,12 @@ class _AuthorPostsScreenState extends State<AuthorPostsScreen> {
                 )
               : RefreshIndicator(
                   onRefresh: () async {
-                    context.read<HomeBloc>().add(HomePostsRequested());
+                    context.read<HomeBloc>().add(
+                      HomePostsRequested(
+                        limit: PaginationConsts.limitPosts,
+                        offset: PaginationConsts.offsetPosts,
+                      ),
+                    );
                     await context.read<HomeBloc>().stream.firstWhere(
                       (s) => s.status != HomeStatus.loading,
                     );

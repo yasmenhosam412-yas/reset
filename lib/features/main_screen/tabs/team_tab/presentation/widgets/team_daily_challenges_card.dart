@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 
 class TeamChallengeUiDef {
   const TeamChallengeUiDef({
@@ -13,29 +14,6 @@ class TeamChallengeUiDef {
   final String subtitle;
   final int points;
 }
-
-const List<TeamChallengeUiDef> kTeamDailyChallengeDefs = [
-  TeamChallengeUiDef(
-    keyId: 'pitch_report',
-    title: 'Daily pitch report',
-    subtitle: 'Same for every player — claim once per UTC day.',
-    points: 12,
-  ),
-  TeamChallengeUiDef(
-    keyId: 'crowd_energy',
-    title: 'Crowd energy',
-    subtitle: 'Publish any post on Home today (UTC).',
-    points: 20,
-  ),
-  TeamChallengeUiDef(
-    keyId: 'session_move',
-    title: 'Match-day rhythm',
-    subtitle:
-        'Play online today (UTC). Penalty: we log you when the match closes in the cloud; '
-        'rim / fantasy / 1v1 count from live session rows.',
-    points: 22,
-  ),
-];
 
 /// Daily challenges for **all** signed-in users; rewards skill points on the server.
 class TeamDailyChallengesCard extends StatelessWidget {
@@ -52,8 +30,29 @@ class TeamDailyChallengesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final defs = [
+      TeamChallengeUiDef(
+        keyId: 'pitch_report',
+        title: l10n.teamChallengePitchReportTitle,
+        subtitle: l10n.teamChallengePitchReportSubtitle,
+        points: 12,
+      ),
+      TeamChallengeUiDef(
+        keyId: 'crowd_energy',
+        title: l10n.teamChallengeCrowdEnergyTitle,
+        subtitle: l10n.teamChallengeCrowdEnergySubtitle,
+        points: 20,
+      ),
+      TeamChallengeUiDef(
+        keyId: 'session_move',
+        title: l10n.teamChallengeMatchRhythmTitle,
+        subtitle: l10n.teamChallengeMatchRhythmSubtitle,
+        points: 22,
+      ),
+    ];
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
@@ -74,7 +73,7 @@ class TeamDailyChallengesCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Daily challenges (everyone)',
+                      l10n.teamDailyChallengesEveryone,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
@@ -84,15 +83,14 @@ class TeamDailyChallengesCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'Earn skill points, then train players (+1 stat for 15 pts). '
-                'Squad must be saved to the cloud.',
+                l10n.teamDailyChallengesHint,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                   height: 1.35,
                 ),
               ),
               const SizedBox(height: 12),
-              ...kTeamDailyChallengeDefs.map((c) {
+              ...defs.map((c) {
                 final claimed = claimedKeysToday.contains(c.keyId);
                 final busy = claimBusyKey == c.keyId;
                 return Padding(
@@ -142,7 +140,7 @@ class TeamDailyChallengesCard extends StatelessWidget {
                                 Padding(
                                   padding: const EdgeInsets.only(top: 2),
                                   child: Text(
-                                    'Claimed',
+                                    l10n.claimed,
                                     style: theme.textTheme.labelSmall?.copyWith(
                                       color: scheme.onSurfaceVariant,
                                       fontWeight: FontWeight.w600,
@@ -162,7 +160,7 @@ class TeamDailyChallengesCard extends StatelessWidget {
                                             strokeWidth: 2,
                                           ),
                                         )
-                                      : const Text('Claim'),
+                                      : Text(l10n.claim),
                                 ),
                             ],
                           ),

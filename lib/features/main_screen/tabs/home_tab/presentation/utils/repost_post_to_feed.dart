@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:new_project/core/di/di.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/core/utils/dispose_text_controller_next_frame.dart';
+import 'package:new_project/core/utils/pagination_consts.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_post_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
@@ -17,7 +19,7 @@ Future<void> showRepostPostToFeedDialog(
   if (homePostIsMine(post)) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("You can't repost your own post.")),
+        SnackBar(content: Text(context.l10n.cantRepostOwnPost)),
       );
     }
     return;
@@ -25,17 +27,16 @@ Future<void> showRepostPostToFeedDialog(
   if (!post.allowShare) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('This post cannot be reposted.'),
-        ),
+        SnackBar(content: Text(context.l10n.thisPostCannotBeReposted)),
       );
     }
     return;
   }
 
   final author = post.userModel.username.trim().isEmpty
-      ? 'Someone'
+      ? context.l10n.someone
       : post.userModel.username.trim();
+  final l10n = context.l10n;
   final imageUrl = homePostResolvedImageUrl(post).trim();
   final initialCaption = homePostDisplayContent(post).trim();
 
@@ -45,14 +46,14 @@ Future<void> showRepostPostToFeedDialog(
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: const Text('Repost to home feed'),
+          title: Text(l10n.repostToHomeFeed),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'From $author',
+                  l10n.fromAuthor(author),
                   style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
                         color: Theme.of(ctx).colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w600,
@@ -75,7 +76,7 @@ Future<void> showRepostPostToFeedDialog(
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Image is attached to this repost.',
+                    l10n.imageAttachedToRepost,
                     style: Theme.of(ctx).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 12),
@@ -83,9 +84,9 @@ Future<void> showRepostPostToFeedDialog(
                 TextField(
                   controller: controller,
                   maxLines: 10,
-                  decoration: const InputDecoration(
-                    hintText: 'Add a comment (optional)…',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    hintText: l10n.addCommentOptional,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
               ],
@@ -94,11 +95,11 @@ Future<void> showRepostPostToFeedDialog(
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Publish repost'),
+              child: Text(l10n.publishRepost),
             ),
           ],
         );
@@ -123,9 +124,9 @@ Future<void> showRepostPostToFeedDialog(
       ),
       (_) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Repost published')),
+          SnackBar(content: Text(l10n.repostPublished)),
         );
-        context.read<HomeBloc>().add(HomePostsRequested());
+        context.read<HomeBloc>().add(HomePostsRequested(limit: PaginationConsts.limitPosts, offset: PaginationConsts.offsetPosts));
       },
     );
   } finally {

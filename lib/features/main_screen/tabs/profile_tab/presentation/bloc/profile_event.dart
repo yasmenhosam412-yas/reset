@@ -37,3 +37,5 @@ final class ProfilePushNotificationsChanged extends ProfileEvent {
 
   final bool enabled;
 }
+
+

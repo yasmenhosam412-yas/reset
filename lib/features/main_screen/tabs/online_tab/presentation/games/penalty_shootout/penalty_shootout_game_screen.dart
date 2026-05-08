@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/data/models/penalty_shootout_online_models.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/penalty_shootout/penalty_shootout_controls.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/penalty_shootout/penalty_shootout_hud_bar.dart';
@@ -12,6 +13,7 @@ import 'package:new_project/features/main_screen/tabs/online_tab/presentation/ga
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/game_match_outcome_fx.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/game_result_feed_share.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/penalty_shootout/penalty_shootout_types.dart';
+import 'package:new_project/l10n/app_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 part 'penalty_shootout_game_screen_logic.dart';
@@ -82,6 +84,15 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
   bool _onlinePickSubmitting = false;
   bool _onlineWaitingForOpponent = false;
   bool _onlineMatchCleanupDone = false;
+
+  String _dirLabelL10n(PenaltyShootoutDir d, AppLocalizations l10n) =>
+      switch (d) {
+        PenaltyShootoutDir.farLeft => l10n.penaltyDirFarLeft,
+        PenaltyShootoutDir.left => l10n.penaltyDirLeft,
+        PenaltyShootoutDir.center => l10n.penaltyDirCenter,
+        PenaltyShootoutDir.right => l10n.penaltyDirRight,
+        PenaltyShootoutDir.farRight => l10n.penaltyDirFarRight,
+      };
 
   void _mutate(VoidCallback fn) {
     if (mounted) setState(fn);
@@ -187,6 +198,7 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final t = widget.theme;
     final s = widget.scheme;
 
@@ -203,10 +215,10 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
 
     if (_phase == PenaltyShootoutPhase.finished) {
       final winner = _myGoals > _oppGoals
-          ? 'You win!'
+          ? l10n.youWon
           : _oppGoals > _myGoals
-              ? '${widget.opponentName} wins'
-              : 'Draw';
+              ? l10n.opponentWins(widget.opponentName)
+              : l10n.draw;
       final outcome = gameMatchOutcomeFromScores(
         myScore: _myGoals,
         oppScore: _oppGoals,
@@ -222,9 +234,9 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
         GameMatchOutcome.draw => s.secondary,
       };
       final subline = switch (outcome) {
-        GameMatchOutcome.win => 'Clinical finishing — share the highlight!',
-        GameMatchOutcome.loss => 'Heartbreaker — one more shootout?',
-        GameMatchOutcome.draw => 'Deadlock on the line — honor is even.',
+        GameMatchOutcome.win => l10n.shootoutWinSubline,
+        GameMatchOutcome.loss => l10n.shootoutLossSubline,
+        GameMatchOutcome.draw => l10n.shootoutDrawSubline,
       };
       return GameMatchOutcomeLayer(
         outcome: outcome,
@@ -267,7 +279,7 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Shootout over',
+                  l10n.shootoutOver,
                   style: t.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w900,
                   ),
@@ -275,7 +287,11 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'You $_myGoals  —  ${widget.opponentName} $_oppGoals',
+                  l10n.youVsOpponentScore(
+                    _myGoals,
+                    widget.opponentName,
+                    _oppGoals,
+                  ),
                   style: t.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -305,22 +321,25 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
                   onPressed: (widget.onPlayAgain == null && widget.online != null)
                       ? null
                       : _onPlayAgainPressed,
-                  child: const Text('Play again'),
+                  child: Text(l10n.playAgain),
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: () => unawaited(
                     showShareGameResultToFeedDialog(
                       context,
-                      title: 'Share to home feed',
+                      title: l10n.shareToHomeFeed,
                       initialBody:
-                          'Penalty shootout vs ${widget.opponentName}\n'
-                          'Final: $_myGoals — $_oppGoals\n'
-                          '$winner',
+                          l10n.penaltyShootoutShareBody(
+                            widget.opponentName,
+                            _myGoals,
+                            _oppGoals,
+                            winner,
+                          ),
                     ),
                   ),
                   icon: const Icon(Icons.feed_rounded),
-                  label: const Text('Share result'),
+                  label: Text(l10n.shareResult),
                 ),
               ],
             ),
@@ -344,7 +363,7 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
                 children: [
                   Expanded(
                     child: Text(
-                      'Goal lanes',
+                      l10n.goalLanes,
                       style: t.textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                         color: s.onSurfaceVariant,
@@ -352,16 +371,16 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
                     ),
                   ),
                   SegmentedButton<PenaltyAimLanes>(
-                    segments: const [
+                    segments: [
                       ButtonSegment<PenaltyAimLanes>(
                         value: PenaltyAimLanes.classic3,
                         label: Text('3'),
-                        tooltip: 'Left · center · right',
+                        tooltip: l10n.goalLanesClassicTooltip,
                       ),
                       ButtonSegment<PenaltyAimLanes>(
                         value: PenaltyAimLanes.wide5,
                         label: Text('5'),
-                        tooltip: 'Far left through far right',
+                        tooltip: l10n.goalLanesWideTooltip,
                       ),
                     ],
                     emptySelectionAllowed: false,
@@ -458,8 +477,8 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
                     const SizedBox(height: 10),
                     Text(
                       _onlinePickSubmitting
-                          ? 'Saving your pick to the server…'
-                          : 'Pick saved — waiting for ${widget.opponentName}…',
+                          ? l10n.savingPickToServer
+                          : l10n.pickSavedWaitingFor(widget.opponentName),
                       textAlign: TextAlign.center,
                       style: t.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
@@ -486,7 +505,10 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
                     _keeperPick != null) ...[
                   const SizedBox(height: 8),
                   Text(
-                    'Shot ${PenaltyShootoutRules.dirLabel(_strikerPick!)} · Dive ${PenaltyShootoutRules.dirLabel(_keeperPick!)}',
+                    l10n.shotDiveSummary(
+                      _dirLabelL10n(_strikerPick!, l10n),
+                      _dirLabelL10n(_keeperPick!, l10n),
+                    ),
                     style: t.textTheme.labelSmall?.copyWith(
                       color: s.onSurfaceVariant,
                     ),

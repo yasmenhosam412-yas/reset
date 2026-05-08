@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/authentication/data/models/user_model.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/dialogs/send_online_challenge_dialog.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/bloc/online_bloc.dart';
@@ -19,6 +20,7 @@ class TeamFriendsDuelStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
@@ -52,7 +54,7 @@ class TeamFriendsDuelStrip extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Play together',
+                              l10n.teamPlayTogether,
                               style: theme.textTheme.titleSmall?.copyWith(
                                 fontWeight: FontWeight.w900,
                               ),
@@ -67,8 +69,7 @@ class TeamFriendsDuelStrip extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Same friends list as Home — challenge someone and '
-                              'they will see it on Online.',
+                              l10n.teamSameFriendsListHint,
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: scheme.onSurfaceVariant,
                                 height: 1.35,
@@ -78,7 +79,7 @@ class TeamFriendsDuelStrip extends StatelessWidget {
                         ),
                       ),
                       IconButton(
-                        tooltip: 'Refresh friends',
+                        tooltip: l10n.teamRefreshFriends,
                         onPressed: () => context.read<OnlineBloc>().add(
                           OnlineLoadRequested(),
                         ),
@@ -103,8 +104,7 @@ class TeamFriendsDuelStrip extends StatelessWidget {
                     )
                   else if (state.friends.isEmpty)
                     Text(
-                      'No friends yet — send requests from Home. '
-                      'When someone accepts, tap refresh here or open Online.',
+                      l10n.teamNoFriendsHint,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                         height: 1.35,
@@ -154,8 +154,9 @@ class _FriendDuelChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final label = friend.username.trim().isEmpty
-        ? 'Player'
+        ? l10n.player
         : friend.username;
     final avatarUrl = friend.avatarUrl?.trim();
     final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
@@ -199,7 +200,7 @@ class _FriendDuelChip extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Challenge',
+                  l10n.challenge,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,

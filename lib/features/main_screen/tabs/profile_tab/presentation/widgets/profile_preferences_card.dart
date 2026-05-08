@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 
 class ProfilePreferencesCard extends StatelessWidget {
   const ProfilePreferencesCard({
@@ -18,6 +19,7 @@ class ProfilePreferencesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Card(
       margin: EdgeInsets.zero,
       child: Column(
@@ -29,10 +31,9 @@ class ProfilePreferencesCard extends StatelessWidget {
               Icons.notifications_active_outlined,
               color: scheme.primary,
             ),
-            title: const Text('Push notifications'),
-            subtitle: const Text(
-              'Turn off to stop server pushes and in-app notification mirrors. '
-              'Your device token is removed so nothing is sent until you turn this back on.',
+            title: Text(l10n.pushNotifications),
+            subtitle: Text(
+              l10n.pushNotificationsSubtitle,
             ),
           ),
           const Divider(height: 1),
@@ -43,9 +44,9 @@ class ProfilePreferencesCard extends StatelessWidget {
               Icons.mail_outline_rounded,
               color: scheme.primary,
             ),
-            title: const Text('Match invites'),
-            subtitle: const Text(
-              'Off: you won’t see incoming invites and friends won’t see you for online challenges',
+            title: Text(l10n.matchInvites),
+            subtitle: Text(
+              l10n.matchInvitesSubtitle,
             ),
           ),
         ],

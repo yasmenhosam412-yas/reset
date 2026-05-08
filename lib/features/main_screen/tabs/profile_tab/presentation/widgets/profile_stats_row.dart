@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/profile_dashboard_model.dart';
 
 class ProfileStatsOverviewRow extends StatelessWidget {
@@ -21,16 +22,17 @@ class ProfileStatsOverviewRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final tiles = [
-      (Icons.article_outlined, 'Posts', stats.postsCount, () {
+      (Icons.article_outlined, l10n.posts, stats.postsCount, () {
         onPostsTap?.call();
       }),
-      (Icons.groups_outlined, 'Friends', stats.friendsCount, () {
+      (Icons.groups_outlined, l10n.friends, stats.friendsCount, () {
         onFriendsTap?.call();
       }),
       (
         Icons.sports_esports_outlined,
-        'Challenges',
+        l10n.challenges,
         stats.challengesCount,
         () {
           onChallengesTap?.call();

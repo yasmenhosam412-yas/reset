@@ -36,6 +36,18 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Either<Failure, String>> deleteAccount() async {
+    try {
+      await authRemoteDatasource.deleteAccount();
+      return Right("Account deleted");
+    } on AuthException catch (e) {
+      return Left(_mapAuthException(e));
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
   Future<Either<Failure, String>> signup({
     required String email,
     required String password,
@@ -91,8 +103,32 @@ class AuthRepositoryImpl implements AuthRepository {
 }
 
 Failure _mapAuthException(AuthException e) {
+  if (_looksLikeUsernameTakenError(e.message)) {
+    return ServerFailure(message: 'Username already taken. Try another one.');
+  }
   if (authMessageLooksLikeNetworkFailure(e.message)) {
     return NetworkFailure();
   }
   return ServerFailure(message: e.message);
+}
+
+bool _looksLikeUsernameTakenError(String message) {
+  final m = message.toLowerCase();
+  final authDatabaseSaveFailed =
+      m.contains('database error saving new user') ||
+      m.contains('error saving new user');
+  final mentionsUsername = m.contains('username');
+  final mentionsConstraint =
+      m.contains('profiles_username_unique') ||
+      m.contains('duplicate key value') ||
+      m.contains('violates unique constraint');
+  final mentionsUnique =
+      m.contains('duplicate') ||
+      m.contains('unique') ||
+      m.contains('already exists') ||
+      m.contains('already taken') ||
+      m.contains('23505');
+  return authDatabaseSaveFailed ||
+      (mentionsUsername && mentionsUnique) ||
+      (mentionsConstraint && mentionsUnique);
 }

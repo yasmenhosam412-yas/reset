@@ -26,6 +26,9 @@ abstract final class PostCols {
   static const likes = 'likes';
   static const createdAt = 'created_at';
   static const allowShare = 'allow_share';
+  static const postVisibility = 'post_visibility';
+  static const postType = 'post_type';
+  static const adLink = 'ad_link';
 }
 
 abstract final class PostCommentCols {

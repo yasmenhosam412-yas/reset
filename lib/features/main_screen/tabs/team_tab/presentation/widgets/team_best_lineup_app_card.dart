@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/core/di/di.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/lineup_race_board_row.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/utils/home_feed_ui.dart';
@@ -48,6 +49,7 @@ class _TeamBestLineupInAppCardState extends State<TeamBestLineupInAppCard> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final monday = lineupRaceMondayIdUtc();
@@ -75,14 +77,14 @@ class _TeamBestLineupInAppCardState extends State<TeamBestLineupInAppCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Best lineup in the app',
+                          l10n.teamBestLineupInApp,
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w900,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Top Power score this UTC week ($monday). Same rules as Lineup races — train, submit, climb.',
+                          l10n.teamBestLineupSubtitle(monday),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
                             height: 1.35,
@@ -92,7 +94,7 @@ class _TeamBestLineupInAppCardState extends State<TeamBestLineupInAppCard> {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Refresh',
+                    tooltip: l10n.refresh,
                     onPressed: _loading ? null : _reload,
                     icon: Icon(
                       Icons.refresh_rounded,
@@ -122,7 +124,7 @@ class _TeamBestLineupInAppCardState extends State<TeamBestLineupInAppCard> {
                 )
               else if (!_loading && _rows.isEmpty)
                 Text(
-                  'No submissions yet — be first on the board.',
+                  l10n.teamNoSubmissionsYet,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -150,9 +152,10 @@ class _TopLineupTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final name = (row.username?.trim().isNotEmpty ?? false)
         ? row.username!.trim()
-        : 'Player';
+        : l10n.player;
     final team = row.teamName.trim().isNotEmpty ? row.teamName : name;
     final avatarUrl = row.avatarUrl?.trim();
     final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
@@ -194,7 +197,7 @@ class _TopLineupTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${name.split(' ').first} · rank #1 · Power race',
+                    l10n.teamRankPowerRace(name.split(' ').first),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),

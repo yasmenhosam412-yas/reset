@@ -8,6 +8,11 @@ enum OnlineStatus {
   failure,
 }
 
+enum OnlineSuccessType {
+  challengeSent,
+  leftMatch,
+}
+
 /// Shown after the user accepts an invite: opponent + game + ready CTA.
 class AcceptedMatchPreview {
   const AcceptedMatchPreview({
@@ -50,6 +55,9 @@ class OnlineState {
     this.challenges = const [],
     this.errorMessage,
     this.successMessage,
+    this.successType,
+    this.successName,
+    this.successGameId,
     this.pendingMatchLobby,
     this.pendingGameLaunch,
   });
@@ -64,6 +72,9 @@ class OnlineState {
   final List<ChallengeRequestModel> challenges;
   final String? errorMessage;
   final String? successMessage;
+  final OnlineSuccessType? successType;
+  final String? successName;
+  final int? successGameId;
   final AcceptedMatchPreview? pendingMatchLobby;
   final OnlineGameLaunch? pendingGameLaunch;
 
@@ -74,6 +85,9 @@ class OnlineState {
     List<ChallengeRequestModel>? challenges,
     String? errorMessage,
     String? successMessage,
+    OnlineSuccessType? successType,
+    String? successName,
+    int? successGameId,
     AcceptedMatchPreview? pendingMatchLobby,
     OnlineGameLaunch? pendingGameLaunch,
     bool clearError = false,
@@ -89,6 +103,9 @@ class OnlineState {
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       successMessage:
           clearSuccess ? null : (successMessage ?? this.successMessage),
+      successType: clearSuccess ? null : (successType ?? this.successType),
+      successName: clearSuccess ? null : (successName ?? this.successName),
+      successGameId: clearSuccess ? null : (successGameId ?? this.successGameId),
       pendingMatchLobby: clearPendingMatchLobby
           ? null
           : (pendingMatchLobby ?? this.pendingMatchLobby),

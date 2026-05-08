@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/authentication/data/models/user_model.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_challenge_games.dart';
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_titles.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/bloc/online_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/bloc/online_event.dart';
 
@@ -9,9 +11,10 @@ import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pa
 void showSendOnlineChallengeDialog(BuildContext context, UserModel friend) {
   final theme = Theme.of(context);
   final scheme = theme.colorScheme;
+  final l10n = context.l10n;
   final bloc = context.read<OnlineBloc>();
   final display = friend.username.trim().isEmpty
-      ? 'this friend'
+      ? l10n.thisFriend
       : friend.username;
 
   var selectedId = OnlineChallengeGames.penaltyShootout;
@@ -22,14 +25,14 @@ void showSendOnlineChallengeDialog(BuildContext context, UserModel friend) {
       return StatefulBuilder(
         builder: (ctx, setState) {
           return AlertDialog(
-            title: Text('Challenge $display'),
+            title: Text(l10n.challengeTarget(display)),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Choose a game',
+                    l10n.chooseAGame,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -38,7 +41,7 @@ void showSendOnlineChallengeDialog(BuildContext context, UserModel friend) {
                   for (final game in OnlineChallengeGames.all)
                     _ChallengeGameTile(
                       gameId: game.id,
-                      title: game.title,
+                      title: onlineGameTitleL10n(l10n, game.id),
                       icon: game.icon,
                       selectedId: selectedId,
                       scheme: scheme,
@@ -50,7 +53,7 @@ void showSendOnlineChallengeDialog(BuildContext context, UserModel friend) {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Cancel'),
+                child: Text(l10n.cancel),
               ),
               FilledButton(
                 onPressed: () {
@@ -62,7 +65,7 @@ void showSendOnlineChallengeDialog(BuildContext context, UserModel friend) {
                     ),
                   );
                 },
-                child: const Text('Send'),
+                child: Text(l10n.send),
               ),
             ],
           );

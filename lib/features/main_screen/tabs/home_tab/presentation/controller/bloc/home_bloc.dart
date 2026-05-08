@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_comment_usecase.dart';
@@ -12,7 +14,6 @@ import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/s
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/send_home_friend_request_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_event.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_state.dart';
-import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_titles.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomeBloc extends Bloc<HomeEvent, HomeState> {
@@ -26,16 +27,16 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     required AddHomePostLikeUsecase addHomePostLikeUsecase,
     required SendHomeFriendRequestUsecase sendHomeFriendRequestUsecase,
     required SendHomeChallengeUsecase sendHomeChallengeUsecase,
-  })  : _getHomePostsUsecase = getHomePostsUsecase,
-        _getHomeAcceptedFriendIdsUsecase = getHomeAcceptedFriendIdsUsecase,
-        _addHomePostUsecase = addHomePostUsecase,
-        _deleteHomePostUsecase = deleteHomePostUsecase,
-        _updateHomePostUsecase = updateHomePostUsecase,
-        _addHomeCommentUsecase = addHomeCommentUsecase,
-        _addHomePostLikeUsecase = addHomePostLikeUsecase,
-        _sendHomeFriendRequestUsecase = sendHomeFriendRequestUsecase,
-        _sendHomeChallengeUsecase = sendHomeChallengeUsecase,
-        super(HomeState.initial()) {
+  }) : _getHomePostsUsecase = getHomePostsUsecase,
+       _getHomeAcceptedFriendIdsUsecase = getHomeAcceptedFriendIdsUsecase,
+       _addHomePostUsecase = addHomePostUsecase,
+       _deleteHomePostUsecase = deleteHomePostUsecase,
+       _updateHomePostUsecase = updateHomePostUsecase,
+       _addHomeCommentUsecase = addHomeCommentUsecase,
+       _addHomePostLikeUsecase = addHomePostLikeUsecase,
+       _sendHomeFriendRequestUsecase = sendHomeFriendRequestUsecase,
+       _sendHomeChallengeUsecase = sendHomeChallengeUsecase,
+       super(HomeState.initial()) {
     on<HomePostsRequested>(_onPostsRequested);
     on<HomePostCreateRequested>(_onPostCreateRequested);
     on<HomePostDeleteRequested>(_onPostDeleteRequested);
@@ -44,6 +45,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     on<HomePostReactionRequested>(_onPostReactionRequested);
     on<HomeSendFriendRequest>(_onSendFriendRequest);
     on<HomeSendChallenge>(_onSendChallenge);
+    on<ResetHomeEvent>(_onResetHome);
   }
 
   final GetHomePostsUsecase _getHomePostsUsecase;
@@ -55,6 +57,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final AddHomePostLikeUsecase _addHomePostLikeUsecase;
   final SendHomeFriendRequestUsecase _sendHomeFriendRequestUsecase;
   final SendHomeChallengeUsecase _sendHomeChallengeUsecase;
+  int _lastLimit = 20;
+  int _lastOffset = 0;
 
   Future<Set<String>> _fetchAcceptedFriendIds() async {
     final r = await _getHomeAcceptedFriendIdsUsecase();
@@ -68,8 +72,13 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     HomePostsRequested event,
     Emitter<HomeState> emit,
   ) async {
+    _lastLimit = event.limit;
+    _lastOffset = event.offset;
     emit(state.copyWith(status: HomeStatus.loading, clearError: true));
-    final result = await _getHomePostsUsecase();
+    final result = await _getHomePostsUsecase(
+      limit: event.limit,
+      offset: event.offset,
+    );
     await result.fold(
       (failure) async => emit(
         state.copyWith(
@@ -94,32 +103,16 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     );
   }
 
-  Future<void> _onPostCreateRequested(
-    HomePostCreateRequested event,
-    Emitter<HomeState> emit,
-  ) async {
-    emit(state.copyWith(status: HomeStatus.loading, clearError: true));
-    final addResult = await _addHomePostUsecase(
-      postContent: event.postContent,
-      postImage: event.postImage,
-      imageBytes: event.imageBytes,
-      imageContentType: event.imageContentType,
-      allowShare: event.allowShare,
+  Future<void> _reloadPosts(
+    Emitter<HomeState> emit, {
+    HomeSuccessType? successType,
+    String? successName,
+    int? successGameId,
+  }) async {
+    final listResult = await _getHomePostsUsecase(
+      limit: _lastLimit,
+      offset: _lastOffset,
     );
-
-    final failure = addResult.fold((l) => l, (_) => null);
-    if (failure != null) {
-      emit(
-        state.copyWith(
-          status: HomeStatus.failure,
-          errorMessage: failure.message,
-          clearSuccess: true,
-        ),
-      );
-      return;
-    }
-
-    final listResult = await _getHomePostsUsecase();
     await listResult.fold(
       (f) async => emit(
         state.copyWith(
@@ -135,11 +128,45 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
             status: HomeStatus.loaded,
             posts: List.of(posts, growable: false),
             acceptedFriendUserIds: friendIds,
-            clearSuccess: true,
+            successType: successType,
+            successName: successName,
+            successGameId: successGameId,
+            clearError: true,
+            clearSuccess: successType == null,
           ),
         );
       },
     );
+  }
+
+  Future<void> _onPostCreateRequested(
+    HomePostCreateRequested event,
+    Emitter<HomeState> emit,
+  ) async {
+    emit(state.copyWith(status: HomeStatus.loading, clearError: true));
+    final addResult = await _addHomePostUsecase(
+      postContent: event.postContent,
+      postImage: event.postImage,
+      imageBytes: event.imageBytes,
+      imageContentType: event.imageContentType,
+      allowShare: event.allowShare,
+      postVisibility: event.postVisibility,
+      postType: event.postType,
+      adLink: event.adLink,
+    );
+
+    final failure = addResult.fold((l) => l, (_) => null);
+    if (failure != null) {
+      emit(
+        state.copyWith(
+          status: HomeStatus.failure,
+          errorMessage: failure.message,
+          clearSuccess: true,
+        ),
+      );
+      return;
+    }
+    await _reloadPosts(emit);
   }
 
   Future<void> _onPostDeleteRequested(
@@ -160,29 +187,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       );
       return;
     }
-
-    final listResult = await _getHomePostsUsecase();
-    await listResult.fold(
-      (f) async => emit(
-        state.copyWith(
-          status: HomeStatus.failure,
-          errorMessage: f.message,
-          clearSuccess: true,
-        ),
-      ),
-      (posts) async {
-        final friendIds = await _fetchAcceptedFriendIds();
-        emit(
-          state.copyWith(
-            status: HomeStatus.loaded,
-            posts: List.of(posts, growable: false),
-            acceptedFriendUserIds: friendIds,
-            successMessage: 'Post deleted',
-            clearError: true,
-          ),
-        );
-      },
-    );
+    await _reloadPosts(emit, successType: HomeSuccessType.postDeleted);
   }
 
   Future<void> _onPostUpdateRequested(
@@ -197,6 +202,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       imageContentType: event.imageContentType,
       clearImage: event.clearImage,
       allowShare: event.allowShare,
+      postVisibility: event.postVisibility,
+      postType: event.postType,
+      adLink: event.adLink,
     );
 
     final failure = upd.fold((l) => l, (_) => null);
@@ -210,29 +218,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       );
       return;
     }
-
-    final listResult = await _getHomePostsUsecase();
-    await listResult.fold(
-      (f) async => emit(
-        state.copyWith(
-          status: HomeStatus.failure,
-          errorMessage: f.message,
-          clearSuccess: true,
-        ),
-      ),
-      (posts) async {
-        final friendIds = await _fetchAcceptedFriendIds();
-        emit(
-          state.copyWith(
-            status: HomeStatus.loaded,
-            posts: List.of(posts, growable: false),
-            acceptedFriendUserIds: friendIds,
-            successMessage: 'Post updated',
-            clearError: true,
-          ),
-        );
-      },
-    );
+    await _reloadPosts(emit, successType: HomeSuccessType.postUpdated);
   }
 
   Future<void> _onCommentCreateRequested(
@@ -256,28 +242,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       );
       return;
     }
-
-    final listResult = await _getHomePostsUsecase();
-    await listResult.fold(
-      (f) async => emit(
-        state.copyWith(
-          status: HomeStatus.failure,
-          errorMessage: f.message,
-          clearSuccess: true,
-        ),
-      ),
-      (posts) async {
-        final friendIds = await _fetchAcceptedFriendIds();
-        emit(
-          state.copyWith(
-            status: HomeStatus.loaded,
-            posts: List.of(posts, growable: false),
-            acceptedFriendUserIds: friendIds,
-            clearSuccess: true,
-          ),
-        );
-      },
-    );
+    await _reloadPosts(emit);
   }
 
   Future<void> _onPostReactionRequested(
@@ -324,14 +289,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   ) async {
     emit(state.copyWith(clearError: true, clearSuccess: true));
     final name = event.userModel.username.trim().isEmpty
-        ? 'User'
+        ? ''
         : event.userModel.username.trim();
     final targetId = event.userModel.id.trim().toLowerCase();
-    if (targetId.isNotEmpty &&
-        state.acceptedFriendUserIds.contains(targetId)) {
+    if (targetId.isNotEmpty && state.acceptedFriendUserIds.contains(targetId)) {
       emit(
         state.copyWith(
-          successMessage: 'You are already friends with $name.',
+          successType: HomeSuccessType.alreadyFriends,
+          successName: name,
           clearError: true,
         ),
       );
@@ -340,14 +305,12 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final result = await _sendHomeFriendRequestUsecase(event.userModel);
     result.fold(
       (failure) => emit(
-        state.copyWith(
-          errorMessage: failure.message,
-          clearSuccess: true,
-        ),
+        state.copyWith(errorMessage: failure.message, clearSuccess: true),
       ),
       (_) => emit(
         state.copyWith(
-          successMessage: 'Friend request sent to $name',
+          successType: HomeSuccessType.friendRequestSent,
+          successName: name,
           clearError: true,
         ),
       ),
@@ -360,7 +323,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   ) async {
     emit(state.copyWith(clearError: true, clearSuccess: true));
     final name = event.userModel.username.trim().isEmpty
-        ? 'User'
+        ? ''
         : event.userModel.username.trim();
     final result = await _sendHomeChallengeUsecase(
       event.userModel,
@@ -368,19 +331,21 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     );
     result.fold(
       (failure) => emit(
-        state.copyWith(
-          errorMessage: failure.message,
-          clearSuccess: true,
-        ),
+        state.copyWith(errorMessage: failure.message, clearSuccess: true),
       ),
       (_) => emit(
         state.copyWith(
-          successMessage:
-              '${onlineGameTitle(event.gameId)} challenge sent to $name',
+          successType: HomeSuccessType.challengeSent,
+          successName: name,
+          successGameId: event.gameId,
           clearError: true,
         ),
       ),
     );
+  }
+
+  FutureOr<void> _onResetHome(ResetHomeEvent event, Emitter<HomeState> emit) {
+    emit(HomeState(status: HomeStatus.initial, posts: []));
   }
 }
 
@@ -399,9 +364,7 @@ List<PostModel> _postsWithReaction(
           (e) => postReactionEntryUserId(e).trim().toLowerCase() == uNorm,
         );
         final r = reaction?.trim().toLowerCase();
-        if (r != null &&
-            r.isNotEmpty &&
-            kPostReactionKeys.contains(r)) {
+        if (r != null && r.isNotEmpty && kPostReactionKeys.contains(r)) {
           next.add(encodePostReactionEntry(userId, r));
         }
         return p.copyWith(likes: next);

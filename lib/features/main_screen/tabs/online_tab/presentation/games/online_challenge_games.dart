@@ -10,17 +10,14 @@ abstract final class OnlineChallengeGames {
   static const List<OnlineChallengeGameDef> all = [
     OnlineChallengeGameDef(
       id: penaltyShootout,
-      title: 'Penalty shootout',
       icon: Icons.sports_soccer_rounded,
     ),
     OnlineChallengeGameDef(
       id: rockPaperScissors,
-      title: 'Rock paper scissors',
       icon: Icons.balance_rounded,
     ),
     OnlineChallengeGameDef(
       id: fantasyCards,
-      title: 'Fantasy cards',
       icon: Icons.auto_awesome_rounded,
     ),
   ];
@@ -29,11 +26,9 @@ abstract final class OnlineChallengeGames {
 class OnlineChallengeGameDef {
   const OnlineChallengeGameDef({
     required this.id,
-    required this.title,
     required this.icon,
   });
 
   final int id;
-  final String title;
   final IconData icon;
 }

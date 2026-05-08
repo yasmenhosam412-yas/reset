@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 
 class TeamEmptySquadBody extends StatelessWidget {
   const TeamEmptySquadBody({
@@ -18,6 +19,7 @@ class TeamEmptySquadBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
@@ -59,15 +61,14 @@ class TeamEmptySquadBody extends StatelessWidget {
                       children: [
                         const SizedBox(height: 12),
                         Text(
-                          'Team',
+                          l10n.team,
                           style: theme.textTheme.headlineMedium?.copyWith(
                             fontWeight: FontWeight.w900,
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Build a six-player squad on the standard 2-2-2 pitch and train stats. '
-                          'Once you have a team, challenge friends from this tab or Online.',
+                          l10n.teamEmptyIntro,
                           style: theme.textTheme.bodyLarge?.copyWith(
                             color: scheme.onSurfaceVariant,
                             height: 1.35,
@@ -116,7 +117,7 @@ class TeamEmptySquadBody extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 20),
                                 Text(
-                                  'No squad yet',
+                                  l10n.teamNoSquadYet,
                                   textAlign: TextAlign.center,
                                   style: theme.textTheme.titleLarge?.copyWith(
                                     fontWeight: FontWeight.w900,
@@ -124,7 +125,7 @@ class TeamEmptySquadBody extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Six players only on the same layout as everyone else — tap anyone later for name & photo, then train stats with skill points.',
+                                  l10n.teamNoSquadDescription,
                                   textAlign: TextAlign.center,
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     color: scheme.onSurfaceVariant,
@@ -141,7 +142,7 @@ class TeamEmptySquadBody extends StatelessWidget {
                                   ),
                                   onPressed: onCreateTeam,
                                   icon: const Icon(Icons.add_rounded),
-                                  label: const Text('Create team'),
+                                  label: Text(l10n.teamCreateTeam),
                                 ),
                               ],
                             ),

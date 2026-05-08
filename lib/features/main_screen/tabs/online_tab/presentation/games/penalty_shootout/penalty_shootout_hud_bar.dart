@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 
 class PenaltyShootoutHudBar extends StatelessWidget {
   const PenaltyShootoutHudBar({
@@ -30,6 +31,7 @@ class PenaltyShootoutHudBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
       decoration: BoxDecoration(
@@ -45,7 +47,7 @@ class PenaltyShootoutHudBar extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _miniScore('You', myGoals, iAmStriker),
+                child: _miniScore(l10n.you, myGoals, iAmStriker),
               ),
               Text(
                 '—',
@@ -63,7 +65,7 @@ class PenaltyShootoutHudBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Round $round / $totalRounds',
+                l10n.penaltyRoundProgress(round, totalRounds),
                 style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -81,7 +83,7 @@ class PenaltyShootoutHudBar extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    timerPausedForOnlineWait ? '—' : '${secondsLeft}s',
+                    timerPausedForOnlineWait ? '—' : l10n.secondsShort(secondsLeft),
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w900,
                       color: timerPausedForOnlineWait
@@ -108,7 +110,7 @@ class PenaltyShootoutHudBar extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Round picks in progress…',
+                    l10n.penaltyRoundPicksInProgress,
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600,

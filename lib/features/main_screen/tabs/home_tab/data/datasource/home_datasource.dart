@@ -15,6 +15,9 @@ abstract class HomeDatasource {
     Uint8List? imageBytes,
     String? imageContentType,
     bool allowShare = true,
+    String postVisibility = 'general',
+    String postType = 'post',
+    String? adLink,
   });
 
   /// Deletes a post authored by the signed-in user ([postId] must match).
@@ -28,6 +31,9 @@ abstract class HomeDatasource {
     String? imageContentType,
     bool clearImage = false,
     required bool allowShare,
+    String postVisibility = 'general',
+    String postType = 'post',
+    String? adLink,
   });
 
   Future<void> addComment({required String postId, required String comment});
@@ -38,7 +44,10 @@ abstract class HomeDatasource {
     String? reaction,
   });
 
-  Future<List<PostModel>> getPosts();
+  Future<List<PostModel>> getPosts({
+    required int limit,
+    required int offset,
+  });
 
   /// Username search (ilike) for players other than the signed-in user, with friend-request state.
   Future<List<PeopleDiscoveryRow>> searchPeopleDiscovery(String query);

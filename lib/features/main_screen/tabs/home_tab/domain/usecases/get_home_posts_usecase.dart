@@ -9,7 +9,10 @@ class GetHomePostsUsecase {
 
   final HomeRepository _homeRepository;
 
-  Future<Either<Failure, List<PostModel>>> call() {
-    return _homeRepository.getPosts();
+  Future<Either<Failure, List<PostModel>>> call({
+    required int limit,
+    required int offset,
+  }) {
+    return _homeRepository.getPosts(limit: limit, offset:offset );
   }
 }

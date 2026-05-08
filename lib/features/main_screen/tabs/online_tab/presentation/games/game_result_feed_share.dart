@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:new_project/core/di/di.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/core/utils/dispose_text_controller_next_frame.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_post_usecase.dart';
 
@@ -9,6 +10,7 @@ Future<void> showShareGameResultToFeedDialog(
   required String title,
   required String initialBody,
 }) async {
+  final l10n = context.l10n;
   final controller = TextEditingController(text: initialBody);
   try {
     final confirmed = await showDialog<bool>(
@@ -20,8 +22,8 @@ Future<void> showShareGameResultToFeedDialog(
             child: TextField(
               controller: controller,
               maxLines: 8,
-              decoration: const InputDecoration(
-                hintText: 'Edit your post…',
+              decoration: InputDecoration(
+                hintText: l10n.editYourPostHint,
                 border: OutlineInputBorder(),
               ),
             ),
@@ -29,11 +31,11 @@ Future<void> showShareGameResultToFeedDialog(
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Post to feed'),
+              child: Text(l10n.postToFeed),
             ),
           ],
         );
@@ -43,7 +45,7 @@ Future<void> showShareGameResultToFeedDialog(
     final body = controller.text.trim();
     if (body.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add some text to post')),
+        SnackBar(content: Text(l10n.addSomeTextToPost)),
       );
       return;
     }
@@ -57,7 +59,7 @@ Future<void> showShareGameResultToFeedDialog(
         SnackBar(content: Text(f.message)),
       ),
       (_) => ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Posted to your home feed')),
+        SnackBar(content: Text(l10n.postedToHomeFeed)),
       ),
     );
   } finally {

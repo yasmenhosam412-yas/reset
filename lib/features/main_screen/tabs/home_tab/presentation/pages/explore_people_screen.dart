@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:new_project/core/di/di.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/core/navigation/main_shell_controller.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/people_discovery_row.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/search_people_discovery_usecase.dart';
@@ -91,6 +92,7 @@ class _ExplorePeopleScreenState extends State<ExplorePeopleScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l10n = context.l10n;
 
     return BlocListener<HomeBloc, HomeState>(
       listenWhen: (p, c) =>
@@ -100,15 +102,15 @@ class _ExplorePeopleScreenState extends State<ExplorePeopleScreen> {
         if (_busyAddId != null) {
           setState(() => _busyAddId = null);
         }
-        final msg = state.successMessage ?? '';
-        if (msg.contains('Friend request') && _lastQuery.length >= 2) {
+        if (state.successType == HomeSuccessType.friendRequestSent &&
+            _lastQuery.length >= 2) {
           _fetch(_lastQuery);
         }
       },
       child: Scaffold(
         backgroundColor: scheme.surface,
         appBar: AppBar(
-          title: const Text('Explore people'),
+          title: Text(l10n.explorePeople),
           elevation: 0,
           scrolledUnderElevation: 0.5,
           backgroundColor: scheme.surface,
@@ -128,7 +130,7 @@ class _ExplorePeopleScreenState extends State<ExplorePeopleScreen> {
                   onChanged: _scheduleFetch,
                   onSubmitted: _fetch,
                   decoration: InputDecoration(
-                    hintText: 'Search by username…',
+                    hintText: l10n.searchByUsername,
                     prefixIcon: const Icon(Icons.person_search_rounded),
                     suffixIcon: _search.text.isNotEmpty
                         ? IconButton(
@@ -151,8 +153,7 @@ class _ExplorePeopleScreenState extends State<ExplorePeopleScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
-                  'Type at least 2 characters. Find someone new or add them '
-                  'as a friend.',
+                  l10n.explorePeopleHint,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                     height: 1.35,
@@ -194,7 +195,7 @@ class _ExplorePeopleScreenState extends State<ExplorePeopleScreen> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Jump in and meet players',
+                            l10n.jumpInMeetPlayers,
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
@@ -211,7 +212,7 @@ class _ExplorePeopleScreenState extends State<ExplorePeopleScreen> {
                     child: Padding(
                       padding: const EdgeInsets.all(32),
                       child: Text(
-                        'No usernames match “${_lastQuery.trim()}”.',
+                        l10n.noUsernamesMatch(_lastQuery.trim()),
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           color: scheme.onSurfaceVariant,
@@ -230,7 +231,7 @@ class _ExplorePeopleScreenState extends State<ExplorePeopleScreen> {
                       final row = _rows[i];
                       final u = row.user;
                       final name = u.username.trim().isEmpty
-                          ? 'Player'
+                          ? l10n.player
                           : u.username.trim();
                       final url = u.avatarUrl?.trim();
                       final link = row.link;
@@ -328,15 +329,16 @@ class _ExplorePeopleScreenState extends State<ExplorePeopleScreen> {
   }
 
   String _linkSubtitle(PeopleDiscoveryLink link) {
+    final l10n = context.l10n;
     switch (link) {
       case PeopleDiscoveryLink.friend:
-        return 'Friends — open posts from the feed context';
+        return l10n.exploreLinkFriend;
       case PeopleDiscoveryLink.pendingOutgoing:
-        return 'Request sent — waiting for them';
+        return l10n.exploreLinkPendingOutgoing;
       case PeopleDiscoveryLink.pendingIncoming:
-        return 'Wants to connect — accept on Profile';
+        return l10n.exploreLinkPendingIncoming;
       case PeopleDiscoveryLink.none:
-        return 'Not connected yet';
+        return l10n.exploreLinkNone;
     }
   }
 
@@ -349,11 +351,12 @@ class _ExplorePeopleScreenState extends State<ExplorePeopleScreen> {
     required VoidCallback onOpenProfile,
   }) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     switch (link) {
       case PeopleDiscoveryLink.friend:
         return TextButton(
           onPressed: onOpenPosts,
-          child: const Text('Posts'),
+          child: Text(l10n.posts),
         );
       case PeopleDiscoveryLink.pendingOutgoing:
         return Padding(
@@ -363,7 +366,7 @@ class _ExplorePeopleScreenState extends State<ExplorePeopleScreen> {
       case PeopleDiscoveryLink.pendingIncoming:
         return FilledButton.tonal(
           onPressed: onOpenProfile,
-          child: const Text('Profile'),
+          child: Text(l10n.profile),
         );
       case PeopleDiscoveryLink.none:
         return FilledButton(
@@ -377,7 +380,7 @@ class _ExplorePeopleScreenState extends State<ExplorePeopleScreen> {
                     color: scheme.onPrimary,
                   ),
                 )
-              : const Text('Add'),
+              : Text(l10n.add),
         );
     }
   }

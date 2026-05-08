@@ -2,7 +2,9 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:new_project/core/di/di.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/core/navigation/main_shell_controller.dart';
+import 'package:new_project/core/utils/pagination_consts.dart';
 import 'package:new_project/core/widgets/tab_loading_skeletons.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
@@ -16,10 +18,10 @@ import 'package:new_project/features/main_screen/tabs/home_tab/presentation/navi
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/pages/explore_people_screen.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/widgets/home_feed_empty_placeholder.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/widgets/home_feed_list.dart';
-
+import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_titles.dart';
 
 enum _FeedSort { latest, mostLiked }
-
+enum _PostTypeFilter { all, post, announcement, celebration, ads }
 
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key});
@@ -36,7 +38,13 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
   late final AnimationController _headerAccentController;
 
   _FeedSort _feedSort = _FeedSort.latest;
+  _PostTypeFilter _postTypeFilter = _PostTypeFilter.all;
   bool _showScrollTop = false;
+  int _currentLimit = PaginationConsts.limitPosts;
+  bool _isFetchingMore = false;
+  bool _hasMorePosts = true;
+  int _lastRequestedLimit = PaginationConsts.limitPosts;
+  DateTime? _lastLoadMoreAt;
 
   @override
   void initState() {
@@ -48,7 +56,7 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
     _scrollController.addListener(_onScrollOffset);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.read<HomeBloc>().add(HomePostsRequested());
+      _requestFirstPage();
     });
     _mainShell = getIt<MainShellController>();
     _mainShell.addListener(_onShellDeepLink);
@@ -64,6 +72,7 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
   }
 
   Future<void> _handlePostDeepLink(String postId, bool openComments) async {
+    final l10n = context.l10n;
     final shell = getIt<MainShellController>();
     final id = postId.trim();
     if (id.isEmpty) {
@@ -81,10 +90,15 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
 
     var post = findInState(context.read<HomeBloc>().state);
     if (post == null) {
-      context.read<HomeBloc>().add(HomePostsRequested());
+      context.read<HomeBloc>().add(
+        HomePostsRequested(
+          limit: _currentLimit,
+          offset: PaginationConsts.offsetPosts,
+        ),
+      );
       await context.read<HomeBloc>().stream.firstWhere(
-            (s) => s.status != HomeStatus.loading,
-          );
+        (s) => s.status != HomeStatus.loading,
+      );
       if (!mounted) return;
       post = findInState(context.read<HomeBloc>().state);
     }
@@ -93,7 +107,7 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
       shell.clearHomePost();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Couldn’t find that post on the feed.')),
+          SnackBar(content: Text(l10n.couldNotFindPostInFeed)),
         );
       }
       return;
@@ -109,6 +123,63 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
     if (next != _showScrollTop && mounted) {
       setState(() => _showScrollTop = next);
     }
+    _maybeLoadMore();
+  }
+
+  void _requestFirstPage() {
+    _currentLimit = PaginationConsts.limitPosts;
+    _hasMorePosts = true;
+    _isFetchingMore = false;
+    _lastRequestedLimit = _currentLimit;
+    _lastLoadMoreAt = null;
+    context.read<HomeBloc>().add(
+      HomePostsRequested(
+        limit: _currentLimit,
+        offset: PaginationConsts.offsetPosts,
+      ),
+    );
+  }
+
+  Future<void> _maybeLoadMore() async {
+    if (!_scrollController.hasClients) return;
+    if (_isFetchingMore || !_hasMorePosts) return;
+    if (_feedSort != _FeedSort.latest) return;
+
+    final position = _scrollController.position;
+    if (!position.hasContentDimensions) return;
+    if (position.maxScrollExtent <= 0) return;
+    if (position.extentAfter > 220) return;
+
+    final now = DateTime.now();
+    if (_lastLoadMoreAt != null &&
+        now.difference(_lastLoadMoreAt!).inMilliseconds < 500) {
+      return;
+    }
+
+    final bloc = context.read<HomeBloc>();
+    if (bloc.state.status == HomeStatus.loading) return;
+
+    final nextLimit = _currentLimit + PaginationConsts.limitPosts;
+    if (nextLimit <= _lastRequestedLimit) return;
+
+    _isFetchingMore = true;
+    _lastRequestedLimit = nextLimit;
+    _lastLoadMoreAt = now;
+    final previousCount = bloc.state.posts.length;
+    bloc.add(
+      HomePostsRequested(
+        limit: nextLimit,
+        offset: PaginationConsts.offsetPosts,
+      ),
+    );
+    await bloc.stream.firstWhere((s) => s.status != HomeStatus.loading);
+    if (!mounted) return;
+    final currentCount = bloc.state.posts.length;
+    _hasMorePosts = currentCount > previousCount;
+    if (_hasMorePosts) {
+      _currentLimit = nextLimit;
+    }
+    _isFetchingMore = false;
   }
 
   @override
@@ -123,7 +194,20 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
   }
 
   List<PostModel> _filteredAndSorted(List<PostModel> posts) {
-    var list = List<PostModel>.from(posts);
+    var list = posts.where((post) {
+      switch (_postTypeFilter) {
+        case _PostTypeFilter.all:
+          return true;
+        case _PostTypeFilter.post:
+          return post.postType == 'post';
+        case _PostTypeFilter.announcement:
+          return post.postType == 'announcement';
+        case _PostTypeFilter.celebration:
+          return post.postType == 'celebration';
+        case _PostTypeFilter.ads:
+          return post.postType == 'ads';
+      }
+    }).toList(growable: false);
     switch (_feedSort) {
       case _FeedSort.latest:
         break;
@@ -136,16 +220,29 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
   Future<void> _refreshFeed() async {
     final bloc = context.read<HomeBloc>();
     if (bloc.state.status == HomeStatus.loading) return;
-    bloc.add(HomePostsRequested());
+    _currentLimit = PaginationConsts.limitPosts;
+    _hasMorePosts = true;
+    _isFetchingMore = false;
+    _lastRequestedLimit = _currentLimit;
+    _lastLoadMoreAt = null;
+    bloc.add(
+      HomePostsRequested(
+        limit: _currentLimit,
+        offset: PaginationConsts.offsetPosts,
+      ),
+    );
     await bloc.stream.firstWhere((s) => s.status != HomeStatus.loading);
+    if (!mounted) return;
+    _hasMorePosts = bloc.state.posts.length >= _currentLimit;
   }
 
   void _onGreetingTap() {
-    const tips = [
-      'Pull down on the list to refresh posts.',
-      'Tap someone’s name to add them or send a game challenge.',
-      'Use Explore people under Jump in to search players by username.',
-      'Switch to Top liked to see what’s trending.',
+    final l10n = context.l10n;
+    final tips = [
+      l10n.feedTipPullToRefresh,
+      l10n.feedTipTapName,
+      l10n.feedTipExplorePeople,
+      l10n.feedTipTopLiked,
     ];
     final tip = tips[Random().nextInt(tips.length)];
     if (!mounted) return;
@@ -206,14 +303,15 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
   }
 
   Widget _buildInteractiveHeader(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final hour = DateTime.now().hour;
     final greeting = hour < 12
-        ? 'Good morning'
+        ? l10n.goodMorning
         : hour < 17
-        ? 'Good afternoon'
-        : 'Good evening';
+        ? l10n.goodAfternoon
+        : l10n.goodEvening;
 
     return Material(
       color: scheme.surface,
@@ -302,19 +400,19 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
                                         greeting,
                                         style: theme.textTheme.titleLarge
                                             ?.copyWith(
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: -0.3,
-                                        ),
+                                              fontWeight: FontWeight.w800,
+                                              letterSpacing: -0.3,
+                                            ),
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
-                                        'Tap for a feed tip · your community hub',
+                                        l10n.tapForFeedTip,
                                         style: theme.textTheme.labelSmall
                                             ?.copyWith(
-                                          color: scheme.onSurface
-                                              .withValues(alpha: 0.75),
-                                          height: 1.25,
-                                        ),
+                                              color: scheme.onSurface
+                                                  .withValues(alpha: 0.75),
+                                              height: 1.25,
+                                            ),
                                       ),
                                     ],
                                   ),
@@ -344,7 +442,7 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
                               }
                             : null,
                         icon: const Icon(Icons.vertical_align_top_rounded),
-                        tooltip: 'Back to top',
+                        tooltip: l10n.backToTop,
                       ),
                     ),
                   ],
@@ -353,7 +451,7 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
             ),
             const SizedBox(height: 14),
             Text(
-              'Jump in',
+              l10n.jumpIn,
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w700,
                 color: scheme.onSurfaceVariant,
@@ -366,105 +464,61 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
                 _buildQuickActivitySlot(
                   context: context,
                   icon: Icons.edit_note_rounded,
-                  label: 'Post',
-                  tooltip: 'New post — share an update',
+                  label: l10n.post,
+                  tooltip: l10n.quickNewPostTooltip,
                   onTap: _openNewPostSheet,
                   iconColor: scheme.tertiary,
                 ),
                 _buildQuickActivitySlot(
                   context: context,
                   icon: Icons.sports_esports_rounded,
-                  label: 'Online',
-                  tooltip: 'Play online — challenges & duels',
+                  label: l10n.online,
+                  tooltip: l10n.quickOnlineTooltip,
                   onTap: () => _mainShell.goToMainTab(1),
                   iconColor: scheme.primary,
                 ),
                 _buildQuickActivitySlot(
                   context: context,
                   icon: Icons.notifications_active_outlined,
-                  label: 'Alerts',
-                  tooltip: 'Alerts — replies & invites',
+                  label: l10n.alerts,
+                  tooltip: l10n.quickAlertsTooltip,
                   onTap: () => _mainShell.goToMainTab(2),
                 ),
                 _buildQuickActivitySlot(
                   context: context,
                   icon: Icons.groups_outlined,
-                  label: 'Battles',
-                  tooltip: 'Battles — team events',
+                  label: l10n.battles,
+                  tooltip: l10n.quickBattlesTooltip,
                   onTap: () => _mainShell.goToMainTab(3),
                   iconColor: scheme.secondary,
                 ),
                 _buildQuickActivitySlot(
                   context: context,
                   icon: Icons.person_rounded,
-                  label: 'Profile',
-                  tooltip: 'Profile — you & friends',
+                  label: l10n.profile,
+                  tooltip: l10n.quickProfileTooltip,
                   onTap: () => _mainShell.goToMainTab(4),
                 ),
                 _buildQuickActivitySlot(
                   context: context,
                   icon: Icons.travel_explore_rounded,
-                  label: 'People',
-                  tooltip: 'Explore people — search & friend requests',
+                  label: l10n.people,
+                  tooltip: l10n.quickPeopleTooltip,
                   onTap: _openExplorePeople,
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            Material(
-              color: scheme.primaryContainer.withValues(alpha: 0.38),
-              borderRadius: BorderRadius.circular(16),
-              child: InkWell(
-                onTap: _openExplorePeople,
-                borderRadius: BorderRadius.circular(16),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  child: Row(
-                    children: [
-                      Icon(Icons.groups_2_rounded, color: scheme.primary),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Explore people',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Search players, add friends, respond to requests on Profile',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                                height: 1.3,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
             SegmentedButton<_FeedSort>(
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: _FeedSort.latest,
-                  label: Text('Latest'),
+                  label: Text(l10n.latest),
                   icon: Icon(Icons.schedule_rounded, size: 18),
                 ),
                 ButtonSegment(
                   value: _FeedSort.mostLiked,
-                  label: Text('Top liked'),
+                  label: Text(l10n.topLiked),
                   icon: Icon(Icons.favorite_outline_rounded, size: 18),
                 ),
               ],
@@ -473,6 +527,45 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
                 if (s.isEmpty) return;
                 setState(() => _feedSort = s.first);
               },
+            ),
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SegmentedButton<_PostTypeFilter>(
+                multiSelectionEnabled: false,
+                segments: [
+                  ButtonSegment(
+                    value: _PostTypeFilter.all,
+                    label: Text(l10n.all),
+                    icon: Icon(Icons.apps_rounded, size: 18),
+                  ),
+                  ButtonSegment(
+                    value: _PostTypeFilter.post,
+                    label: Text(l10n.post),
+                    icon: Icon(Icons.edit_note_rounded, size: 18),
+                  ),
+                  ButtonSegment(
+                    value: _PostTypeFilter.announcement,
+                    label: Text(l10n.announce),
+                    icon: Icon(Icons.campaign_outlined, size: 18),
+                  ),
+                  ButtonSegment(
+                    value: _PostTypeFilter.celebration,
+                    label: Text(l10n.celebrate),
+                    icon: Icon(Icons.celebration_outlined, size: 18),
+                  ),
+                  ButtonSegment(
+                    value: _PostTypeFilter.ads,
+                    label: Text(l10n.postTypeAds),
+                    icon: Icon(Icons.storefront_outlined, size: 18),
+                  ),
+                ],
+                selected: {_postTypeFilter},
+                onSelectionChanged: (s) {
+                  if (s.isEmpty) return;
+                  setState(() => _postTypeFilter = s.first);
+                },
+              ),
             ),
           ],
         ),
@@ -485,6 +578,9 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
     Uint8List? imageBytes,
     String? imageContentType,
     bool allowShare,
+    String postVisibility,
+    String postType,
+    String? adLink,
   ) async {
     final trimmed = content.trim();
     if (trimmed.isEmpty && (imageBytes == null || imageBytes.isEmpty)) {
@@ -497,6 +593,9 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
         imageBytes: imageBytes,
         imageContentType: imageContentType,
         allowShare: allowShare,
+        postVisibility: postVisibility,
+        postType: postType,
+        adLink: adLink,
       ),
     );
     _newPostController.clear();
@@ -515,10 +614,8 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
     final bloc = context.read<HomeBloc>();
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (_) => BlocProvider.value(
-          value: bloc,
-          child: const ExplorePeopleScreen(),
-        ),
+        builder: (_) =>
+            BlocProvider.value(value: bloc, child: const ExplorePeopleScreen()),
       ),
     );
   }
@@ -554,13 +651,34 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
           (curr.successMessage != null &&
               curr.successMessage != prev.successMessage),
       listener: (context, state) {
+        final l10n = context.l10n;
         final err = state.errorMessage;
         if (err != null) {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text(err)));
         }
-        final ok = state.successMessage;
+        final ok = switch (state.successType) {
+          HomeSuccessType.postDeleted => l10n.homePostDeleted,
+          HomeSuccessType.postUpdated => l10n.homePostUpdated,
+          HomeSuccessType.alreadyFriends => l10n.alreadyFriendsWith(
+            (state.successName?.trim().isEmpty ?? true)
+                ? l10n.player
+                : state.successName!.trim(),
+          ),
+          HomeSuccessType.friendRequestSent => l10n.friendRequestSentTo(
+            (state.successName?.trim().isEmpty ?? true)
+                ? l10n.player
+                : state.successName!.trim(),
+          ),
+          HomeSuccessType.challengeSent => l10n.challengeSentTo(
+            onlineGameTitleL10n(l10n, state.successGameId ?? 1),
+            (state.successName?.trim().isEmpty ?? true)
+                ? l10n.player
+                : state.successName!.trim(),
+          ),
+          null => state.successMessage,
+        };
         if (ok != null) {
           ScaffoldMessenger.of(
             context,
@@ -568,6 +686,7 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
         }
       },
       builder: (context, state) {
+        final l10n = context.l10n;
         final posts = state.posts;
         final loading = state.status == HomeStatus.loading;
         final empty = posts.isEmpty;
@@ -578,7 +697,7 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
           floatingActionButton: FloatingActionButton.extended(
             onPressed: _openNewPostSheet,
             icon: const Icon(Icons.add_rounded),
-            label: const Text('New post'),
+            label: Text(l10n.newPost),
           ),
           body: SafeArea(
             child: loading && empty

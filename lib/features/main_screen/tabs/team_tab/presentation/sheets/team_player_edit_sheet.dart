@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/domain/models/team_player_edit_result.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/domain/models/team_roster_player.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/presentation/constants/team_stat_colors.dart';
@@ -25,6 +26,7 @@ Future<TeamPlayerEditResult?> showTeamPlayerEditSheet(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
     builder: (ctx) {
+      final l10n = ctx.l10n;
       final bottom = MediaQuery.viewInsetsOf(ctx).bottom;
       final scheme = Theme.of(ctx).colorScheme;
       return Padding(
@@ -37,7 +39,7 @@ Future<TeamPlayerEditResult?> showTeamPlayerEditSheet(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Player ${playerIndex + 1} of 6',
+                    l10n.teamPlayerIndexOf(playerIndex + 1, 6),
                     style: Theme.of(ctx).textTheme.labelLarge?.copyWith(
                           color: scheme.onSurfaceVariant,
                           letterSpacing: 0.3,
@@ -45,14 +47,14 @@ Future<TeamPlayerEditResult?> showTeamPlayerEditSheet(
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Edit player',
+                    l10n.teamEditPlayer,
                     style: Theme.of(ctx).textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    'Photo',
+                    l10n.teamPhoto,
                     style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
@@ -106,13 +108,13 @@ Future<TeamPlayerEditResult?> showTeamPlayerEditSheet(
                                 });
                               },
                               icon: const Icon(Icons.photo_library_outlined),
-                              label: const Text('Choose'),
+                              label: Text(l10n.choose),
                             ),
                             TextButton(
                               onPressed: avatarB64 == null
                                   ? null
                                   : () => setModal(() => avatarB64 = null),
-                              child: const Text('Remove'),
+                              child: Text(l10n.remove),
                             ),
                           ],
                         ),
@@ -125,21 +127,23 @@ Future<TeamPlayerEditResult?> showTeamPlayerEditSheet(
                     onChanged: (_) => setModal(() {}),
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
-                      labelText: 'Display name',
+                      labelText: '',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.badge_outlined),
+                    ).copyWith(
+                      labelText: l10n.teamDisplayName,
                     ),
                   ),
                   const SizedBox(height: 22),
                   Text(
-                    'Stats (skill training only)',
+                    l10n.teamStatsSkillTrainingOnly,
                     style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Raise ATK, DEF, SPD, and STM from the training section above.',
+                    l10n.teamRaiseStatsHint,
                     style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                           height: 1.35,
@@ -149,13 +153,13 @@ Future<TeamPlayerEditResult?> showTeamPlayerEditSheet(
                   Row(
                     children: [
                       TeamStatMiniBar(
-                        label: 'ATK',
+                        label: l10n.teamAttackShort,
                         value: player.attack,
                         accent: TeamStatColors.attack,
                       ),
                       const SizedBox(width: 3),
                       TeamStatMiniBar(
-                        label: 'DEF',
+                        label: l10n.teamDefenseShort,
                         value: player.defense,
                         accent: TeamStatColors.defense,
                       ),
@@ -192,7 +196,7 @@ Future<TeamPlayerEditResult?> showTeamPlayerEditSheet(
                         ),
                       );
                     },
-                    child: const Text('Save changes'),
+                    child: Text(l10n.saveChanges),
                   ),
                 ],
               ),

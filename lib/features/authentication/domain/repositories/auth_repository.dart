@@ -12,6 +12,7 @@ abstract class AuthRepository {
     required String username,
   });
   Future<Either<Failure, String>> logout();
+  Future<Either<Failure, String>> deleteAccount();
   Future<Either<Failure, String>> sendPasswordRecoveryOtp({
     required String email,
   });

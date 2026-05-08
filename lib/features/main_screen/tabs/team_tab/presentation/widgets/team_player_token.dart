@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/domain/models/team_roster_player.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/presentation/constants/team_stat_colors.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/presentation/utils/team_ui_utils.dart';
@@ -18,6 +19,7 @@ class TeamPlayerToken extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
@@ -98,7 +100,7 @@ class TeamPlayerToken extends StatelessWidget {
                       ),
                       if (onTap != null)
                         Text(
-                          'Tap to edit',
+                          l10n.tapToEdit,
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: scheme.primary,
                             fontWeight: FontWeight.w600,
@@ -113,13 +115,13 @@ class TeamPlayerToken extends StatelessWidget {
             Row(
               children: [
                 TeamStatMiniBar(
-                  label: 'ATK',
+                  label: l10n.teamAttackShort,
                   value: p.attack,
                   accent: TeamStatColors.attack,
                 ),
                 const SizedBox(width: 3),
                 TeamStatMiniBar(
-                  label: 'DEF',
+                  label: l10n.teamDefenseShort,
                   value: p.defense,
                   accent: TeamStatColors.defense,
                 ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:new_project/core/di/di.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/lineup_race_board_row.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/utils/home_feed_ui.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/domain/usecases/get_lineup_race_leaderboard_usecase.dart';
@@ -25,23 +26,27 @@ class TeamLineupRacePanel extends StatefulWidget {
 }
 
 class _TeamLineupRacePanelState extends State<TeamLineupRacePanel> {
-  static const _modes = [
-    (
-      label: 'Power',
-      subtitle: 'Sum of ATK+DEF+SPD+STM for all six.',
-      builder: lineupRaceKeyPower,
-    ),
-    (
-      label: 'Speed dash',
-      subtitle: 'Each player: 2×SPD + STM.',
-      builder: lineupRaceKeySpeed,
-    ),
-    (
-      label: 'Balance',
-      subtitle: 'Rewards high minimum stat per player (×15).',
-      builder: lineupRaceKeyBalance,
-    ),
-  ];
+  List<({String label, String subtitle, String Function(String) builder})>
+  _modes(BuildContext context) {
+    final l10n = context.l10n;
+    return [
+      (
+        label: l10n.teamPowerRace,
+        subtitle: l10n.teamRaceSubtitlePower,
+        builder: lineupRaceKeyPower,
+      ),
+      (
+        label: l10n.teamSpeedDash,
+        subtitle: l10n.teamRaceSubtitleSpeed,
+        builder: lineupRaceKeySpeed,
+      ),
+      (
+        label: l10n.teamBalance,
+        subtitle: l10n.teamRaceSubtitleBalance,
+        builder: lineupRaceKeyBalance,
+      ),
+    ];
+  }
 
   int _modeIndex = 0;
   List<LineupRaceBoardRow> _rows = const [];
@@ -50,7 +55,7 @@ class _TeamLineupRacePanelState extends State<TeamLineupRacePanel> {
 
   String get _mondayId => lineupRaceMondayIdUtc();
 
-  String get _raceKey => _modes[_modeIndex].builder(_mondayId);
+  String get _raceKey => _modes(context)[_modeIndex].builder(_mondayId);
 
   String? get _myId =>
       Supabase.instance.client.auth.currentUser?.id.trim().toLowerCase();
@@ -98,7 +103,7 @@ class _TeamLineupRacePanelState extends State<TeamLineupRacePanel> {
       ),
       (score) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lineup scored: $score pts')),
+          SnackBar(content: Text(context.l10n.lineupScored(score))),
         );
         _reloadBoard();
       },
@@ -109,6 +114,8 @@ class _TeamLineupRacePanelState extends State<TeamLineupRacePanel> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l10n = context.l10n;
+    final modes = _modes(context);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -129,21 +136,21 @@ class _TeamLineupRacePanelState extends State<TeamLineupRacePanel> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Lineup races',
+                      l10n.lineupRaces,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Refresh board',
+                    tooltip: l10n.refreshBoard,
                     onPressed: _loading ? null : _reloadBoard,
                     icon: const Icon(Icons.refresh_rounded),
                   ),
                 ],
               ),
               Text(
-                'Week (UTC): $_mondayId · everyone uses the same saved six from the cloud.',
+                l10n.teamRaceWeekUtc(_mondayId),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                   height: 1.3,
@@ -153,10 +160,10 @@ class _TeamLineupRacePanelState extends State<TeamLineupRacePanel> {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: List.generate(_modes.length, (i) {
+                children: List.generate(modes.length, (i) {
                   final sel = i == _modeIndex;
                   return ChoiceChip(
-                    label: Text(_modes[i].label),
+                    label: Text(modes[i].label),
                     selected: sel,
                     onSelected: _loading
                         ? null
@@ -170,7 +177,7 @@ class _TeamLineupRacePanelState extends State<TeamLineupRacePanel> {
               ),
               const SizedBox(height: 6),
               Text(
-                _modes[_modeIndex].subtitle,
+                modes[_modeIndex].subtitle,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -191,13 +198,13 @@ class _TeamLineupRacePanelState extends State<TeamLineupRacePanel> {
                     : const Icon(Icons.upload_rounded),
                 label: Text(
                   widget.hasSquad
-                      ? 'Submit lineup to this race'
-                      : 'Create a team to enter',
+                      ? l10n.submitLineupToRace
+                      : l10n.createTeamToEnter,
                 ),
               ),
               const SizedBox(height: 12),
               Text(
-                'Leaderboard',
+                l10n.leaderboard,
                 style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.6,
@@ -211,7 +218,7 @@ class _TeamLineupRacePanelState extends State<TeamLineupRacePanel> {
                 )
               else if (_rows.isEmpty)
                 Text(
-                  'No entries yet — be first this week.',
+                  l10n.teamNoEntriesYetBeFirstThisWeek,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -228,7 +235,7 @@ class _TeamLineupRacePanelState extends State<TeamLineupRacePanel> {
                     final name =
                         (row.username?.trim().isNotEmpty ?? false)
                         ? row.username!.trim()
-                        : 'Player';
+                        : l10n.player;
                     final me = _myId != null &&
                         row.userId.trim().toLowerCase() == _myId;
                     final avatarUrl = row.avatarUrl?.trim();

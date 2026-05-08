@@ -103,9 +103,9 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
       (_) async {
         emit(
           state.copyWith(
-            successMessage: event.accept
-                ? 'Friend request accepted'
-                : 'Friend request declined',
+            successType: event.accept
+                ? ProfileSuccessType.friendRequestAccepted
+                : ProfileSuccessType.friendRequestDeclined,
             clearError: true,
             clearBusyFriendRequest: true,
           ),
@@ -147,7 +147,7 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
         emit(
           state.copyWith(
             profileSaveBusy: false,
-            successMessage: 'Profile updated',
+            successType: ProfileSuccessType.profileUpdated,
             clearError: true,
           ),
         );

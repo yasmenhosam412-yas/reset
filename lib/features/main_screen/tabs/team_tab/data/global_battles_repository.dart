@@ -338,6 +338,37 @@ class GlobalBattlesRepository {
     }
   }
 
+  Future<String?> submitHighLowPick({
+    required String periodKey,
+    required bool pickHigh,
+  }) async {
+    final uid = _uid;
+    if (uid == null) return 'Sign in to play.';
+    final n = parityDailyNumber(periodKey);
+    final nIsHigh = n >= 50;
+    final match = pickHigh == nIsHigh;
+    final sc = match ? GlobalBattlesRepository.earlyRankBonus() : 0;
+    try {
+      await _c.from(GlobalBattleTable.name).insert({
+        GlobalBattleTable.battleId: 5,
+        GlobalBattleTable.periodKey: periodKey,
+        GlobalBattleTable.userId: uid,
+        GlobalBattleTable.score: sc,
+        GlobalBattleTable.extras: {
+          'pick': pickHigh ? 'high' : 'low',
+        },
+      });
+      return null;
+    } on PostgrestException catch (e) {
+      if (e.code == '23505') {
+        return 'You already picked today.';
+      }
+      return e.message;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
   static int _asInt(dynamic v) {
     if (v is int) return v;
     if (v is num) return v.toInt();

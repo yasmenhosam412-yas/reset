@@ -7,12 +7,19 @@ enum ProfileStatus {
   failure,
 }
 
+enum ProfileSuccessType {
+  friendRequestAccepted,
+  friendRequestDeclined,
+  profileUpdated,
+}
+
 class ProfileState {
   const ProfileState({
     required this.status,
     this.dashboard,
     this.errorMessage,
     this.successMessage,
+    this.successType,
     this.busyFriendRequestId,
     this.profileSaveBusy = false,
   });
@@ -25,6 +32,7 @@ class ProfileState {
   final ProfileDashboardModel? dashboard;
   final String? errorMessage;
   final String? successMessage;
+  final ProfileSuccessType? successType;
 
   /// Friend-request row being accepted or declined (disables buttons).
   final String? busyFriendRequestId;
@@ -37,6 +45,7 @@ class ProfileState {
     ProfileDashboardModel? dashboard,
     String? errorMessage,
     String? successMessage,
+    ProfileSuccessType? successType,
     String? busyFriendRequestId,
     bool? profileSaveBusy,
     bool clearError = false,
@@ -49,6 +58,7 @@ class ProfileState {
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       successMessage:
           clearSuccess ? null : (successMessage ?? this.successMessage),
+      successType: clearSuccess ? null : (successType ?? this.successType),
       busyFriendRequestId: clearBusyFriendRequest
           ? null
           : (busyFriendRequestId ?? this.busyFriendRequestId),

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/core/utils/dispose_text_controller_next_frame.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
@@ -24,7 +25,11 @@ Future<void> showEditHomePostSheet(BuildContext context, PostModel post) async {
       builder: (ctx) {
         return Padding(
           padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
-          child: _EditHomePostBody(post: post, contentController: controller),
+          child: _EditHomePostBody(
+            hostContext: context,
+            post: post,
+            contentController: controller,
+          ),
         );
       },
     );
@@ -35,10 +40,12 @@ Future<void> showEditHomePostSheet(BuildContext context, PostModel post) async {
 
 class _EditHomePostBody extends StatefulWidget {
   const _EditHomePostBody({
+    required this.hostContext,
     required this.post,
     required this.contentController,
   });
 
+  final BuildContext hostContext;
   final PostModel post;
   final TextEditingController contentController;
 
@@ -52,6 +59,11 @@ class _EditHomePostBodyState extends State<_EditHomePostBody> {
   bool _removedImage = false;
   bool _saving = false;
   late bool _allowShare;
+  late String _postVisibility;
+  late String _postType;
+  late final TextEditingController _adLinkController;
+  String? _contentError;
+  String? _adLinkError;
 
   String get _existingUrl => homePostResolvedImageUrl(widget.post).trim();
 
@@ -59,6 +71,18 @@ class _EditHomePostBodyState extends State<_EditHomePostBody> {
   void initState() {
     super.initState();
     _allowShare = widget.post.allowShare;
+    _postVisibility = widget.post.postVisibility;
+    _postType = widget.post.postType;
+    if (_postType == 'ads') {
+      _allowShare = false;
+    }
+    _adLinkController = TextEditingController(text: widget.post.adLink ?? '');
+  }
+
+  @override
+  void dispose() {
+    _adLinkController.dispose();
+    super.dispose();
   }
 
   String? _mimeFromFile(XFile file) {
@@ -103,16 +127,37 @@ class _EditHomePostBodyState extends State<_EditHomePostBody> {
     return false;
   }
 
+  String? _normalizedAdLink() {
+    final raw = _adLinkController.text.trim();
+    if (raw.isEmpty) return null;
+    final uri = Uri.tryParse(raw);
+    if (uri == null) return null;
+    if ((uri.scheme != 'http' && uri.scheme != 'https') || uri.host.isEmpty) {
+      return null;
+    }
+    return raw;
+  }
+
   Future<void> _save() async {
+    final l10n = context.l10n;
     final merged = homePostMergeEditedBody(
       storedPostContent: widget.post.postContent,
       editedDisplayTrimmed: widget.contentController.text.trim(),
     );
-    if (merged.isEmpty && !_willHaveImage) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add text or a photo')),
-      );
+    String? contentError;
+    String? adLinkError;
+    if (merged.isEmpty) {
+      contentError = l10n.postTextEmptyError;
+    }
+    final adLink = _normalizedAdLink();
+    if (_postType == 'ads' && adLink == null) {
+      adLinkError = l10n.adLinkInvalidError;
+    }
+    if (contentError != null || adLinkError != null) {
+      setState(() {
+        _contentError = contentError;
+        _adLinkError = adLinkError;
+      });
       return;
     }
 
@@ -128,6 +173,9 @@ class _EditHomePostBodyState extends State<_EditHomePostBody> {
               imageContentType: _newImageContentType,
               clearImage: clearImage,
               allowShare: _allowShare,
+              postVisibility: _postVisibility,
+              postType: _postType,
+              adLink: adLink,
             ),
           );
       if (mounted) Navigator.of(context).pop();
@@ -139,6 +187,7 @@ class _EditHomePostBodyState extends State<_EditHomePostBody> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -146,16 +195,101 @@ class _EditHomePostBodyState extends State<_EditHomePostBody> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Edit post', style: theme.textTheme.titleLarge),
+          Text(l10n.editPost, style: theme.textTheme.titleLarge),
+          const SizedBox(height: 8),
+          SegmentedButton<String>(
+            segments: [
+              ButtonSegment<String>(
+                value: 'post',
+                icon: Icon(Icons.edit_note_rounded, size: 18),
+                label: Text(l10n.postTypePost),
+              ),
+              ButtonSegment<String>(
+                value: 'announcement',
+                icon: Icon(Icons.campaign_outlined, size: 18),
+                label: Text(l10n.postTypeAnnouncement),
+              ),
+              ButtonSegment<String>(
+                value: 'celebration',
+                icon: Icon(Icons.celebration_outlined, size: 18),
+                label: Text(l10n.postTypeCelebration),
+              ),
+              ButtonSegment<String>(
+                value: 'ads',
+                icon: Icon(Icons.storefront_outlined, size: 18),
+                label: Text(l10n.postTypeAds),
+              ),
+            ],
+            selected: {_postType},
+            onSelectionChanged: _saving
+                ? null
+                : (values) {
+                    if (values.isEmpty) return;
+                    setState(() {
+                      _postType = values.first;
+                      if (_postType == 'ads') {
+                        _allowShare = false;
+                      }
+                    });
+                  },
+          ),
+          const SizedBox(height: 8),
+          if (_postType == 'ads') ...[
+            TextField(
+              controller: _adLinkController,
+              keyboardType: TextInputType.url,
+              textInputAction: TextInputAction.next,
+              autocorrect: false,
+              onChanged: (_) {
+                if (_adLinkError != null) {
+                  setState(() => _adLinkError = null);
+                }
+              },
+              decoration: InputDecoration(
+                labelText: l10n.adLink,
+                hintText: l10n.adLinkHint,
+                prefixIcon: const Icon(Icons.link_rounded),
+                errorText: _adLinkError,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          SegmentedButton<String>(
+            segments: [
+              ButtonSegment<String>(
+                value: 'general',
+                icon: Icon(Icons.public_rounded, size: 18),
+                label: Text(l10n.general),
+              ),
+              ButtonSegment<String>(
+                value: 'friends',
+                icon: Icon(Icons.group_rounded, size: 18),
+                label: Text(l10n.friendsOnly),
+              ),
+            ],
+            selected: {_postVisibility},
+            onSelectionChanged: _saving
+                ? null
+                : (values) {
+                    if (values.isEmpty) return;
+                    setState(() => _postVisibility = values.first);
+                  },
+          ),
           const SizedBox(height: 12),
           TextField(
             controller: widget.contentController,
             maxLines: 5,
             minLines: 3,
             textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              hintText: 'What is on your mind?',
+            onChanged: (_) {
+              if (_contentError != null) {
+                setState(() => _contentError = null);
+              }
+            },
+            decoration: InputDecoration(
+              hintText: l10n.postContentHint,
               alignLabelWithHint: true,
+              errorText: _contentError,
             ),
           ),
           const SizedBox(height: 8),
@@ -164,13 +298,15 @@ class _EditHomePostBodyState extends State<_EditHomePostBody> {
               TextButton.icon(
                 onPressed: _saving ? null : _pickImage,
                 icon: const Icon(Icons.photo_library_outlined, size: 20),
-                label: Text(_existingUrl.isNotEmpty ? 'Change photo' : 'Add photo'),
+                label: Text(
+                  _existingUrl.isNotEmpty ? l10n.changePhoto : l10n.addPhoto,
+                ),
               ),
               if (_willHaveImage)
                 TextButton.icon(
                   onPressed: _saving ? null : _removePhoto,
                   icon: const Icon(Icons.close_rounded, size: 20),
-                  label: const Text('Remove photo'),
+                  label: Text(l10n.removePhoto),
                 ),
             ],
           ),
@@ -208,14 +344,16 @@ class _EditHomePostBodyState extends State<_EditHomePostBody> {
           SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
             value: _allowShare,
-            onChanged: _saving
+            onChanged: _saving || _postType == 'ads'
                 ? null
                 : (v) => setState(() => _allowShare = v),
-            title: const Text('Allow reposts'),
+            title: Text(l10n.allowReposts),
             subtitle: Text(
-              _allowShare
-                  ? 'Others can share this to the home feed.'
-                  : 'Repost is hidden for this post.',
+              _postType == 'ads'
+                  ? l10n.adsCannotRepost
+                  : _allowShare
+                  ? l10n.othersCanShare
+                  : l10n.repostHidden,
               style: theme.textTheme.bodySmall,
             ),
           ),
@@ -232,7 +370,7 @@ class _EditHomePostBodyState extends State<_EditHomePostBody> {
                     ),
                   )
                 : const Icon(Icons.check_rounded, size: 20),
-            label: Text(_saving ? 'Saving…' : 'Save'),
+            label: Text(_saving ? l10n.saving : l10n.save),
           ),
         ],
       ),

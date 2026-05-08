@@ -4,7 +4,12 @@ import 'package:new_project/features/authentication/data/models/user_model.dart'
 
 abstract class HomeEvent {}
 
-final class HomePostsRequested extends HomeEvent {}
+final class HomePostsRequested extends HomeEvent {
+  final int limit;
+  final int offset;
+
+  HomePostsRequested({required this.limit, required this.offset});
+}
 
 final class HomePostCreateRequested extends HomeEvent {
   HomePostCreateRequested({
@@ -13,6 +18,9 @@ final class HomePostCreateRequested extends HomeEvent {
     this.imageBytes,
     this.imageContentType,
     this.allowShare = true,
+    this.postVisibility = 'general',
+    this.postType = 'post',
+    this.adLink,
   });
 
   final String postContent;
@@ -20,6 +28,9 @@ final class HomePostCreateRequested extends HomeEvent {
   final Uint8List? imageBytes;
   final String? imageContentType;
   final bool allowShare;
+  final String postVisibility;
+  final String postType;
+  final String? adLink;
 }
 
 final class HomePostDeleteRequested extends HomeEvent {
@@ -36,6 +47,9 @@ final class HomePostUpdateRequested extends HomeEvent {
     this.imageContentType,
     this.clearImage = false,
     required this.allowShare,
+    this.postVisibility = 'general',
+    this.postType = 'post',
+    this.adLink,
   });
 
   final String postId;
@@ -44,6 +58,9 @@ final class HomePostUpdateRequested extends HomeEvent {
   final String? imageContentType;
   final bool clearImage;
   final bool allowShare;
+  final String postVisibility;
+  final String postType;
+  final String? adLink;
 }
 
 final class HomeCommentCreateRequested extends HomeEvent {
@@ -69,7 +86,9 @@ final class HomeSendFriendRequest extends HomeEvent {
 
 final class HomeSendChallenge extends HomeEvent {
   HomeSendChallenge({required this.userModel, required this.gameId});
-  
+
   final UserModel userModel;
   final int gameId;
 }
+
+final class ResetHomeEvent extends HomeEvent {}

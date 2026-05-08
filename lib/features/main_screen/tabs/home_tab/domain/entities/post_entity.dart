@@ -11,6 +11,12 @@ class PostEntity {
   final DateTime? createdAt;
   /// When false, other users must not repost this post.
   final bool allowShare;
+  /// `general` => visible to all users, `friends` => visible to author + friends.
+  final String postVisibility;
+  /// `post`, `announcement`, `celebration`, `ads`.
+  final String postType;
+  /// Optional target URL for `ads` posts.
+  final String? adLink;
 
   PostEntity({
     required this.id,
@@ -21,5 +27,8 @@ class PostEntity {
     required this.comments,
     this.createdAt,
     this.allowShare = true,
+    this.postVisibility = 'general',
+    this.postType = 'post',
+    this.adLink,
   });
 }

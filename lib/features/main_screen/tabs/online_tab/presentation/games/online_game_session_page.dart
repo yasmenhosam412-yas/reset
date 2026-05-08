@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:new_project/core/di/di.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/domain/repositories/online_repository.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_route_args.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_titles.dart';
@@ -40,7 +41,8 @@ class _OnlineGameSessionPageState extends State<OnlineGameSessionPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final title = onlineGameTitle(widget.args.gameId);
+    final l10n = context.l10n;
+    final title = onlineGameTitleL10n(l10n, widget.args.gameId);
 
     return PopScope(
       canPop: false,
@@ -61,7 +63,7 @@ class _OnlineGameSessionPageState extends State<OnlineGameSessionPage> {
           padding: const EdgeInsets.all(24),
           children: [
             Text(
-              'Match vs ${widget.args.opponentDisplayName}',
+              l10n.matchVsOpponent(widget.args.opponentDisplayName),
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w800,
               ),
@@ -133,11 +135,12 @@ class _GameBody extends StatelessWidget {
           challengeToUserId: challengeToUserId,
         );
       default:
+        final l10n = context.l10n;
         return Card(
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Text(
-              'No screen for game ID $gameId yet.',
+              l10n.noScreenForGameIdYet(gameId),
               style: theme.textTheme.bodyLarge,
             ),
           ),

@@ -49,7 +49,9 @@ class _PenaltyShootoutLogic {
       (f) {
         _s._onlineMatchCleanupDone = false;
         ScaffoldMessenger.maybeOf(_s.context)?.showSnackBar(
-          SnackBar(content: Text('Could not close out match: ${f.message}')),
+          SnackBar(
+            content: Text(_s.context.l10n.couldNotCloseOutMatch(f.message)),
+          ),
         );
       },
       (_) {},
@@ -320,7 +322,9 @@ class _PenaltyShootoutLogic {
           _s._onlineWaitingForOpponent = false;
         });
         ScaffoldMessenger.maybeOf(_s.context)?.showSnackBar(
-          SnackBar(content: Text('Could not submit pick: ${f.message}')),
+          SnackBar(
+            content: Text(_s.context.l10n.couldNotSubmitPick(f.message)),
+          ),
         );
       },
       (_) {
@@ -439,7 +443,7 @@ class _PenaltyShootoutLogic {
     final strikerWasMe = _s.widget.online == null
         ? iAmStriker
         : PenaltyShootoutRules.uidEq(_s._lastStrikerUserId, _s._myUserId);
-    final who = strikerWasMe ? 'You' : _s.widget.opponentName;
+    final who = strikerWasMe ? _s.context.l10n.you : _s.widget.opponentName;
     final scored = _s._lastKickScored;
 
     if (_s.widget.online != null) {
@@ -467,8 +471,8 @@ class _PenaltyShootoutLogic {
     _s._mutate(() {
       _s._phase = PenaltyShootoutPhase.reveal;
       _s._lastResultLine = scored
-          ? '$who — GOAL!'
-          : '$who — saved!';
+            ? _s.context.l10n.whoGoal(who)
+            : _s.context.l10n.whoSaved(who);
     });
 
     if (scored) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_event.dart';
@@ -21,6 +22,7 @@ Future<void> showHomeCommentsSheet(
       final bottomInset = MediaQuery.viewInsetsOf(ctx).bottom;
       final sheetHeight = MediaQuery.sizeOf(ctx).height * 0.52;
       final scheme = Theme.of(ctx).colorScheme;
+      final l10n = ctx.l10n;
 
       return BlocProvider.value(
         value: context.read<HomeBloc>(),
@@ -58,7 +60,7 @@ Future<void> showHomeCommentsSheet(
                       child: Row(
                         children: [
                           Text(
-                            'Comments',
+                            l10n.comments,
                             style: Theme.of(ctx).textTheme.titleLarge,
                           ),
                           const Spacer(),
@@ -78,7 +80,7 @@ Future<void> showHomeCommentsSheet(
                               child: Padding(
                                 padding: const EdgeInsets.all(32),
                                 child: Text(
-                                  'No comments yet.\nBe the first to reply.',
+                                  l10n.noCommentsYetBeFirst,
                                   textAlign: TextAlign.center,
                                   style: Theme.of(ctx).textTheme.bodyLarge?.copyWith(
                                         color: scheme.onSurfaceVariant,
@@ -129,8 +131,8 @@ Future<void> showHomeCommentsSheet(
                               minLines: 1,
                               maxLines: 4,
                               textCapitalization: TextCapitalization.sentences,
-                              decoration: const InputDecoration(
-                                hintText: 'Write a comment…',
+                              decoration: InputDecoration(
+                                hintText: l10n.writeAComment,
                                 isDense: true,
                               ),
                             ),

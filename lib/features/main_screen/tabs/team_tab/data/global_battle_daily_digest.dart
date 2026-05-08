@@ -26,7 +26,7 @@ abstract final class GlobalBattleDailyDigest {
     2: 'Green-light reflex',
     3: 'Oracle digit',
     4: 'Five-second blitz',
-    5: 'Parity prophet',
+    5: 'High-low prophet',
   };
 
   static String _scoreLine(int battleId, GlobalBattleStanding s) {

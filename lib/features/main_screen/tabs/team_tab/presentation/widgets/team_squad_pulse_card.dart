@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/domain/models/team_roster_player.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/presentation/constants/team_stat_colors.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/presentation/utils/team_squad_scoring.dart';
@@ -16,6 +17,7 @@ class TeamSquadPulseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     if (players.length != 6) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
@@ -50,7 +52,7 @@ class TeamSquadPulseCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Squad pulse',
+                      l10n.teamSquadPulse,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
@@ -76,7 +78,7 @@ class TeamSquadPulseCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'Live preview of the three weekly race modes — train, then climb the shared leaderboard.',
+                l10n.teamSquadPulseSubtitle,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                   height: 1.35,
@@ -84,7 +86,7 @@ class TeamSquadPulseCard extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               _ScoreBar(
-                label: 'Power race',
+                label: l10n.teamPowerRace,
                 value: power,
                 max: kSquadPowerScoreMax,
                 accent: TeamStatColors.attack,
@@ -93,7 +95,7 @@ class TeamSquadPulseCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               _ScoreBar(
-                label: 'Speed dash',
+                label: l10n.teamSpeedDash,
                 value: speed,
                 max: kSquadSpeedDashScoreMax,
                 accent: TeamStatColors.speed,
@@ -102,7 +104,7 @@ class TeamSquadPulseCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               _ScoreBar(
-                label: 'Balance',
+                label: l10n.teamBalance,
                 value: balance,
                 max: kSquadBalanceScoreMax,
                 accent: TeamStatColors.defense,

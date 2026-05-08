@@ -16,6 +16,9 @@ class AddHomePostUsecase {
     Uint8List? imageBytes,
     String? imageContentType,
     bool allowShare = true,
+    String postVisibility = 'general',
+    String postType = 'post',
+    String? adLink,
   }) {
     return _homeRepository.addPost(
       postContent: postContent,
@@ -23,6 +26,9 @@ class AddHomePostUsecase {
       imageBytes: imageBytes,
       imageContentType: imageContentType,
       allowShare: allowShare,
+      postVisibility: postVisibility,
+      postType: postType,
+      adLink: adLink,
     );
   }
 }

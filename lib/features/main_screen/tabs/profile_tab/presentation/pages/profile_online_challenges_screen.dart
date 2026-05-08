@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:new_project/core/di/di.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/authentication/data/models/user_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/utils/home_feed_ui.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/data/models/challenge_request_model.dart';
@@ -94,13 +95,15 @@ class _ProfileOnlineChallengesScreenState
     ChallengeRequestModel c,
     String? uid,
     List<UserModel> friends,
+    String unknownOpponentLabel,
+    String fallbackPlayerLabel,
   ) {
-    if (uid == null || uid.isEmpty) return 'Opponent';
+    if (uid == null || uid.isEmpty) return unknownOpponentLabel;
     final oid = c.fromId == uid ? c.toId : c.fromId;
     for (final f in friends) {
       if (f.id == oid) {
         final n = f.username.trim();
-        return n.isEmpty ? 'Player' : n;
+        return n.isEmpty ? fallbackPlayerLabel : n;
       }
     }
     if (oid.length <= 12) return oid;
@@ -109,24 +112,30 @@ class _ProfileOnlineChallengesScreenState
 
 
 
-  static String? _resultSubtitle(String? uid, ChallengeRequestModel c) {
+  static String? _resultSubtitle(
+    String? uid,
+    ChallengeRequestModel c, {
+    required String drawLabel,
+    required String youWonLabel,
+    required String youLostLabel,
+  }) {
     final st = c.status.toLowerCase();
     final w = c.winnerUserId?.trim();
     final winnerKnown = w != null && w.isNotEmpty;
     final finished = st == 'completed' || c.completedAt != null || winnerKnown;
     if (!finished) return null;
     if (w == null || w.isEmpty) {
-      return 'Draw';
+      return drawLabel;
     }
     final me = uid?.trim().toLowerCase();
     final winner = w.toLowerCase();
     if (me != null && me.isNotEmpty && winner == me) {
-      return 'You won';
+      return youWonLabel;
     }
     if (me != null && me.isNotEmpty && winner != me) {
-      return 'You lost';
+      return youLostLabel;
     }
-    return 'Draw';
+    return drawLabel;
   }
 
   static IconData _gameIcon(int gameId) {
@@ -159,10 +168,18 @@ class _ProfileOnlineChallengesScreenState
     ColorScheme scheme,
     String? uid,
     ChallengeRequestModel c,
+    BuildContext context,
   ) {
-    final label = _resultSubtitle(uid, c);
+    final l10n = context.l10n;
+    final label = _resultSubtitle(
+      uid,
+      c,
+      drawLabel: l10n.draw,
+      youWonLabel: l10n.youWon,
+      youLostLabel: l10n.youLost,
+    );
     if (label == null) return null;
-    if (label == 'You won') {
+    if (label == l10n.youWon) {
       return _OutcomeStyle(
         label: label,
         icon: Icons.emoji_events_rounded,
@@ -170,7 +187,7 @@ class _ProfileOnlineChallengesScreenState
         foreground: scheme.onPrimaryContainer,
       );
     }
-    if (label == 'You lost') {
+    if (label == l10n.youLost) {
       return _OutcomeStyle(
         label: label,
         icon: Icons.flag_rounded,
@@ -188,6 +205,7 @@ class _ProfileOnlineChallengesScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final uid = Supabase.instance.client.auth.currentUser?.id;
@@ -201,13 +219,13 @@ class _ProfileOnlineChallengesScreenState
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Challenges',
+              l10n.challenges,
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w800,
               ),
             ),
             Text(
-              'History & live invites',
+              l10n.historyAndLiveInvites,
               style: theme.textTheme.labelMedium?.copyWith(
                 color: scheme.onSurfaceVariant,
                 fontWeight: FontWeight.w500,
@@ -243,7 +261,7 @@ class _ProfileOnlineChallengesScreenState
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Loading your matches…',
+                      l10n.loadingYourMatches,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: scheme.onSurfaceVariant,
@@ -263,7 +281,7 @@ class _ProfileOnlineChallengesScreenState
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Couldn’t load challenges',
+                      l10n.couldNotLoadChallenges,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -280,7 +298,7 @@ class _ProfileOnlineChallengesScreenState
                     FilledButton.icon(
                       onPressed: _load,
                       icon: const Icon(Icons.refresh_rounded),
-                      label: const Text('Try again'),
+                      label: Text(l10n.tryAgain),
                     ),
                   ],
                 )
@@ -305,7 +323,7 @@ class _ProfileOnlineChallengesScreenState
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      'No challenges yet',
+                      l10n.noChallengesYet,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
@@ -313,8 +331,7 @@ class _ProfileOnlineChallengesScreenState
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Invite a friend from Home or the Online tab — '
-                      'finished games show up here with results.',
+                      l10n.challengesEmptyHint,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: scheme.onSurfaceVariant,
@@ -330,13 +347,19 @@ class _ProfileOnlineChallengesScreenState
                   separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final c = _challenges[index];
-                    final gameTitle = onlineGameTitle(c.gameId);
-                    final opp = _opponentName(c, uid, _friends);
+                    final gameTitle = onlineGameTitleL10n(l10n, c.gameId);
+                    final opp = _opponentName(
+                      c,
+                      uid,
+                      _friends,
+                      l10n.opponent,
+                      l10n.player,
+                    );
                     // final st = c.status;
                     // final stColor = _statusColor(scheme, st);
                     final when = c.completedAt ?? c.createdAt;
                     final timeLabel = when != null ? homeFeedTimeAgo(when) : '';
-                    final outcome = _outcomeStyle(scheme, uid, c);
+                    final outcome = _outcomeStyle(scheme, uid, c, context);
                     final iconTint = _gameIconTint(scheme, c.gameId);
 
                     return Material(
@@ -409,7 +432,7 @@ class _ProfileOnlineChallengesScreenState
                                                   height: 1.25,
                                                 ),
                                             children: [
-                                              const TextSpan(text: 'vs '),
+                                              TextSpan(text: l10n.vsPrefix),
                                               TextSpan(
                                                 text: opp,
                                                 style: TextStyle(

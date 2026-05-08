@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:new_project/features/authentication/data/models/user_model.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/data/models/challenge_request_model.dart';
@@ -7,7 +9,6 @@ import 'package:new_project/features/main_screen/tabs/online_tab/domain/usecases
 import 'package:new_project/features/main_screen/tabs/online_tab/domain/usecases/get_online_friends_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/datasource/home_supabase_tables.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/domain/usecases/set_online_challenge_ready_usecase.dart';
-import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_titles.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/bloc/online_event.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/bloc/online_state.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -17,16 +18,15 @@ class OnlineBloc extends Bloc<OnlineEvent, OnlineState> {
     required GetOnlineFriendsUsecase getOnlineFriendsUsecase,
     required GetOnlineChallengesUsecase getOnlineChallengesUsecase,
     required ChangeOnlineChallengeStatusUsecase
-        changeOnlineChallengeStatusUsecase,
+    changeOnlineChallengeStatusUsecase,
     required SendHomeChallengeUsecase sendHomeChallengeUsecase,
     required SetOnlineChallengeReadyUsecase setOnlineChallengeReadyUsecase,
-  })  : _getOnlineFriendsUsecase = getOnlineFriendsUsecase,
-        _getOnlineChallengesUsecase = getOnlineChallengesUsecase,
-        _changeOnlineChallengeStatusUsecase =
-            changeOnlineChallengeStatusUsecase,
-        _sendHomeChallengeUsecase = sendHomeChallengeUsecase,
-        _setOnlineChallengeReadyUsecase = setOnlineChallengeReadyUsecase,
-        super(OnlineState.initial()) {
+  }) : _getOnlineFriendsUsecase = getOnlineFriendsUsecase,
+       _getOnlineChallengesUsecase = getOnlineChallengesUsecase,
+       _changeOnlineChallengeStatusUsecase = changeOnlineChallengeStatusUsecase,
+       _sendHomeChallengeUsecase = sendHomeChallengeUsecase,
+       _setOnlineChallengeReadyUsecase = setOnlineChallengeReadyUsecase,
+       super(OnlineState.initial()) {
     on<OnlineLoadRequested>(_onLoadRequested);
     on<OnlineSendChallengeRequested>(_onSendChallengeRequested);
     on<OnlineChallengeDecisionRequested>(_onChallengeDecisionRequested);
@@ -34,6 +34,7 @@ class OnlineBloc extends Bloc<OnlineEvent, OnlineState> {
     on<OnlineChallengeReadyRequested>(_onChallengeReadyRequested);
     on<OnlineChallengesRealtimeUpdated>(_onChallengesRealtimeUpdated);
     on<OnlineGameLaunchConsumed>(_onGameLaunchConsumed);
+    on<ResetOnlineTab>(_onResetOnlineTab);
   }
 
   /// Prevents pushing the same match onto the route stack more than once.
@@ -45,8 +46,7 @@ class OnlineBloc extends Bloc<OnlineEvent, OnlineState> {
 
   final GetOnlineFriendsUsecase _getOnlineFriendsUsecase;
   final GetOnlineChallengesUsecase _getOnlineChallengesUsecase;
-  final ChangeOnlineChallengeStatusUsecase
-      _changeOnlineChallengeStatusUsecase;
+  final ChangeOnlineChallengeStatusUsecase _changeOnlineChallengeStatusUsecase;
   final SendHomeChallengeUsecase _sendHomeChallengeUsecase;
   final SetOnlineChallengeReadyUsecase _setOnlineChallengeReadyUsecase;
 
@@ -94,18 +94,14 @@ class OnlineBloc extends Bloc<OnlineEvent, OnlineState> {
               state.copyWith(
                 status: OnlineStatus.loaded,
                 friends: List<UserModel>.unmodifiable(friends),
-                challenges:
-                    List<ChallengeRequestModel>.unmodifiable(challenges),
+                challenges: List<ChallengeRequestModel>.unmodifiable(
+                  challenges,
+                ),
                 currentUserId: uid,
               ),
             );
             _ensureGameChallengesRealtime();
-            _tryEmitGameLaunchForReadyMatches(
-              emit,
-              challenges,
-              uid,
-              friends,
-            );
+            _tryEmitGameLaunchForReadyMatches(emit, challenges, uid, friends);
           },
         );
       },
@@ -138,20 +134,56 @@ class OnlineBloc extends Bloc<OnlineEvent, OnlineState> {
     if (uid == null) return;
 
     final result = await _getOnlineChallengesUsecase();
-    result.fold(
-      (_) {},
-      (challenges) {
-        final friends = state.friends;
-        emit(
-          state.copyWith(
-            challenges:
-                List<ChallengeRequestModel>.unmodifiable(challenges),
-            currentUserId: uid,
-          ),
-        );
-        _tryEmitGameLaunchForReadyMatches(emit, challenges, uid, friends);
-      },
-    );
+    result.fold((_) {}, (challenges) {
+      final friends = state.friends;
+      final leftGameInfo = _leftGameInfoFromDiff(
+        previous: state.challenges,
+        next: challenges,
+        uid: uid,
+        friends: friends,
+      );
+      emit(
+        state.copyWith(
+          challenges: List<ChallengeRequestModel>.unmodifiable(challenges),
+          currentUserId: uid,
+          successType: leftGameInfo == null ? null : OnlineSuccessType.leftMatch,
+          successName: leftGameInfo?.opponentName,
+          successGameId: leftGameInfo?.gameId,
+          clearError: true,
+          clearSuccess: leftGameInfo == null,
+        ),
+      );
+      _tryEmitGameLaunchForReadyMatches(emit, challenges, uid, friends);
+    });
+  }
+
+  ({String opponentName, int gameId})? _leftGameInfoFromDiff({
+    required List<ChallengeRequestModel> previous,
+    required List<ChallengeRequestModel> next,
+    required String uid,
+    required List<UserModel> friends,
+  }) {
+    final prevAcceptedById = <String, ChallengeRequestModel>{};
+    for (final c in previous) {
+      final id = c.id?.trim();
+      if (id == null || id.isEmpty) continue;
+      if (c.status.toLowerCase() != 'accepted') continue;
+      prevAcceptedById[id] = c;
+    }
+
+    for (final c in next) {
+      final id = c.id?.trim();
+      if (id == null || id.isEmpty) continue;
+      final old = prevAcceptedById[id];
+      if (old == null) continue;
+      if (c.status.toLowerCase() != 'cancelled') continue;
+      if (c.fromId != uid && c.toId != uid) continue;
+
+      final opponentId = c.fromId == uid ? c.toId : c.fromId;
+      final opponentName = _friendDisplayName(friends, opponentId);
+      return (opponentName: opponentName, gameId: c.gameId);
+    }
+    return null;
   }
 
   void _tryEmitGameLaunchForReadyMatches(
@@ -219,29 +251,20 @@ class OnlineBloc extends Bloc<OnlineEvent, OnlineState> {
   ) async {
     emit(state.copyWith(clearError: true, clearSuccess: true));
 
-    final result = await _sendHomeChallengeUsecase(
-      event.friend,
-      event.gameId,
-    );
+    final result = await _sendHomeChallengeUsecase(event.friend, event.gameId);
 
     await result.fold(
       (failure) async {
-        emit(
-          state.copyWith(
-            errorMessage: failure.message,
-            clearSuccess: true,
-          ),
-        );
+        emit(state.copyWith(errorMessage: failure.message, clearSuccess: true));
       },
       (_) async {
         final raw = event.friend.username.trim();
-        final short = raw.isEmpty
-            ? 'your friend'
-            : raw.split(' ').first;
+        final short = raw.isEmpty ? 'your friend' : raw.split(' ').first;
         emit(
           state.copyWith(
-            successMessage:
-                '${onlineGameTitle(event.gameId)} challenge sent to $short',
+            successType: OnlineSuccessType.challengeSent,
+            successName: short,
+            successGameId: event.gameId,
             clearError: true,
           ),
         );
@@ -266,12 +289,7 @@ class OnlineBloc extends Bloc<OnlineEvent, OnlineState> {
 
     await result.fold(
       (failure) async {
-        emit(
-          state.copyWith(
-            errorMessage: failure.message,
-            clearSuccess: true,
-          ),
-        );
+        emit(state.copyWith(errorMessage: failure.message, clearSuccess: true));
       },
       (_) async {
         if (!event.accept) {
@@ -358,12 +376,7 @@ class OnlineBloc extends Bloc<OnlineEvent, OnlineState> {
     final result = await _setOnlineChallengeReadyUsecase(id);
     await result.fold(
       (failure) async {
-        emit(
-          state.copyWith(
-            errorMessage: failure.message,
-            clearSuccess: true,
-          ),
-        );
+        emit(state.copyWith(errorMessage: failure.message, clearSuccess: true));
       },
       (bothReady) async {
         if (bothReady) {
@@ -371,8 +384,7 @@ class OnlineBloc extends Bloc<OnlineEvent, OnlineState> {
         } else {
           emit(
             state.copyWith(
-              successMessage:
-                  "You're ready — waiting for your opponent.",
+              successMessage: "You're ready — waiting for your opponent.",
               clearError: true,
             ),
           );
@@ -390,5 +402,12 @@ class OnlineBloc extends Bloc<OnlineEvent, OnlineState> {
       await Supabase.instance.client.removeChannel(ch);
     }
     return super.close();
+  }
+
+  FutureOr<void> _onResetOnlineTab(
+    ResetOnlineTab event,
+    Emitter<OnlineState> emit,
+  ) {
+    emit(OnlineState.initial());
   }
 }

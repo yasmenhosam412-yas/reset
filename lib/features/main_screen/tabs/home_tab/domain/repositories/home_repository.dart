@@ -23,6 +23,9 @@ abstract class HomeRepository {
     Uint8List? imageBytes,
     String? imageContentType,
     bool allowShare = true,
+    String postVisibility = 'general',
+    String postType = 'post',
+    String? adLink,
   });
 
   Future<Either<Failure, void>> deletePost({required String postId});
@@ -34,6 +37,9 @@ abstract class HomeRepository {
     String? imageContentType,
     bool clearImage = false,
     required bool allowShare,
+    String postVisibility = 'general',
+    String postType = 'post',
+    String? adLink,
   });
 
   Future<Either<Failure, void>> addComment({
@@ -46,7 +52,10 @@ abstract class HomeRepository {
     String? reaction,
   });
 
-  Future<Either<Failure, List<PostModel>>> getPosts();
+  Future<Either<Failure, List<PostModel>>> getPosts({
+    required int limit,
+    required int offset,
+  });
 
   Future<Either<Failure, List<PeopleDiscoveryRow>>> searchPeopleDiscovery(
     String query,

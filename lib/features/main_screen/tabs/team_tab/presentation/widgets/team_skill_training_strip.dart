@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/domain/models/team_roster_player.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/presentation/constants/team_stat_colors.dart';
 
@@ -27,6 +28,7 @@ class TeamSkillTrainingStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l10n = context.l10n;
     if (players.length != 6) return const SizedBox.shrink();
 
     final p = players[selectedSlot.clamp(0, 5)];
@@ -38,7 +40,7 @@ class TeamSkillTrainingStrip extends StatelessWidget {
         padding: const EdgeInsets.only(right: 6, bottom: 6),
         child: ActionChip(
           avatar: Icon(Icons.add_rounded, size: 18, color: color),
-          label: Text('$label +1'),
+          label: Text(l10n.teamStatPlusOne(label)),
           onPressed: busy || !canAfford || maxed ? null : () => onTrain(key),
         ),
       );
@@ -63,7 +65,7 @@ class TeamSkillTrainingStrip extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Skill training ($kTeamTrainingCost pts → +1)',
+                      l10n.teamSkillTrainingTitle(kTeamTrainingCost),
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
@@ -79,7 +81,11 @@ class TeamSkillTrainingStrip extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'Player ${selectedSlot + 1}: ${p.name} · your balance: $skillPoints pts',
+                l10n.teamPlayerTrainingBalance(
+                  selectedSlot + 1,
+                  p.name,
+                  skillPoints,
+                ),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -100,8 +106,18 @@ class TeamSkillTrainingStrip extends StatelessWidget {
               const SizedBox(height: 8),
               Wrap(
                 children: [
-                  trainChip('ATK', 'attack', p.attack, TeamStatColors.attack),
-                  trainChip('DEF', 'defense', p.defense, TeamStatColors.defense),
+                  trainChip(
+                    l10n.teamAttackShort,
+                    'attack',
+                    p.attack,
+                    TeamStatColors.attack,
+                  ),
+                  trainChip(
+                    l10n.teamDefenseShort,
+                    'defense',
+                    p.defense,
+                    TeamStatColors.defense,
+                  ),
                   trainChip('SPD', 'speed', p.speed, TeamStatColors.speed),
                   trainChip('STM', 'stamina', p.stamina, TeamStatColors.stamina),
                 ],
@@ -110,7 +126,7 @@ class TeamSkillTrainingStrip extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
-                    'Earn more from daily challenges above.',
+                    l10n.teamEarnMoreFromDailyChallenges,
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),

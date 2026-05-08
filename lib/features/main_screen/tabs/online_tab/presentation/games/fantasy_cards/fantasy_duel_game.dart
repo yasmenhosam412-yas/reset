@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/data/models/fantasy_duel_session_model.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/domain/repositories/online_repository.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/fantasy_cards/fantasy_card_catalog.dart';
@@ -31,9 +32,9 @@ class FantasyDuelGame extends StatefulWidget {
   final VoidCallback? onPlayAgain;
 
   static const List<String> zoneLabels = [
-    'Left wing',
-    'No. 10',
-    'Wide back',
+    'left_wing',
+    'no_10',
+    'wide_back',
   ];
 
   /// First side to reach this many **round** wins takes the match (offline + online).
@@ -219,12 +220,13 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
   }
 
   String _onlineDuelSummaryLine(FantasyDuelSessionModel m) {
+    final l10n = context.l10n;
     final mine = _asFrom ? m.fromMatchWins : m.toMatchWins;
     final opp = _asFrom ? m.toMatchWins : m.fromMatchWins;
     if (mine >= FantasyDuelGame.kRoundWinsNeeded) {
-      return 'You win the duel $mine–$opp';
+      return l10n.youWinDuelScore(mine, opp);
     }
-    return '${widget.opponentName} wins the duel $opp–$mine';
+    return l10n.opponentWinsDuelScore(widget.opponentName, opp, mine);
   }
 
   void _applyRemoteTrios(FantasyDuelSessionModel m) {
@@ -289,7 +291,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
     if (_pickOrder.length != _starters) return;
     final ids = List<int>.from(_pickOrder);
     if (!_validTrio(ids)) {
-      setState(() => _error = 'Pick only players from your squad sheet.');
+      setState(() => _error = context.l10n.pickOnlyFromSquadSheet);
       return;
     }
     _cancelPickPhaseTimer();
@@ -311,13 +313,13 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
     res.fold(
       (_) {
         if (!mounted) return;
-        setState(() => _error = 'Could not submit picks');
+        setState(() => _error = context.l10n.couldNotSubmitPicks);
         _ensurePickPhaseTimer();
       },
       (ok) {
         if (!ok) {
           if (!mounted) return;
-          setState(() => _error = 'Already submitted or sync issue');
+          setState(() => _error = context.l10n.alreadySubmittedOrSyncIssue);
           _ensurePickPhaseTimer();
           return;
         }
@@ -396,29 +398,29 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
     }
     if (fl > tl) {
       return (
-        line: 'You take this round ($fl–$tl zones)',
+        line: context.l10n.youTakeRoundZones(fl, tl),
         winner: -1,
       );
     }
     if (tl > fl) {
       return (
-        line: '${widget.opponentName} takes this round ($tl–$fl zones)',
+        line: context.l10n.opponentTakesRoundZones(widget.opponentName, tl, fl),
         winner: 1,
       );
     }
     if (ms > os) {
       return (
-        line: 'Zones drawn — you edge on strength ($ms–$os)',
+        line: context.l10n.zonesDrawnYouEdgeStrength(ms, os),
         winner: -1,
       );
     }
     if (os > ms) {
       return (
-        line: 'Zones drawn — ${widget.opponentName} edges ($os–$ms)',
+        line: context.l10n.zonesDrawnOpponentEdges(widget.opponentName, os, ms),
         winner: 1,
       );
     }
-    return (line: 'Honours even — drawn round (no point)', winner: 0);
+    return (line: context.l10n.honorsEvenDrawnRoundNoPoint, winner: 0);
   }
 
   void _resolveMatch() {
@@ -474,7 +476,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
       adv.fold((_) => advanceOk = false, (_) {});
       if (!advanceOk) {
         setState(() {
-          _error = 'Could not sync round — try again';
+          _error = context.l10n.couldNotSyncRoundTryAgain;
         });
         return;
       }
@@ -519,8 +521,12 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
         _revealSnapMy = null;
         _revealSnapOpp = null;
         _duelSummaryLine = _myMatchWins >= FantasyDuelGame.kRoundWinsNeeded
-            ? 'You win the duel $_myMatchWins–$_oppMatchWins'
-            : '${widget.opponentName} wins the duel $_oppMatchWins–$_myMatchWins';
+            ? context.l10n.youWinDuelScore(_myMatchWins, _oppMatchWins)
+            : context.l10n.opponentWinsDuelScore(
+                widget.opponentName,
+                _oppMatchWins,
+                _myMatchWins,
+              );
       } else {
         _phase = _DuelPhase.roundComplete;
       }
@@ -572,8 +578,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
       res.fold(
         (_) {
           setState(() {
-            _error =
-                'Could not start a rematch. Check connection, then try again.';
+            _error = context.l10n.couldNotStartRematch;
           });
         },
         (_) {
@@ -609,6 +614,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = widget.scheme;
     final theme = widget.theme;
 
@@ -680,8 +686,8 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
           _sectionTitle(
             theme,
             scheme,
-            'Your squad',
-            '$_squadSize cards · start $_starters · read suit vs pitch call per zone',
+            l10n.yourSquad,
+            l10n.fantasyYourSquadSubtitle(_squadSize, _starters),
           ),
           const SizedBox(height: 10),
           SizedBox(
@@ -698,7 +704,12 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
           const SizedBox(height: 18),
           _pitchStrip(theme, scheme),
         ] else ...[
-          _sectionTitle(theme, scheme, 'Last round', 'Cards locked — see result below'),
+          _sectionTitle(
+            theme,
+            scheme,
+            l10n.lastRound,
+            l10n.cardsLockedSeeResultBelow,
+          ),
           const SizedBox(height: 10),
         ],
         const SizedBox(height: 12),
@@ -711,7 +722,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Starters (${_pickOrder.length}/$_starters)',
+                    l10n.startersCount(_pickOrder.length, _starters),
                     style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
                   ),
                 ),
@@ -729,7 +740,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
                     child: OutlinedButton.icon(
                       onPressed: _clearPicks,
                       icon: const Icon(Icons.clear_all_rounded, size: 20),
-                      label: const Text('Clear'),
+                      label: Text(l10n.clear),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -741,7 +752,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
                         _online ? Icons.lock_rounded : Icons.sports_soccer_rounded,
                         size: 20,
                       ),
-                      label: Text(_online ? 'Lock lineup' : 'Kick off'),
+                      label: Text(_online ? l10n.lockLineup : l10n.teamBattleKickOff),
                     ),
                   ),
                 ],
@@ -772,12 +783,12 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Lineup locked',
+                      l10n.lineupLocked,
                       style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Waiting for ${widget.opponentName} to submit…',
+                      l10n.waitingForOpponentToSubmit(widget.opponentName),
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: scheme.onSurfaceVariant,
@@ -836,7 +847,11 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
           FilledButton(
             onPressed: _startNextRound,
             child: Text(
-              'Next round ($_myMatchWins–$_oppMatchWins · first to ${FantasyDuelGame.kRoundWinsNeeded})',
+              l10n.nextRoundScoreTarget(
+                _myMatchWins,
+                _oppMatchWins,
+                FantasyDuelGame.kRoundWinsNeeded,
+              ),
             ),
           ),
         ],
@@ -845,23 +860,26 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
           FilledButton.icon(
             onPressed: () => unawaited(_onDuelPlayAgainPressed()),
             icon: const Icon(Icons.replay_rounded),
-            label: const Text('Play again'),
+            label: Text(l10n.playAgain),
           ),
           const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: () => unawaited(
               showShareGameResultToFeedDialog(
                 context,
-                title: 'Share to home feed',
+                title: l10n.shareToHomeFeed,
                 initialBody:
-                    'Fantasy card duel vs ${widget.opponentName}\n'
-                    'Round wins: $_myMatchWins — $_oppMatchWins '
-                    '(first to ${FantasyDuelGame.kRoundWinsNeeded})\n'
-                    '${_duelSummaryLine ?? ''}',
+                    l10n.fantasyDuelShareBody(
+                      widget.opponentName,
+                      _myMatchWins,
+                      _oppMatchWins,
+                      FantasyDuelGame.kRoundWinsNeeded,
+                      _duelSummaryLine ?? '',
+                    ),
               ),
             ),
             icon: const Icon(Icons.feed_rounded),
-            label: const Text('Share result'),
+            label: Text(l10n.shareResult),
           ),
         ],
       ],
@@ -869,7 +887,18 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
     );
   }
 
+  String _zoneLabel(BuildContext context, int i) {
+    final l10n = context.l10n;
+    return switch (FantasyDuelGame.zoneLabels[i]) {
+      'left_wing' => l10n.fantasyZoneLeftWing,
+      'no_10' => l10n.fantasyZoneNo10,
+      'wide_back' => l10n.fantasyZoneWideBack,
+      _ => FantasyDuelGame.zoneLabels[i],
+    };
+  }
+
   Widget _starterSlotStrip(ThemeData theme, ColorScheme scheme) {
+    final l10n = context.l10n;
     return Row(
       children: List.generate(_starters, (i) {
         final filled = i < _pickOrder.length;
@@ -896,7 +925,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
               child: Column(
                 children: [
                   Text(
-                    'SLOT ${i + 1}',
+                    l10n.slotNumber(i + 1),
                     style: theme.textTheme.labelSmall?.copyWith(
                       fontWeight: FontWeight.w900,
                       color: scheme.onSurfaceVariant,
@@ -979,6 +1008,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
   }
 
   Widget _matchdayHeader(ThemeData theme, ColorScheme scheme) {
+    final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
       decoration: BoxDecoration(
@@ -1028,7 +1058,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'MATCHDAY',
+                      l10n.matchday.toUpperCase(),
                       style: theme.textTheme.labelLarge?.copyWith(
                         color: scheme.onPrimary.withValues(alpha: 0.92),
                         letterSpacing: 2.4,
@@ -1038,7 +1068,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Fantasy card duel',
+                      l10n.onlineGameFantasyCards,
                       style: theme.textTheme.titleLarge?.copyWith(
                         color: scheme.onPrimary,
                         fontWeight: FontWeight.w900,
@@ -1061,11 +1091,11 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
               ),
               child: Row(
                 children: [
-                  _headerAvatar(theme, scheme, 'You', isSelf: true),
+                  _headerAvatar(theme, scheme, l10n.you, isSelf: true),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     child: Text(
-                      'VS',
+                      l10n.vsUpper,
                       style: theme.textTheme.labelLarge?.copyWith(
                         color: scheme.onPrimary.withValues(alpha: 0.85),
                         fontWeight: FontWeight.w900,
@@ -1086,6 +1116,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
   }
 
   Widget _headerAvatar(ThemeData theme, ColorScheme scheme, String label, {required bool isSelf}) {
+    final l10n = context.l10n;
     final trimmed = label.trim();
     final initial = trimmed.isEmpty ? '?' : trimmed[0].toUpperCase();
     return Row(
@@ -1108,14 +1139,14 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                isSelf ? 'You' : 'Opponent',
+                isSelf ? l10n.you : l10n.opponent,
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: scheme.onPrimary.withValues(alpha: 0.75),
                   fontWeight: FontWeight.w700,
                 ),
               ),
               Text(
-                isSelf ? 'Squad manager' : label,
+                isSelf ? l10n.squadManager : label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodyMedium?.copyWith(
@@ -1131,6 +1162,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
   }
 
   Widget _offlineDuelStrip(ThemeData theme, ColorScheme scheme) {
+    final l10n = context.l10n;
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -1157,7 +1189,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'ROUND $_roundIndex',
+                        l10n.roundNumber(_roundIndex),
                         style: theme.textTheme.labelLarge?.copyWith(
                           fontWeight: FontWeight.w900,
                           letterSpacing: 1.2,
@@ -1167,8 +1199,12 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
                       const SizedBox(height: 2),
                       Text(
                         _online
-                            ? 'First to ${FantasyDuelGame.kRoundWinsNeeded} round wins · vs friend'
-                            : 'First to ${FantasyDuelGame.kRoundWinsNeeded} round wins',
+                            ? l10n.firstToRoundWinsVsFriend(
+                                FantasyDuelGame.kRoundWinsNeeded,
+                              )
+                            : l10n.firstToRoundWins(
+                                FantasyDuelGame.kRoundWinsNeeded,
+                              ),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: scheme.onSecondaryContainer.withValues(alpha: 0.88),
                           fontWeight: FontWeight.w500,
@@ -1178,7 +1214,13 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
                   ),
                 ),
                 Expanded(
-                  child: _scorePill(theme, scheme, 'You', _myMatchWins, filled: true),
+                  child: _scorePill(
+                    theme,
+                    scheme,
+                    l10n.you,
+                    _myMatchWins,
+                    filled: true,
+                  ),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -1215,7 +1257,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
                   Text(
                     _phase == _DuelPhase.waitingOnline
                         ? '—'
-                        : '${_pickSecondsLeft}s',
+                        : l10n.secondsShort(_pickSecondsLeft),
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w900,
                       color: _phase == _DuelPhase.waitingOnline
@@ -1281,6 +1323,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
   }
 
   Widget _howToPlayCard(ThemeData theme, ColorScheme scheme) {
+    final l10n = context.l10n;
     return Card(
       elevation: 0,
       color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
@@ -1297,11 +1340,11 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
           childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           leading: Icon(Icons.menu_book_rounded, color: scheme.primary, size: 26),
           title: Text(
-            'How the duel works',
+            l10n.howDuelWorks,
             style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
           ),
           subtitle: Text(
-            'Tap to expand rules',
+            l10n.tapToExpandRules,
             style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
           children: [
@@ -1309,39 +1352,44 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
               theme,
               scheme,
               '1',
-              'You draw $_squadSize cards — shirt # is base value. Each card has a suit (Blitz / Maestro / Iron) from its role.',
+              l10n.fantasyRule1(_squadSize),
             ),
             _ruleLine(
               theme,
               scheme,
               '2',
-              'Tap $_starters cards in lock order: ${FantasyDuelGame.zoneLabels.join(' → ')}.',
+              l10n.fantasyRule2(
+                _starters,
+                _zoneLabel(context, 0),
+                _zoneLabel(context, 1),
+                _zoneLabel(context, 2),
+              ),
             ),
             _ruleLine(
               theme,
               scheme,
               '3',
-              'The pitch calls one suit per zone (see strip below). If your card’s suit matches that call, add +${FantasyCardDef.kZoneSuitBonus} before comparing — raw shirt # alone can lose.',
+              l10n.fantasyRule3(FantasyCardDef.kZoneSuitBonus),
             ),
             _ruleLine(
               theme,
               scheme,
               '4',
-              'Win more zones than your opponent; if zones are split, total effective value (base + suit + bonuses) decides.',
+              l10n.fantasyRule4,
             ),
             if (!_online)
               _ruleLine(
                 theme,
                 scheme,
                 '#',
-                'Offline duel: first to ${FantasyDuelGame.kRoundWinsNeeded} round wins; each round is a fresh hand and pitch.',
+                l10n.fantasyRuleOffline(FantasyDuelGame.kRoundWinsNeeded),
               ),
             if (_online)
               _ruleLine(
                 theme,
                 scheme,
                 '#',
-                'Online: first to ${FantasyDuelGame.kRoundWinsNeeded} round wins — after each reveal both players get a new deck from the server for the next lock-in.',
+                l10n.fantasyRuleOnline(FantasyDuelGame.kRoundWinsNeeded),
               ),
           ],
         ),
@@ -1659,8 +1707,10 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
                           const SizedBox(height: 2),
                           Text(
                             _zoneSuitBonus(i, c) > 0
-                                ? '+${FantasyCardDef.kZoneSuitBonus} pitch match'
-                                : 'No suit match',
+                                ? context.l10n.fantasyPitchMatchBonus(
+                                    FantasyCardDef.kZoneSuitBonus,
+                                  )
+                                : context.l10n.noSuitMatch,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,
@@ -1741,7 +1791,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
                             const SizedBox(width: 6),
                             Flexible(
                               child: Text(
-                                FantasyDuelGame.zoneLabels[lane],
+                                _zoneLabel(context, lane),
                                 textAlign: TextAlign.center,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
@@ -1772,7 +1822,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            'VS',
+                            context.l10n.vsUpper,
                             style: theme.textTheme.labelSmall?.copyWith(
                               fontWeight: FontWeight.w900,
                               color: scheme.onSurfaceVariant,
@@ -1812,7 +1862,12 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
 
     final parts = <String>[];
     if (suitB > 0) {
-      parts.add('+${FantasyCardDef.kZoneSuitBonus} ${_zoneSuits[lane].fullName}');
+      parts.add(
+        context.l10n.fantasySuitBonusWithName(
+          FantasyCardDef.kZoneSuitBonus,
+          _zoneSuits[lane].fullName,
+        ),
+      );
     }
     final hasExtras = parts.isNotEmpty;
     final detail = hasExtras ? '$base ${parts.join(' ')} = $total' : null;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/core/routing/app_router.dart';
 import 'package:new_project/features/authentication/presentation/controller/auth_bloc.dart';
 import 'package:new_project/features/authentication/presentation/controller/auth_bloc_event.dart';
@@ -72,6 +73,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
     return Scaffold(
       body: BlocConsumer<AuthBloc, AuthBlocState>(
         listener: (context, state) {
@@ -84,20 +89,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           if (state.authState == AuthState.recoveryOtpSent) {
             setState(() => _showCodeStep = true);
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Enter the code from your email, then choose a new password.',
-                ),
-              ),
+              SnackBar(content: Text(l10n.forgotOtpInstructionSnack)),
             );
           }
           if (state.authState == AuthState.loadedForgotPassword) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Password updated. Sign in with your new password.',
-                ),
-              ),
+              SnackBar(content: Text(l10n.passwordUpdatedSnack)),
             );
             context.read<AuthBloc>().add(AuthResetToIdleEvent());
             context.go(AppRouter.loginPath);
@@ -106,65 +103,109 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         builder: (context, state) {
           final isLoading = state.authState == AuthState.loading;
 
-          return Stack(
-            children: [
-              Positioned(
-                top: -95,
-                right: -55,
-                child: Container(
-                  width: 220,
-                  height: 220,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withValues(alpha: 0.14),
-                  ),
-                ),
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  colors.primaryContainer,
+                  colors.secondaryContainer,
+                  colors.tertiaryContainer.withValues(alpha: 0.9),
+                ],
               ),
-              Positioned(
-                bottom: -60,
-                left: -40,
-                child: Container(
-                  width: 190,
-                  height: 190,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(44),
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.tertiary.withValues(alpha: 0.1),
+            ),
+            child: SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 18,
                   ),
-                ),
-              ),
-              SafeArea(
-                child: Center(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 16,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 420),
-                      child: Card(
-                        elevation: 6,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 200),
-                            child: !_showCodeStep
-                                ? _buildEmailStep(context, isLoading)
-                                : _buildCodeStep(context, isLoading),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 460),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(36),
+                        color: colors.surface,
+                        boxShadow: [
+                          BoxShadow(
+                            blurRadius: 30,
+                            offset: const Offset(0, 12),
+                            color: colors.shadow.withValues(alpha: 0.2),
                           ),
-                        ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                            decoration: BoxDecoration(
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(36),
+                              ),
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [colors.primary, colors.secondary],
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: colors.onPrimary.withValues(alpha: 0.14),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Icon(
+                                    _showCodeStep
+                                        ? Icons.pin_outlined
+                                        : Icons.mark_email_unread_outlined,
+                                    size: 28,
+                                    color: colors.onPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  _showCodeStep
+                                      ? l10n.forgotHeroTitleStep2
+                                      : l10n.forgotHeroTitleStep1,
+                                  style: theme.textTheme.headlineSmall?.copyWith(
+                                    color: colors.onPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _showCodeStep
+                                      ? l10n.forgotHeroSubtitleStep2
+                                      : l10n.forgotHeroSubtitleStep1,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: colors.onPrimary.withValues(alpha: 0.9),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 220),
+                              child: !_showCodeStep
+                                  ? _buildEmailStep(context, isLoading)
+                                  : _buildCodeStep(context, isLoading),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
               ),
-            ],
+            ),
           );
         },
       ),
@@ -172,26 +213,23 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Widget _buildEmailStep(BuildContext context, bool isLoading) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
     return Form(
       key: _emailFormKey,
       child: Column(
         key: const ValueKey('email'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(Icons.mark_email_unread_outlined, size: 56),
-          const SizedBox(height: 12),
-          const Text(
-            'Forgot password?',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 6),
           Text(
-            'We will send a one-time code to your email. Use the code in this app to set a new password.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+            l10n.forgotStep1Title,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           TextFormField(
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
@@ -199,39 +237,56 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             onFieldSubmitted: (_) {
               if (!isLoading) _sendCode();
             },
-            decoration: const InputDecoration(
-              labelText: 'Email',
-              hintText: 'you@example.com',
-              prefixIcon: Icon(Icons.email_outlined),
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l10n.emailAddress,
+              hintText: l10n.emailHint,
+              prefixIcon: const Icon(Icons.alternate_email),
+              filled: true,
+              fillColor: colors.surfaceContainerHighest.withValues(alpha: 0.45),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
             ),
             validator: (value) {
               final email = value?.trim() ?? '';
-              if (email.isEmpty) return 'Email is required';
-              if (!email.contains('@')) return 'Enter a valid email';
+              if (email.isEmpty) return l10n.emailRequired;
+              if (!email.contains('@')) return l10n.validEmailRequired;
               return null;
             },
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           SizedBox(
-            height: 48,
-            child: ElevatedButton(
+            height: 52,
+            child: FilledButton(
               onPressed: isLoading ? null : _sendCode,
               child: isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                  ? SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: colors.onPrimary,
+                      ),
                     )
-                  : const Text('Send code'),
+                  : Text(l10n.sendCode),
             ),
           ),
-          const SizedBox(height: 14),
-          TextButton(
-            onPressed: isLoading
-                ? null
-                : () => context.go(AppRouter.loginPath),
-            child: const Text('Back to login'),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                l10n.rememberedIt,
+                style: theme.textTheme.bodyMedium,
+              ),
+              TextButton(
+                onPressed: isLoading
+                    ? null
+                    : () => context.go(AppRouter.loginPath),
+                child: Text(l10n.backToLogin),
+              ),
+            ],
           ),
         ],
       ),
@@ -239,40 +294,49 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Widget _buildCodeStep(BuildContext context, bool isLoading) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
     return Form(
       key: _codeFormKey,
       child: Column(
         key: const ValueKey('code'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(Icons.pin_outlined, size: 56),
-          const SizedBox(height: 12),
-          const Text(
-            'Verify & set password',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 6),
           Text(
-            'Code sent to ${_emailController.text.trim()}',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+            l10n.forgotStep2Title,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 8),
+          Text(
+            l10n.codeSentTo(_emailController.text.trim()),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 16),
           TextFormField(
             controller: _otpController,
             keyboardType: TextInputType.number,
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'Verification code',
-              hintText: '6–8 digit code',
-              prefixIcon: Icon(Icons.password_outlined),
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l10n.verificationCode,
+              hintText: l10n.verificationCodeHint,
+              prefixIcon: const Icon(Icons.password_outlined),
+              filled: true,
+              fillColor: colors.surfaceContainerHighest.withValues(alpha: 0.45),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
             ),
             validator: (value) {
               final code = value?.trim() ?? '';
-              if (code.isEmpty) return 'Code is required';
-              if (code.length < 6) return 'Code looks too short';
+              if (code.isEmpty) return l10n.codeRequired;
+              if (code.length < 6) return l10n.codeTooShort;
               return null;
             },
           ),
@@ -282,23 +346,30 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             obscureText: _obscurePassword,
             textInputAction: TextInputAction.next,
             decoration: InputDecoration(
-              labelText: 'New password',
-              prefixIcon: const Icon(Icons.lock_outline),
-              border: const OutlineInputBorder(),
+              labelText: l10n.newPassword,
+              prefixIcon: const Icon(Icons.password_rounded),
               suffixIcon: IconButton(
                 onPressed: () {
                   setState(() => _obscurePassword = !_obscurePassword);
                 },
                 icon: Icon(
-                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                  _obscurePassword
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
                 ),
+              ),
+              filled: true,
+              fillColor: colors.surfaceContainerHighest.withValues(alpha: 0.45),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
               ),
             ),
             validator: (value) {
               final password = value ?? '';
-              if (password.isEmpty) return 'Password is required';
+              if (password.isEmpty) return l10n.passwordRequired;
               if (password.length < 6) {
-                return 'At least 6 characters';
+                return l10n.atLeast6Chars;
               }
               return null;
             },
@@ -312,43 +383,62 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               if (!isLoading) _verifyAndReset();
             },
             decoration: InputDecoration(
-              labelText: 'Confirm password',
-              prefixIcon: const Icon(Icons.lock_outline),
-              border: const OutlineInputBorder(),
+              labelText: l10n.confirmPassword,
+              prefixIcon: const Icon(Icons.lock_reset_outlined),
               suffixIcon: IconButton(
                 onPressed: () {
                   setState(() => _obscureConfirm = !_obscureConfirm);
                 },
                 icon: Icon(
-                  _obscureConfirm ? Icons.visibility_off : Icons.visibility,
+                  _obscureConfirm
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
                 ),
+              ),
+              filled: true,
+              fillColor: colors.surfaceContainerHighest.withValues(alpha: 0.45),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
               ),
             ),
             validator: (value) {
               if (value != _passwordController.text) {
-                return 'Passwords do not match';
+                return l10n.passwordsDoNotMatch;
               }
               return null;
             },
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           SizedBox(
-            height: 48,
-            child: ElevatedButton(
+            height: 52,
+            child: FilledButton(
               onPressed: isLoading ? null : _verifyAndReset,
               child: isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                  ? SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: colors.onPrimary,
+                      ),
                     )
-                  : const Text('Verify code & update password'),
+                  : Text(l10n.verifyAndUpdatePassword),
             ),
           ),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: isLoading ? null : _backToEmailStep,
-            child: const Text('Use a different email'),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                l10n.wrongEmail,
+                style: theme.textTheme.bodyMedium,
+              ),
+              TextButton(
+                onPressed: isLoading ? null : _backToEmailStep,
+                child: Text(l10n.useDifferentEmail),
+              ),
+            ],
           ),
         ],
       ),

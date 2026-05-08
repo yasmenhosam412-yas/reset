@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/core/di/di.dart';
 import 'package:new_project/core/navigation/main_shell_controller.dart';
 import 'package:new_project/core/widgets/tab_loading_skeletons.dart';
@@ -16,66 +17,92 @@ import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pa
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/bloc/online_state.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/domain/usecases/respond_profile_friend_request_usecase.dart';
 
-String _friendName(String userId, List<UserModel> friends) {
+String _friendName(
+  String userId,
+  List<UserModel> friends, {
+  required String fallbackPlayerLabel,
+}) {
   for (final f in friends) {
     if (f.id == userId) {
       final n = f.username.trim();
-      return n.isEmpty ? 'Player' : n;
+      return n.isEmpty ? fallbackPlayerLabel : n;
     }
   }
   if (userId.length <= 12) return userId;
   return '${userId.substring(0, 10)}…';
 }
 
-String _opponentName(ChallengeRequestModel c, String uid, List<UserModel> friends) {
-  final oid = c.fromId == uid ? c.toId : c.fromId;
-  return _friendName(oid, friends);
+DateTime _sortTime(DateTime? t) => t ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+bool _isSupportedFeedKind(String kind) {
+  return kind == UserNotificationKind.postLike ||
+      kind == UserNotificationKind.postComment ||
+      kind == UserNotificationKind.friendRequest ||
+      kind == UserNotificationKind.partyRoomInvite;
 }
 
-List<ChallengeRequestModel> _lobbiesForNotifications(
-  List<ChallengeRequestModel> challenges,
-  String? uid,
-  AcceptedMatchPreview? pendingLobby,
+String _friendlyFeedTitle(UserFeedNotificationModel f, BuildContext context) {
+  final l10n = context.l10n;
+  switch (f.kind) {
+    case UserNotificationKind.postLike:
+      return l10n.notifSomeoneReacted;
+    case UserNotificationKind.postComment:
+      return l10n.notifSomeoneCommented;
+    case UserNotificationKind.friendRequest:
+      return f.body.trim().isEmpty ? l10n.notifFriendInvite : f.body;
+    case UserNotificationKind.partyRoomInvite:
+      return l10n.notifRoomInviteWaiting;
+    default:
+      return f.body.trim().isEmpty ? l10n.notifNewNotification : f.body;
+  }
+}
+
+String _friendlyFeedSubtitle(
+  UserFeedNotificationModel f,
+  String timeAgo,
+  BuildContext context,
 ) {
-  if (uid == null) return const [];
-  return challenges.where((c) {
-    final cid = c.id?.trim();
-    if (cid == null || cid.isEmpty) return false;
-    if (c.status.toLowerCase() != 'accepted') return false;
-    if (c.fromId != uid && c.toId != uid) return false;
-    if (pendingLobby != null && pendingLobby.challengeId == cid) {
-      return false;
-    }
-    return true;
-  }).toList(growable: false);
+  final l10n = context.l10n;
+  final time = timeAgo.trim();
+  String withTime(String message) =>
+      time.isEmpty ? message : '$time • $message';
+  switch (f.kind) {
+    case UserNotificationKind.postLike:
+      return withTime(l10n.notifPostLikeOpenHint);
+    case UserNotificationKind.postComment:
+      return withTime(l10n.notifPostCommentOpenHint);
+    case UserNotificationKind.friendRequest:
+      final status = f.data['status']?.toString().trim().toLowerCase() ?? '';
+      if (status == 'accepted') {
+        return withTime(l10n.notifFriendRequestAcceptedStatus);
+      }
+      if (status == 'declined' || status == 'cancelled') {
+        return withTime(l10n.notifFriendRequestNoLongerPending);
+      }
+      return time.isEmpty
+          ? l10n.notifReviewInvite
+          : '$time • ${l10n.notifReviewInviteShort}';
+    case UserNotificationKind.partyRoomInvite:
+      return withTime(l10n.notifPartyRoomInviteOpenHint);
+    default:
+      return time;
+  }
 }
-
-DateTime _sortTime(DateTime? t) =>
-    t ?? DateTime.fromMillisecondsSinceEpoch(0);
 
 /// Single row in the merged Alerts list (feed inbox + match rows).
 final class _MergedNotif {
   _MergedNotif.feed(UserFeedNotificationModel m)
-      : feed = m,
-        invite = null,
-        lobby = null,
-        sortTime = _sortTime(m.createdAt);
+    : feed = m,
+      invite = null,
+      sortTime = _sortTime(m.createdAt);
 
   _MergedNotif.invite(ChallengeRequestModel inv)
-      : feed = null,
-        invite = inv,
-        lobby = null,
-        sortTime = _sortTime(inv.createdAt);
-
-  _MergedNotif.lobby(ChallengeRequestModel c)
-      : feed = null,
-        invite = null,
-        lobby = c,
-        sortTime = _sortTime(c.createdAt);
+    : feed = null,
+      invite = inv,
+      sortTime = _sortTime(inv.createdAt);
 
   final UserFeedNotificationModel? feed;
   final ChallengeRequestModel? invite;
-  final ChallengeRequestModel? lobby;
   final DateTime sortTime;
 }
 
@@ -90,6 +117,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
   List<UserFeedNotificationModel> _feed = const [];
   bool _feedLoading = true;
   final _alertsCommentController = TextEditingController();
+  final Set<String> _busyFriendRequestIds = <String>{};
 
   @override
   void initState() {
@@ -112,9 +140,9 @@ class _NotificationsTabState extends State<NotificationsTab> {
     result.fold(
       (f) {
         setState(() => _feedLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(f.message)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(f.message)));
       },
       (list) {
         setState(() {
@@ -130,26 +158,68 @@ class _NotificationsTabState extends State<NotificationsTab> {
     await _loadFeed();
     if (!context.mounted) return;
     await context.read<OnlineBloc>().stream.firstWhere(
-          (s) => s.status != OnlineStatus.loading,
-        );
+      (s) => s.status != OnlineStatus.loading,
+    );
   }
 
   Future<void> _respondFriendRequest({
     required String requestId,
     required bool accept,
   }) async {
+    final rid = requestId.trim();
+    if (rid.isEmpty || _busyFriendRequestIds.contains(rid)) return;
+    setState(() => _busyFriendRequestIds.add(rid));
     final messenger = ScaffoldMessenger.of(context);
     final result = await getIt<RespondProfileFriendRequestUsecase>()(
-      requestId: requestId,
+      requestId: rid,
       accept: accept,
     );
     if (!mounted) return;
     result.fold(
-      (f) => messenger.showSnackBar(SnackBar(content: Text(f.message))),
+      (f) {
+        final msg = f.message.trim();
+        final norm = msg.toLowerCase();
+        final stale =
+            norm.contains('not found') ||
+            norm.contains('no rows') ||
+            norm.contains('conflict') ||
+            norm.contains('already') ||
+            norm.contains('invalid') ||
+            norm.contains('constraint');
+        if (stale) {
+          setState(() {
+            _feed = _feed
+                .where(
+                  (n) =>
+                      !(n.kind == UserNotificationKind.friendRequest &&
+                          (n.data['request_id']?.toString() ?? '') == rid),
+                )
+                .toList(growable: false);
+          });
+          messenger.showSnackBar(
+            SnackBar(content: Text(context.l10n.friendRequestNoLongerValid)),
+          );
+        } else {
+          messenger.showSnackBar(SnackBar(content: Text(msg)));
+        }
+      },
       (_) {
+        setState(() {
+          _feed = _feed
+              .where(
+                (n) =>
+                    !(n.kind == UserNotificationKind.friendRequest &&
+                        (n.data['request_id']?.toString() ?? '') == rid),
+              )
+              .toList(growable: false);
+        });
         messenger.showSnackBar(
           SnackBar(
-            content: Text(accept ? 'Friend request accepted.' : 'Declined.'),
+            content: Text(
+              accept
+                  ? context.l10n.friendRequestAccepted
+                  : context.l10n.declined,
+            ),
           ),
         );
         _loadFeed().then((_) {
@@ -159,30 +229,32 @@ class _NotificationsTabState extends State<NotificationsTab> {
         });
       },
     );
+    if (!mounted) return;
+    setState(() => _busyFriendRequestIds.remove(rid));
   }
 
   List<_MergedNotif> _buildMerged({
     required List<UserFeedNotificationModel> feed,
     required List<ChallengeRequestModel> invites,
-    required List<ChallengeRequestModel> lobbies,
   }) {
     final out = <_MergedNotif>[
-      for (final n in feed) _MergedNotif.feed(n),
+      for (final n in feed)
+        if (_isSupportedFeedKind(n.kind)) _MergedNotif.feed(n),
       for (final inv in invites) _MergedNotif.invite(inv),
-      for (final c in lobbies) _MergedNotif.lobby(c),
     ]..sort((a, b) => b.sortTime.compareTo(a.sortTime));
     return out;
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
     return Scaffold(
       backgroundColor: scheme.surface,
       appBar: AppBar(
-        title: const Text('Alerts'),
+        title: Text(l10n.notifications),
         centerTitle: false,
         elevation: 0,
         scrolledUnderElevation: 0.5,
@@ -196,21 +268,12 @@ class _NotificationsTabState extends State<NotificationsTab> {
           final invites = uid == null
               ? <ChallengeRequestModel>[]
               : onlineState.challenges
-                  .where((c) => c.toId == uid && c.status == 'pending')
-                  .toList(growable: false);
-          final lobbies = _lobbiesForNotifications(
-            onlineState.challenges,
-            uid,
-            onlineState.pendingMatchLobby,
-          );
-          final merged = _buildMerged(
-            feed: _feed,
-            invites: invites,
-            lobbies: lobbies,
-          );
+                    .where((c) => c.toId == uid && c.status == 'pending')
+                    .toList(growable: false);
+          final merged = _buildMerged(feed: _feed, invites: invites);
           final empty = merged.isEmpty;
           final onlineLoading =
-              onlineState.status == OnlineStatus.loading && invites.isEmpty && lobbies.isEmpty;
+              onlineState.status == OnlineStatus.loading && invites.isEmpty;
           final showSkeleton = empty && (onlineLoading || _feedLoading);
 
           Widget emptyListBody() {
@@ -230,9 +293,8 @@ class _NotificationsTabState extends State<NotificationsTab> {
                         iconColor: scheme.outline,
                         backgroundOpacity: 0.2,
                       ),
-                      title: 'You are all caught up',
-                      subtitle:
-                          'Likes, comments, friend requests, party room invites, and match invites will show here. Pull down to refresh.',
+                      title: l10n.allCaughtUp,
+                      subtitle: l10n.notificationsCaughtUpSubtitle,
                       actions: null,
                     ),
                   ),
@@ -252,14 +314,25 @@ class _NotificationsTabState extends State<NotificationsTab> {
                 if (f != null) {
                   if (f.kind == UserNotificationKind.friendRequest) {
                     final rid = f.data['request_id']?.toString() ?? '';
+                    final status =
+                        f.data['status']?.toString().trim().toLowerCase() ?? '';
+                    final actionable =
+                        rid.trim().isNotEmpty &&
+                        (status.isEmpty || status == 'pending');
+                    final busy = _busyFriendRequestIds.contains(rid.trim());
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: _FriendRequestFeedItem(
-                        body: f.body,
-                        meta: homeFeedTimeAgo(f.createdAt),
+                        body: _friendlyFeedTitle(f, context),
+                        meta: _friendlyFeedSubtitle(
+                          f,
+                          homeFeedTimeAgo(f.createdAt),
+                          context,
+                        ),
                         scheme: scheme,
                         theme: theme,
                         requestId: rid,
+                        actionable: actionable && !busy,
                         onRespond: _respondFriendRequest,
                         onOpenRelated: () =>
                             getIt<MainShellController>().openProfileTab(),
@@ -268,53 +341,56 @@ class _NotificationsTabState extends State<NotificationsTab> {
                   }
                   final (icon, color) = switch (f.kind) {
                     UserNotificationKind.postLike => (
-                        Icons.favorite_rounded,
-                        scheme.error,
-                      ),
+                      Icons.favorite_rounded,
+                      scheme.error,
+                    ),
                     UserNotificationKind.postComment => (
-                        Icons.chat_bubble_rounded,
-                        scheme.tertiary,
-                      ),
+                      Icons.chat_bubble_rounded,
+                      scheme.tertiary,
+                    ),
                     UserNotificationKind.partyRoomInvite => (
-                        Icons.groups_rounded,
-                        scheme.primary,
-                      ),
-                    _ => (
-                        Icons.notifications_rounded,
-                        scheme.primary,
-                      ),
+                      Icons.groups_rounded,
+                      scheme.primary,
+                    ),
+                    _ => (Icons.notifications_rounded, scheme.primary),
                   };
                   final postId = f.data['post_id']?.toString().trim() ?? '';
                   final VoidCallback? onOpenRelated = switch (f.kind) {
-                    UserNotificationKind.partyRoomInvite => () =>
-                        getIt<MainShellController>().openOnlineTab(),
-                    _ => postId.isEmpty || uid == null || uid.isEmpty
-                        ? null
-                        : () {
-                            final authorName = context
-                                    .read<ProfileBloc>()
-                                    .state
-                                    .dashboard
-                                    ?.user
-                                    .username
-                                    .trim() ??
-                                '';
-                            openAuthorPostsScreen(
-                              context: context,
-                              authorId: uid,
-                              authorName: authorName,
-                              commentController: _alertsCommentController,
-                              focusPostId: postId,
-                              openCommentsAfterScroll: f.kind ==
-                                  UserNotificationKind.postComment,
-                            );
-                          },
+                    UserNotificationKind.partyRoomInvite =>
+                      () => getIt<MainShellController>().openOnlineTab(),
+                    _ =>
+                      postId.isEmpty || uid == null || uid.isEmpty
+                          ? null
+                          : () {
+                              final authorName =
+                                  context
+                                      .read<ProfileBloc>()
+                                      .state
+                                      .dashboard
+                                      ?.user
+                                      .username
+                                      .trim() ??
+                                  '';
+                              openAuthorPostsScreen(
+                                context: context,
+                                authorId: uid,
+                                authorName: authorName,
+                                commentController: _alertsCommentController,
+                                focusPostId: postId,
+                                openCommentsAfterScroll:
+                                    f.kind == UserNotificationKind.postComment,
+                              );
+                            },
                   };
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: _PlainFeedItem(
-                      body: f.body,
-                      meta: homeFeedTimeAgo(f.createdAt),
+                      body: _friendlyFeedTitle(f, context),
+                      meta: _friendlyFeedSubtitle(
+                        f,
+                        homeFeedTimeAgo(f.createdAt),
+                        context,
+                      ),
                       scheme: scheme,
                       theme: theme,
                       icon: icon,
@@ -337,21 +413,6 @@ class _NotificationsTabState extends State<NotificationsTab> {
                     ),
                   );
                 }
-                final lobby = row.lobby;
-                if (lobby != null && uid != null) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _LobbyListItem(
-                      c: lobby,
-                      uid: uid,
-                      friends: onlineState.friends,
-                      scheme: scheme,
-                      theme: theme,
-                      onOpenRelated: () =>
-                          getIt<MainShellController>().openOnlineTab(),
-                    ),
-                  );
-                }
                 return const SizedBox.shrink();
               },
             );
@@ -363,8 +424,8 @@ class _NotificationsTabState extends State<NotificationsTab> {
               child: showSkeleton
                   ? TabLoadingSkeletons.notificationsTab(context)
                   : empty
-                      ? emptyListBody()
-                      : dataList(),
+                  ? emptyListBody()
+                  : dataList(),
             ),
           );
         },
@@ -389,14 +450,14 @@ class _NotifIconBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 48,
-      height: 48,
+      width: 46,
+      height: 46,
       decoration: BoxDecoration(
         color: iconColor.withValues(alpha: backgroundOpacity),
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(14),
       ),
       alignment: Alignment.center,
-      child: Icon(icon, color: iconColor, size: 24),
+      child: Icon(icon, color: iconColor, size: 22),
     );
   }
 }
@@ -423,13 +484,11 @@ class _NotifCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(18),
-      side: BorderSide(
-        color: scheme.outlineVariant.withValues(alpha: 0.35),
-      ),
+      borderRadius: BorderRadius.circular(20),
+      side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.28)),
     );
     return Material(
-      color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+      color: scheme.surfaceContainerHigh.withValues(alpha: 0.55),
       elevation: 0,
       shadowColor: Colors.transparent,
       shape: shape,
@@ -441,7 +500,7 @@ class _NotifCard extends StatelessWidget {
           InkWell(
             onTap: onTap,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+              padding: const EdgeInsets.fromLTRB(14, 15, 14, 15),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -521,11 +580,7 @@ class _PlainFeedItem extends StatelessWidget {
     return _NotifCard(
       scheme: scheme,
       theme: theme,
-      leading: _NotifIconBadge(
-        scheme: scheme,
-        icon: icon,
-        iconColor: accent,
-      ),
+      leading: _NotifIconBadge(scheme: scheme, icon: icon, iconColor: accent),
       title: body,
       subtitle: secondary,
       actions: null,
@@ -541,6 +596,7 @@ class _FriendRequestFeedItem extends StatelessWidget {
     required this.scheme,
     required this.theme,
     required this.requestId,
+    required this.actionable,
     required this.onRespond,
     this.onOpenRelated,
   });
@@ -550,15 +606,14 @@ class _FriendRequestFeedItem extends StatelessWidget {
   final ColorScheme scheme;
   final ThemeData theme;
   final String requestId;
-  final Future<void> Function({
-    required String requestId,
-    required bool accept,
-  }) onRespond;
+  final bool actionable;
+  final Future<void> Function({required String requestId, required bool accept})
+  onRespond;
   final VoidCallback? onOpenRelated;
 
   @override
   Widget build(BuildContext context) {
-    final hasId = requestId.trim().isNotEmpty;
+    final canRespond = actionable && requestId.trim().isNotEmpty;
     return _NotifCard(
       scheme: scheme,
       theme: theme,
@@ -570,20 +625,22 @@ class _FriendRequestFeedItem extends StatelessWidget {
       title: body,
       subtitle: meta,
       onTap: onOpenRelated,
-      actions: hasId
+      actions: canRespond
           ? Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => onRespond(requestId: requestId, accept: false),
-                    child: const Text('Decline'),
+                    onPressed: () =>
+                        onRespond(requestId: requestId, accept: false),
+                    child: Text(context.l10n.decline),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: FilledButton(
-                    onPressed: () => onRespond(requestId: requestId, accept: true),
-                    child: const Text('Accept'),
+                    onPressed: () =>
+                        onRespond(requestId: requestId, accept: true),
+                    child: Text(context.l10n.accept),
                   ),
                 ),
               ],
@@ -610,8 +667,10 @@ class _InviteListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final body = '${_friendName(inv.fromId, friends)} '
-        'invited you to ${onlineGameTitle(inv.gameId)}.';
+    final l10n = context.l10n;
+    final body =
+        '${_friendName(inv.fromId, friends, fallbackPlayerLabel: l10n.player)} invited you to play '
+        '${onlineGameTitleL10n(l10n, inv.gameId)} together.';
     final meta = homeFeedTimeAgo(inv.createdAt);
 
     return _NotifCard(
@@ -632,12 +691,12 @@ class _InviteListItem extends StatelessWidget {
               onPressed: inv.id == null
                   ? null
                   : () => context.read<OnlineBloc>().add(
-                        OnlineChallengeDecisionRequested(
-                          challengeId: inv.id!,
-                          accept: false,
-                        ),
+                      OnlineChallengeDecisionRequested(
+                        challengeId: inv.id!,
+                        accept: false,
                       ),
-              child: const Text('Decline'),
+                    ),
+              child: Text(context.l10n.decline),
             ),
           ),
           const SizedBox(width: 10),
@@ -647,7 +706,11 @@ class _InviteListItem extends StatelessWidget {
                   ? null
                   : () {
                       String? opponentAvatarUrl;
-                      final fromName = _friendName(inv.fromId, friends);
+                      final fromName = _friendName(
+                        inv.fromId,
+                        friends,
+                        fallbackPlayerLabel: context.l10n.player,
+                      );
                       for (final fr in friends) {
                         if (fr.id == inv.fromId) {
                           opponentAvatarUrl = fr.avatarUrl?.trim();
@@ -655,83 +718,20 @@ class _InviteListItem extends StatelessWidget {
                         }
                       }
                       context.read<OnlineBloc>().add(
-                            OnlineChallengeDecisionRequested(
-                              challengeId: inv.id!,
-                              accept: true,
-                              opponentDisplayName: fromName,
-                              opponentAvatarUrl: opponentAvatarUrl,
-                              gameId: inv.gameId,
-                            ),
-                          );
+                        OnlineChallengeDecisionRequested(
+                          challengeId: inv.id!,
+                          accept: true,
+                          opponentDisplayName: fromName,
+                          opponentAvatarUrl: opponentAvatarUrl,
+                          gameId: inv.gameId,
+                        ),
+                      );
                     },
-              child: const Text('Accept'),
+              child: Text(context.l10n.accept),
             ),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _LobbyListItem extends StatelessWidget {
-  const _LobbyListItem({
-    required this.c,
-    required this.uid,
-    required this.friends,
-    required this.scheme,
-    required this.theme,
-    this.onOpenRelated,
-  });
-
-  final ChallengeRequestModel c;
-  final String uid;
-  final List<UserModel> friends;
-  final ColorScheme scheme;
-  final ThemeData theme;
-  final VoidCallback? onOpenRelated;
-
-  @override
-  Widget build(BuildContext context) {
-    final opp = _opponentName(c, uid, friends);
-    final gameTitle = onlineGameTitle(c.gameId);
-    final meFrom = c.fromId == uid;
-    final iAmReady = meFrom ? c.fromReady : c.toReady;
-    final theyReady = meFrom ? c.toReady : c.fromReady;
-    final bothReady = c.fromReady && c.toReady;
-    final you = iAmReady ? 'ready' : 'not ready yet';
-    final them = theyReady ? 'ready' : 'still waiting';
-    final body = bothReady
-        ? '$gameTitle with $opp — both players are ready.'
-        : '$gameTitle with $opp — you are $you; your opponent is $them.';
-
-    return _NotifCard(
-      scheme: scheme,
-      theme: theme,
-      leading: _NotifIconBadge(
-        scheme: scheme,
-        icon: Icons.handshake_rounded,
-        iconColor: scheme.tertiary,
-      ),
-      title: body,
-      subtitle: '',
-      onTap: onOpenRelated,
-      actions: !bothReady
-          ? SizedBox(
-              width: double.infinity,
-              child: FilledButton.tonal(
-                onPressed: !iAmReady && c.id != null
-                    ? () => context.read<OnlineBloc>().add(
-                          OnlineChallengeReadyRequested(
-                            challengeId: c.id!,
-                          ),
-                        )
-                    : null,
-                child: Text(
-                  iAmReady ? 'Waiting for opponent' : 'Mark ready',
-                ),
-              ),
-            )
-          : null,
     );
   }
 }

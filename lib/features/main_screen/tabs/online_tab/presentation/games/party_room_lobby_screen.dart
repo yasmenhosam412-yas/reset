@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/authentication/data/models/user_model.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/party_icon_snap_game.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/party_reaction_relay_game.dart';
@@ -27,6 +28,8 @@ class _PartyRoomLobbyScreenState extends State<PartyRoomLobbyScreen> {
   String? _error;
   Timer? _poll;
   bool _loading = true;
+  bool _hasPresenceSnapshot = false;
+  Map<String, String> _lastMemberNamesById = const {};
 
   @override
   void initState() {
@@ -49,10 +52,37 @@ class _PartyRoomLobbyScreenState extends State<PartyRoomLobbyScreen> {
     try {
       final p = await PartyRoomService.fetchRoomPresence(widget.roomId);
       if (!mounted) return;
+      final nextNames = <String, String>{};
+      for (final m in p.members) {
+        final id = m.id.trim();
+        if (id.isEmpty) continue;
+        final name = m.username.trim().isEmpty
+            ? context.l10n.aPlayer
+            : m.username.trim();
+        nextNames[id] = name;
+      }
+
+      if (_hasPresenceSnapshot) {
+        final prevIds = _lastMemberNamesById.keys.toSet();
+        final nextIds = nextNames.keys.toSet();
+        final leftIds = prevIds.difference(nextIds);
+        if (leftIds.isNotEmpty) {
+          final leftNames = leftIds
+              .map((id) => _lastMemberNamesById[id] ?? context.l10n.aPlayer)
+              .toList(growable: false);
+          final text = leftNames.length == 1
+              ? context.l10n.playerLeftGameRoom(leftNames.first)
+              : context.l10n.playersLeftGameRoom(leftNames.length);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+        }
+      }
+
       setState(() {
         _presence = p;
         _error = null;
         _loading = false;
+        _hasPresenceSnapshot = true;
+        _lastMemberNamesById = Map<String, String>.unmodifiable(nextNames);
       });
     } catch (e) {
       if (!mounted) return;
@@ -91,6 +121,7 @@ class _PartyRoomLobbyScreenState extends State<PartyRoomLobbyScreen> {
   }
 
   void _startGame(BuildContext context) {
+    final l10n = context.l10n;
     Widget game;
     switch (widget.gameId) {
       case 4:
@@ -100,7 +131,7 @@ class _PartyRoomLobbyScreenState extends State<PartyRoomLobbyScreen> {
         game = PartyIconSnapGame(roomId: widget.roomId);
         break;
       default:
-        game = const Center(child: Text('Unsupported room game.'));
+        game = Center(child: Text(l10n.unsupportedRoomGame));
     }
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
@@ -139,15 +170,17 @@ class _PartyRoomLobbyScreenState extends State<PartyRoomLobbyScreen> {
   }
 
   Widget _slotTile({
+    required BuildContext context,
     required ThemeData theme,
     required ColorScheme scheme,
     required int index,
     UserModel? member,
   }) {
     final filled = member != null;
+    final l10n = context.l10n;
     final name = member == null
-        ? 'Open slot'
-        : (member.username.trim().isEmpty ? 'Player' : member.username.trim());
+        ? l10n.openSlot
+        : (member.username.trim().isEmpty ? l10n.player : member.username.trim());
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
@@ -192,7 +225,7 @@ class _PartyRoomLobbyScreenState extends State<PartyRoomLobbyScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'SLOT ${index + 1}',
+                  l10n.slotNumber(index + 1),
                   style: theme.textTheme.labelSmall?.copyWith(
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1,
@@ -209,7 +242,7 @@ class _PartyRoomLobbyScreenState extends State<PartyRoomLobbyScreen> {
                 ),
                 if (!filled)
                   Text(
-                    'Waiting for invite…',
+                    l10n.waitingForInvite,
                     style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                   ),
               ],
@@ -226,6 +259,7 @@ class _PartyRoomLobbyScreenState extends State<PartyRoomLobbyScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final p = _presence;
@@ -268,7 +302,7 @@ class _PartyRoomLobbyScreenState extends State<PartyRoomLobbyScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'READY ROOM',
+                      l10n.readyRoom,
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w900,
                         letterSpacing: 1.3,
@@ -277,7 +311,7 @@ class _PartyRoomLobbyScreenState extends State<PartyRoomLobbyScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Friends accept the invite under Online → Party room invites. No code to copy — the run starts when every slot is filled.',
+                      l10n.readyRoomSubtitle,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                         height: 1.35,
@@ -300,12 +334,17 @@ class _PartyRoomLobbyScreenState extends State<PartyRoomLobbyScreen> {
                   runSpacing: 8,
                   alignment: WrapAlignment.center,
                   children: [
-                    _hudChip(theme, scheme, Icons.groups_rounded, '$joined / $maxPlayers'),
+                    _hudChip(
+                      theme,
+                      scheme,
+                      Icons.groups_rounded,
+                      l10n.joinedOutOf(joined, maxPlayers),
+                    ),
                     _hudChip(
                       theme,
                       scheme,
                       ready ? Icons.verified_rounded : Icons.radar_rounded,
-                      ready ? 'FULL SQUAD' : 'RECRUITING',
+                      ready ? l10n.fullSquad : l10n.recruiting,
                       tint: ready ? scheme.tertiary : scheme.secondary,
                     ),
                   ],
@@ -352,7 +391,7 @@ class _PartyRoomLobbyScreenState extends State<PartyRoomLobbyScreen> {
           ),
           const SizedBox(height: 20),
           Text(
-            'ROSTER',
+            l10n.roster,
             style: theme.textTheme.labelSmall?.copyWith(
               fontWeight: FontWeight.w900,
               letterSpacing: 1.2,
@@ -363,6 +402,7 @@ class _PartyRoomLobbyScreenState extends State<PartyRoomLobbyScreen> {
           if (!_loading && _error == null && maxPlayers > 0)
             for (var i = 0; i < maxPlayers; i++)
               _slotTile(
+                context: context,
                 theme: theme,
                 scheme: scheme,
                 index: i,
@@ -394,7 +434,7 @@ class _PartyRoomLobbyScreenState extends State<PartyRoomLobbyScreen> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        ready ? 'LAUNCH GAME' : 'WAITING FOR PLAYERS',
+                        ready ? l10n.launchGame : l10n.waitingForPlayers,
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.9,

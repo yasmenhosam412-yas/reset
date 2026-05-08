@@ -12,6 +12,7 @@ import 'package:new_project/features/main_screen/tabs/home_tab/data/models/team_
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/profile_dashboard_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/user_feed_notification_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/repositories/home_repository.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomeRepositoryImpl implements HomeRepository {
   final HomeDatasource homeDatasource;
@@ -50,6 +51,9 @@ class HomeRepositoryImpl implements HomeRepository {
     Uint8List? imageBytes,
     String? imageContentType,
     bool allowShare = true,
+    String postVisibility = 'general',
+    String postType = 'post',
+    String? adLink,
   }) async {
     try {
       await homeDatasource.addPost(
@@ -58,6 +62,9 @@ class HomeRepositoryImpl implements HomeRepository {
         imageBytes: imageBytes,
         imageContentType: imageContentType,
         allowShare: allowShare,
+        postVisibility: postVisibility,
+        postType: postType,
+        adLink: adLink,
       );
       return Right(null);
     } catch (e) {
@@ -83,6 +90,9 @@ class HomeRepositoryImpl implements HomeRepository {
     String? imageContentType,
     bool clearImage = false,
     required bool allowShare,
+    String postVisibility = 'general',
+    String postType = 'post',
+    String? adLink,
   }) async {
     try {
       await homeDatasource.updateOwnPost(
@@ -92,6 +102,9 @@ class HomeRepositoryImpl implements HomeRepository {
         imageContentType: imageContentType,
         clearImage: clearImage,
         allowShare: allowShare,
+        postVisibility: postVisibility,
+        postType: postType,
+        adLink: adLink,
       );
       return Right(null);
     } catch (e) {
@@ -100,9 +113,12 @@ class HomeRepositoryImpl implements HomeRepository {
   }
 
   @override
-  Future<Either<Failure, List<PostModel>>> getPosts() async {
+  Future<Either<Failure, List<PostModel>>> getPosts({
+    required int limit,
+    required int offset,
+  }) async {
     try {
-      final result = await homeDatasource.getPosts();
+      final result = await homeDatasource.getPosts(limit: limit, offset: offset);
       return Right(result);
     } catch (e) {
       return Left(failureFromException(e));
@@ -211,6 +227,15 @@ class HomeRepositoryImpl implements HomeRepository {
         avatarContentType: avatarContentType,
       );
       return const Right(null);
+    } on PostgrestException catch (e) {
+      final raw = '${e.message} ${e.details} ${e.hint}'.toLowerCase();
+      final isUsernameUniqueConflict =
+          e.code == '23505' &&
+          (raw.contains('username') || raw.contains('profiles_username_unique'));
+      if (isUsernameUniqueConflict) {
+        return Left(ServerFailure(message: 'Username is already taken.'));
+      }
+      return Left(failureFromException(e));
     } catch (e) {
       return Left(failureFromException(e));
     }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:new_project/core/di/di.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/core/navigation/main_shell_controller.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/pages/home_tab.dart';
 import 'package:new_project/features/main_screen/tabs/notifications_tab/notifications_tab.dart';
@@ -55,6 +56,7 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return BlocProvider(
       create: (_) => getIt<OnlineBloc>()..add(OnlineLoadRequested()),
       child: Builder(
@@ -72,31 +74,31 @@ class _MainScreenState extends State<MainScreen> {
                   contextWithBloc.read<OnlineBloc>().add(OnlineLoadRequested());
                 }
               },
-              destinations: const [
+              destinations: [
                 NavigationDestination(
                   icon: Icon(Icons.home_outlined),
                   selectedIcon: Icon(Icons.home),
-                  label: 'Home',
+                  label: l10n.posts,
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.cloud_outlined),
                   selectedIcon: Icon(Icons.cloud),
-                  label: 'Online',
+                  label: l10n.online,
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.notifications_outlined),
                   selectedIcon: Icon(Icons.notifications),
-                  label: 'Alerts',
+                  label: l10n.alerts,
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.groups_outlined),
                   selectedIcon: Icon(Icons.groups),
-                  label: 'Battles',
+                  label: l10n.battles,
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.person_outline),
                   selectedIcon: Icon(Icons.person),
-                  label: 'Profile',
+                  label: l10n.profile,
                 ),
               ],
             ),

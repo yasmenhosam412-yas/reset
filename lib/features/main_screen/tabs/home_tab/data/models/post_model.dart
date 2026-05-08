@@ -13,6 +13,9 @@ class PostModel extends PostEntity {
     required super.comments,
     super.createdAt,
     super.allowShare,
+    super.postVisibility,
+    super.postType,
+    super.adLink,
   });
 
   PostModel copyWith({
@@ -24,6 +27,9 @@ class PostModel extends PostEntity {
     List<CommentModel>? comments,
     DateTime? createdAt,
     bool? allowShare,
+    String? postVisibility,
+    String? postType,
+    String? adLink,
   }) {
     return PostModel(
       id: id ?? this.id,
@@ -34,6 +40,9 @@ class PostModel extends PostEntity {
       comments: comments ?? this.comments,
       createdAt: createdAt ?? this.createdAt,
       allowShare: allowShare ?? this.allowShare,
+      postVisibility: postVisibility ?? this.postVisibility,
+      postType: postType ?? this.postType,
+      adLink: adLink ?? this.adLink,
     );
   }
 
@@ -62,6 +71,9 @@ class PostModel extends PostEntity {
           .toList(),
       createdAt: _parseDateTime(json['created_at']),
       allowShare: _parseAllowShare(json['allow_share']),
+      postVisibility: _parsePostVisibility(json['post_visibility']),
+      postType: _parsePostType(json['post_type']),
+      adLink: _parseAdLink(json['ad_link']),
     );
   }
 
@@ -80,5 +92,28 @@ class PostModel extends PostEntity {
     if (raw is DateTime) return raw;
     if (raw is String) return DateTime.tryParse(raw);
     return null;
+  }
+
+  static String _parsePostVisibility(dynamic raw) {
+    final v = (raw?.toString() ?? '').trim().toLowerCase();
+    if (v == 'friends') return 'friends';
+    return 'general';
+  }
+
+  static String _parsePostType(dynamic raw) {
+    final v = (raw?.toString() ?? '').trim().toLowerCase();
+    switch (v) {
+      case 'announcement':
+      case 'celebration':
+      case 'ads':
+        return v;
+      default:
+        return 'post';
+    }
+  }
+
+  static String? _parseAdLink(dynamic raw) {
+    final value = raw?.toString().trim() ?? '';
+    return value.isEmpty ? null : value;
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/presentation/dialogs/team_name_dialog.dart';
 
 class TeamSquadHeader extends StatelessWidget {
@@ -19,6 +20,7 @@ class TeamSquadHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l10n = context.l10n;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -59,7 +61,7 @@ class TeamSquadHeader extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'YOUR SQUAD',
+                          l10n.yourSquad,
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: scheme.onPrimary.withValues(alpha: 0.85),
                             fontWeight: FontWeight.w800,
@@ -83,7 +85,7 @@ class TeamSquadHeader extends StatelessWidget {
                             _HeaderChip(
                               scheme: scheme,
                               icon: Icons.groups_rounded,
-                              label: '6 players',
+                              label: l10n.playersMax(6),
                             ),
                             _HeaderChip(
                               scheme: scheme,
@@ -93,7 +95,7 @@ class TeamSquadHeader extends StatelessWidget {
                             _HeaderChip(
                               scheme: scheme,
                               icon: Icons.stars_rounded,
-                              label: '$skillPoints pts',
+                              label: l10n.teamSkillPointsLabel(skillPoints),
                             ),
                           ],
                         ),
@@ -105,14 +107,15 @@ class TeamSquadHeader extends StatelessWidget {
                       backgroundColor: scheme.onPrimary.withValues(alpha: 0.18),
                       foregroundColor: scheme.onPrimary,
                     ),
-                    tooltip: 'Rename team',
+                    tooltip: l10n.teamRenameTeam,
                     onPressed: () async {
                       final next = await showTeamNameDialog(
                         context,
-                        title: 'Rename team',
+                        title: l10n.teamRenameTeam,
                         initialValue: teamName,
-                        labelText: 'Team name',
+                        labelText: l10n.teamName,
                         icon: Icons.edit_outlined,
+                        confirmButtonLabel: l10n.save,
                       );
                       if (!context.mounted || next == null || next.isEmpty) {
                         return;

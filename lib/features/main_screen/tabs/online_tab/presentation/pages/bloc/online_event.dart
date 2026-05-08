@@ -42,3 +42,4 @@ final class OnlineChallengeReadyRequested extends OnlineEvent {
 }
 
 final class OnlineGameLaunchConsumed extends OnlineEvent {}
+final class ResetOnlineTab extends OnlineEvent {}

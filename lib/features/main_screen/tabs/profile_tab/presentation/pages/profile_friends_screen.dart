@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:new_project/core/di/di.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/authentication/data/models/user_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/remove_home_friend_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/utils/home_feed_ui.dart';
@@ -54,8 +55,9 @@ class _ProfileFriendsScreenState extends State<ProfileFriendsScreen> {
   }
 
   Future<void> _confirmUnfriend(UserModel friend) async {
+    final l10n = context.l10n;
     final name = friend.username.trim().isEmpty
-        ? 'this player'
+        ? l10n.thisPlayer
         : friend.username.trim();
     final fid = friend.id.trim();
     if (fid.isEmpty) return;
@@ -64,19 +66,18 @@ class _ProfileFriendsScreenState extends State<ProfileFriendsScreen> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: const Text('Remove friend?'),
+          title: Text(l10n.removeFriendQuestion),
           content: Text(
-            '$name will be removed from your friends. You can send a new '
-            'request later from Home.',
+            l10n.removeFriendMessage(name),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Remove'),
+              child: Text(l10n.remove),
             ),
           ],
         );
@@ -95,7 +96,7 @@ class _ProfileFriendsScreenState extends State<ProfileFriendsScreen> {
       ),
       (_) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$name removed from friends')),
+          SnackBar(content: Text(l10n.removedFromFriends(name))),
         );
         _load();
       },
@@ -104,13 +105,14 @@ class _ProfileFriendsScreenState extends State<ProfileFriendsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
     return Scaffold(
       backgroundColor: scheme.surface,
       appBar: AppBar(
-        title: const Text('Friends'),
+        title: Text(l10n.friends),
         elevation: 0,
         scrolledUnderElevation: 0.5,
         backgroundColor: scheme.surface,
@@ -142,7 +144,7 @@ class _ProfileFriendsScreenState extends State<ProfileFriendsScreen> {
                         const SizedBox(height: 16),
                         FilledButton(
                           onPressed: _load,
-                          child: const Text('Retry'),
+                          child: Text(l10n.retry),
                         ),
                       ],
                     )
@@ -158,7 +160,7 @@ class _ProfileFriendsScreenState extends State<ProfileFriendsScreen> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'No friends yet',
+                              l10n.noFriendsYet,
                               textAlign: TextAlign.center,
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w700,
@@ -166,8 +168,7 @@ class _ProfileFriendsScreenState extends State<ProfileFriendsScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Accept requests below or send one from someone’s '
-                              'post on Home.',
+                              l10n.friendsEmptyHint,
                               textAlign: TextAlign.center,
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: scheme.onSurfaceVariant,
@@ -184,7 +185,7 @@ class _ProfileFriendsScreenState extends State<ProfileFriendsScreen> {
                           itemBuilder: (context, index) {
                             final u = _friends[index];
                             final name = u.username.trim().isEmpty
-                                ? 'Player'
+                                ? l10n.player
                                 : u.username.trim();
                             final url = u.avatarUrl?.trim();
                             final busy =
@@ -227,7 +228,7 @@ class _ProfileFriendsScreenState extends State<ProfileFriendsScreen> {
                                   ),
                                 ),
                                 trailing: IconButton(
-                                  tooltip: 'Remove friend',
+                                  tooltip: l10n.removeFriend,
                                   onPressed: busy || u.id.trim().isEmpty
                                       ? null
                                       : () => _confirmUnfriend(u),

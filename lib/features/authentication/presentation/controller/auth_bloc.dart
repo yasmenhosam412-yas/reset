@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:new_project/features/authentication/domain/usecases/forgot_password_usecase.dart';
+import 'package:new_project/features/authentication/domain/usecases/delete_account_usecase.dart';
 import 'package:new_project/features/authentication/domain/usecases/login_usecase.dart';
 import 'package:new_project/features/authentication/domain/usecases/logout_usecase.dart';
 import 'package:new_project/features/authentication/domain/usecases/signup_usecase.dart';
@@ -10,17 +11,20 @@ class AuthBloc extends Bloc<AuthBlocEvent, AuthBlocState> {
   final LoginUsecase loginUsecase;
   final SignupUsecase signupUsecase;
   final LogoutUsecase logoutUsecase;
+  final DeleteAccountUsecase deleteAccountUsecase;
   final ForgotPasswordUsecase forgotPasswordUsecase;
 
   AuthBloc({
     required this.loginUsecase,
     required this.signupUsecase,
     required this.logoutUsecase,
+    required this.deleteAccountUsecase,
     required this.forgotPasswordUsecase,
   }) : super(AuthBlocState(authState: AuthState.idle)) {
     on<AuthLoginEvent>(_onLogin);
     on<AuthSignupEvent>(_onSignup);
     on<AuthLogoutEvent>(_onLogout);
+    on<AuthDeleteAccountEvent>(_onDeleteAccount);
     on<AuthSendRecoveryOtpEvent>(_onSendRecoveryOtp);
     on<AuthVerifyRecoveryOtpEvent>(_onVerifyRecoveryOtp);
     on<AuthResetToIdleEvent>((_, emit) {
@@ -78,6 +82,24 @@ class AuthBloc extends Bloc<AuthBlocEvent, AuthBlocState> {
         AuthBlocState(authState: AuthState.errorOut, error: failure.message),
       ),
       (_) => emit(AuthBlocState(authState: AuthState.loadedOut)),
+    );
+  }
+
+  Future<void> _onDeleteAccount(
+    AuthDeleteAccountEvent event,
+    Emitter<AuthBlocState> emit,
+  ) async {
+    emit(AuthBlocState(authState: AuthState.loading));
+    final result = await deleteAccountUsecase();
+
+    await result.fold(
+      (failure) async {
+        emit(AuthBlocState(authState: AuthState.errorOut, error: failure.message));
+      },
+      (_) async {
+        // User is deleted on the backend; for UX we route them like a logout.
+        emit(AuthBlocState(authState: AuthState.loadedOut));
+      },
     );
   }
 

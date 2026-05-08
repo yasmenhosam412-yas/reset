@@ -39,6 +39,19 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
   }
 
   @override
+  Future<void> deleteAccount() async {
+    // This must be done through an Edge Function because deleting a user requires
+    // admin privileges (`service_role`).
+    await supabaseClient.functions.invoke('delete-account');
+
+    // Attempt to clear local auth/session state. The user might already be deleted,
+    // so swallow any errors from signOut().
+    try {
+      await supabaseClient.auth.signOut();
+    } catch (_) {}
+  }
+
+  @override
   Future<void> sendPasswordRecoveryOtp({required String email}) async {
     await supabaseClient.auth.signInWithOtp(
       email: email,

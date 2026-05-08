@@ -7,6 +7,14 @@ enum HomeStatus {
   failure
 }
 
+enum HomeSuccessType {
+  postDeleted,
+  postUpdated,
+  alreadyFriends,
+  friendRequestSent,
+  challengeSent,
+}
+
 class HomeState {
   const HomeState({
     required this.status,
@@ -14,6 +22,9 @@ class HomeState {
     this.acceptedFriendUserIds = const {},
     this.errorMessage,
     this.successMessage,
+    this.successType,
+    this.successName,
+    this.successGameId,
   });
 
   factory HomeState.initial() {
@@ -29,6 +40,9 @@ class HomeState {
   final Set<String> acceptedFriendUserIds;
   final String? errorMessage;
   final String? successMessage;
+  final HomeSuccessType? successType;
+  final String? successName;
+  final int? successGameId;
 
   HomeState copyWith({
     HomeStatus? status,
@@ -36,6 +50,9 @@ class HomeState {
     Set<String>? acceptedFriendUserIds,
     String? errorMessage,
     String? successMessage,
+    HomeSuccessType? successType,
+    String? successName,
+    int? successGameId,
     bool clearError = false,
     bool clearSuccess = false,
   }) {
@@ -47,6 +64,9 @@ class HomeState {
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       successMessage:
           clearSuccess ? null : (successMessage ?? this.successMessage),
+      successType: clearSuccess ? null : (successType ?? this.successType),
+      successName: clearSuccess ? null : (successName ?? this.successName),
+      successGameId: clearSuccess ? null : (successGameId ?? this.successGameId),
     );
   }
 }

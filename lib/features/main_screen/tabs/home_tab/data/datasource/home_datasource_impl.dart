@@ -16,19 +16,23 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomeDatasourceImpl implements HomeDatasource {
   HomeDatasourceImpl({required SupabaseClient supabaseClient})
-      : _client = supabaseClient;
+    : _client = supabaseClient;
 
   final SupabaseClient _client;
 
   String? get _currentUserId => _client.auth.currentUser?.id;
 
-  String get _postsSelect => '''
+  String get _postsSelect =>
+      '''
       ${PostCols.id},
       ${PostCols.userId},
       ${PostCols.postImage},
       ${PostCols.postContent},
       ${PostCols.likes},
       ${PostCols.allowShare},
+      ${PostCols.postVisibility},
+      ${PostCols.postType},
+      ${PostCols.adLink},
       ${PostCols.createdAt},
       ${HomeTable.profiles}!inner(${ProfileCols.id}, ${ProfileCols.username}, ${ProfileCols.avatarUrl}),
       ${HomeTable.postComments}(
@@ -46,6 +50,9 @@ class HomeDatasourceImpl implements HomeDatasource {
     Uint8List? imageBytes,
     String? imageContentType,
     bool allowShare = true,
+    String postVisibility = 'general',
+    String postType = 'post',
+    String? adLink,
   }) async {
     final uid = _currentUserId;
     if (uid == null) {
@@ -59,12 +66,21 @@ class HomeDatasourceImpl implements HomeDatasource {
         contentType: imageContentType ?? 'image/jpeg',
       );
     }
+    final normalizedType = _normalizePostType(postType);
+    final normalizedAdLink = _normalizeAdLink(adLink);
+    final effectiveAllowShare = normalizedType == 'ads' ? false : allowShare;
+    if (normalizedType == 'ads' && normalizedAdLink == null) {
+      throw ArgumentError('Ads posts require a valid ad link.');
+    }
     await _client.from(HomeTable.posts).insert({
       PostCols.userId: uid,
       PostCols.postContent: postContent,
       PostCols.postImage: imageUrl,
       PostCols.likes: <String>[],
-      PostCols.allowShare: allowShare,
+      PostCols.allowShare: effectiveAllowShare,
+      PostCols.postVisibility: _normalizePostVisibility(postVisibility),
+      PostCols.postType: normalizedType,
+      PostCols.adLink: normalizedAdLink,
     });
   }
 
@@ -109,6 +125,9 @@ class HomeDatasourceImpl implements HomeDatasource {
     String? imageContentType,
     bool clearImage = false,
     required bool allowShare,
+    String postVisibility = 'general',
+    String postType = 'post',
+    String? adLink,
   }) async {
     final uid = _currentUserId;
     if (uid == null) {
@@ -132,6 +151,13 @@ class HomeDatasourceImpl implements HomeDatasource {
 
     var imageUrl = row[PostCols.postImage]?.toString() ?? '';
     final previousStored = imageUrl;
+    final normalizedType = _normalizePostType(postType);
+    final normalizedVisibility = _normalizePostVisibility(postVisibility);
+    final normalizedAdLink = _normalizeAdLink(adLink);
+    final effectiveAllowShare = normalizedType == 'ads' ? false : allowShare;
+    if (normalizedType == 'ads' && normalizedAdLink == null) {
+      throw ArgumentError('Ads posts require a valid ad link.');
+    }
 
     if (clearImage) {
       if (imageUrl.isNotEmpty) {
@@ -150,11 +176,18 @@ class HomeDatasourceImpl implements HomeDatasource {
       imageUrl = uploaded;
     }
 
-    await _client.from(HomeTable.posts).update({
-      PostCols.postContent: postContent,
-      PostCols.postImage: imageUrl,
-      PostCols.allowShare: allowShare,
-    }).eq(PostCols.id, id).eq(PostCols.userId, uid);
+    await _client
+        .from(HomeTable.posts)
+        .update({
+          PostCols.postContent: postContent,
+          PostCols.postImage: imageUrl,
+          PostCols.allowShare: effectiveAllowShare,
+          PostCols.postVisibility: normalizedVisibility,
+          PostCols.postType: normalizedType,
+          PostCols.adLink: normalizedAdLink,
+        })
+        .eq(PostCols.id, id)
+        .eq(PostCols.userId, uid);
   }
 
   Future<void> _removePostImageByPublicUrl(String imageUrl) async {
@@ -179,15 +212,16 @@ class HomeDatasourceImpl implements HomeDatasource {
     final ext = _fileExtensionForContentType(contentType);
     final path =
         '$uid/${DateTime.now().microsecondsSinceEpoch}_${Random().nextInt(1 << 20)}$ext';
-    await _client.storage.from(HomeStorage.postImagesBucket).uploadBinary(
+    await _client.storage
+        .from(HomeStorage.postImagesBucket)
+        .uploadBinary(
           path,
           bytes,
-          fileOptions: FileOptions(
-            contentType: contentType,
-            upsert: false,
-          ),
+          fileOptions: FileOptions(contentType: contentType, upsert: false),
         );
-    return _client.storage.from(HomeStorage.postImagesBucket).getPublicUrl(path);
+    return _client.storage
+        .from(HomeStorage.postImagesBucket)
+        .getPublicUrl(path);
   }
 
   static String _fileExtensionForContentType(String contentType) {
@@ -230,58 +264,56 @@ class HomeDatasourceImpl implements HomeDatasource {
       throw StateError('Cannot react to a post while signed out.');
     }
 
-    final row = await _client
-        .from(HomeTable.posts)
-        .select(PostCols.likes)
-        .eq(PostCols.id, postId)
-        .maybeSingle();
-
-    if (row == null) {
-      throw StateError('Post not found: $postId');
-    }
-
-    final likes = _parseLikesField(row[PostCols.likes]);
-    final uidNorm = uid.trim().toLowerCase();
-    likes.removeWhere(
-      (e) => postReactionEntryUserId(e).trim().toLowerCase() == uidNorm,
-    );
-
     final r = reaction?.trim().toLowerCase();
     if (r != null && r.isNotEmpty) {
       if (!kPostReactionKeys.contains(r)) {
         throw ArgumentError.value(reaction, 'reaction', 'unknown reaction');
       }
-      likes.add(encodePostReactionEntry(uid, r));
     }
 
-    await _client
-        .from(HomeTable.posts)
-        .update({PostCols.likes: likes})
-        .eq(PostCols.id, postId);
+    // Use atomic SQL function (row lock) so concurrent reactions from different
+    // users do not overwrite each other.
+    await _client.rpc(
+      'set_post_reaction',
+      params: {'p_post_id': postId, 'p_reaction': r},
+    );
   }
 
   @override
-  Future<List<PostModel>> getPosts() async {
+  Future<List<PostModel>> getPosts({
+    required int limit,
+    required int offset,
+  }) async {
     final uid = _currentUserId;
     if (uid == null) {
       return const [];
     }
 
     final friendIds = await _acceptedFriendIdSet(uid);
-    final allowedAuthors = <String>[uid, ...friendIds];
+    final to = offset + limit - 1;
 
     final response = await _client
         .from(HomeTable.posts)
         .select(_postsSelect)
-        .inFilter(PostCols.userId, allowedAuthors)
+        .range(offset, to)
         .order(PostCols.createdAt, ascending: false);
 
     final rows = _asMapList(response);
-    return rows.map(_mapPostRow).toList(growable: false);
+    return rows
+        .map(_mapPostRow)
+        .where((post) {
+          if (post.postVisibility != 'friends') return true;
+          final authorId = post.userModel.id.trim();
+          if (authorId == uid) return true;
+          return friendIds.contains(authorId);
+        })
+        .toList(growable: false);
   }
 
   @override
-  Future<List<PeopleDiscoveryRow>> searchPeopleDiscovery(String rawQuery) async {
+  Future<List<PeopleDiscoveryRow>> searchPeopleDiscovery(
+    String rawQuery,
+  ) async {
     final uid = _currentUserId;
     if (uid == null) return const [];
 
@@ -313,17 +345,13 @@ class HomeDatasourceImpl implements HomeDatasource {
 
     final outgoingRaw = await _client
         .from(HomeTable.friendRequests)
-        .select(
-          '${FriendRequestCols.toUserId}, ${FriendRequestCols.status}',
-        )
+        .select('${FriendRequestCols.toUserId}, ${FriendRequestCols.status}')
         .eq(FriendRequestCols.fromUserId, uid)
         .inFilter(FriendRequestCols.toUserId, idList);
 
     final incomingRaw = await _client
         .from(HomeTable.friendRequests)
-        .select(
-          '${FriendRequestCols.fromUserId}, ${FriendRequestCols.status}',
-        )
+        .select('${FriendRequestCols.fromUserId}, ${FriendRequestCols.status}')
         .eq(FriendRequestCols.toUserId, uid)
         .inFilter(FriendRequestCols.fromUserId, idList);
 
@@ -334,8 +362,9 @@ class HomeDatasourceImpl implements HomeDatasource {
     for (final m in _asMapList(outgoingRaw)) {
       final tid = m[FriendRequestCols.toUserId]?.toString().trim() ?? '';
       if (tid.isEmpty) continue;
-      final st =
-          (m[FriendRequestCols.status]?.toString() ?? '').toLowerCase().trim();
+      final st = (m[FriendRequestCols.status]?.toString() ?? '')
+          .toLowerCase()
+          .trim();
       if (st == FriendRequestStatus.accepted) {
         linkById[tid] = PeopleDiscoveryLink.friend;
       } else if (st == FriendRequestStatus.pending) {
@@ -346,8 +375,9 @@ class HomeDatasourceImpl implements HomeDatasource {
     for (final m in _asMapList(incomingRaw)) {
       final fid = m[FriendRequestCols.fromUserId]?.toString().trim() ?? '';
       if (fid.isEmpty) continue;
-      final st =
-          (m[FriendRequestCols.status]?.toString() ?? '').toLowerCase().trim();
+      final st = (m[FriendRequestCols.status]?.toString() ?? '')
+          .toLowerCase()
+          .trim();
       if (st == FriendRequestStatus.accepted) {
         linkById[fid] = PeopleDiscoveryLink.friend;
       } else if (st == FriendRequestStatus.pending) {
@@ -365,8 +395,8 @@ class HomeDatasourceImpl implements HomeDatasource {
 
     out.sort(
       (a, b) => a.user.username.toLowerCase().compareTo(
-            b.user.username.toLowerCase(),
-          ),
+        b.user.username.toLowerCase(),
+      ),
     );
     return out;
   }
@@ -374,7 +404,9 @@ class HomeDatasourceImpl implements HomeDatasource {
   PostModel _mapPostRow(Map<String, dynamic> row) {
     final author = _firstProfileMap(row);
     final authorId =
-        author[ProfileCols.id]?.toString() ?? row[PostCols.userId]?.toString() ?? '';
+        author[ProfileCols.id]?.toString() ??
+        row[PostCols.userId]?.toString() ??
+        '';
     final user = _mergeSessionProfileIfNeeded(
       UserModel.fromJson({
         ProfileCols.id: authorId,
@@ -391,7 +423,8 @@ class HomeDatasourceImpl implements HomeDatasource {
         if (item is! Map) continue;
         final map = Map<String, dynamic>.from(item);
         final cAuthor = _firstProfileMap(map);
-        final commentAuthorId = cAuthor[ProfileCols.id]?.toString() ??
+        final commentAuthorId =
+            cAuthor[ProfileCols.id]?.toString() ??
             map[PostCommentCols.userId]?.toString() ??
             '';
         comments.add(
@@ -401,11 +434,13 @@ class HomeDatasourceImpl implements HomeDatasource {
                 ProfileCols.id: commentAuthorId,
                 ProfileCols.username:
                     cAuthor[ProfileCols.username]?.toString() ?? '',
-                ProfileCols.avatarUrl: cAuthor[ProfileCols.avatarUrl] as String?,
+                ProfileCols.avatarUrl:
+                    cAuthor[ProfileCols.avatarUrl] as String?,
               }),
               commentAuthorId,
             ),
-            comment: map[PostCommentCols.comment]?.toString() ??
+            comment:
+                map[PostCommentCols.comment]?.toString() ??
                 map['text']?.toString() ??
                 '',
           ),
@@ -422,7 +457,39 @@ class HomeDatasourceImpl implements HomeDatasource {
       comments: comments,
       createdAt: _parsePostCreatedAt(row[PostCols.createdAt]),
       allowShare: _parseAllowShareColumn(row[PostCols.allowShare]),
+      postVisibility: _normalizePostVisibility(row[PostCols.postVisibility]),
+      postType: _normalizePostType(row[PostCols.postType]),
+      adLink: _normalizeAdLink(row[PostCols.adLink]),
     );
+  }
+
+  static String _normalizePostVisibility(dynamic raw) {
+    final v = (raw?.toString() ?? '').trim().toLowerCase();
+    if (v == 'friends') return 'friends';
+    return 'general';
+  }
+
+  static String _normalizePostType(dynamic raw) {
+    final v = (raw?.toString() ?? '').trim().toLowerCase();
+    switch (v) {
+      case 'announcement':
+      case 'celebration':
+      case 'ads':
+        return v;
+      default:
+        return 'post';
+    }
+  }
+
+  static String? _normalizeAdLink(dynamic raw) {
+    final t = (raw?.toString() ?? '').trim();
+    if (t.isEmpty) return null;
+    final uri = Uri.tryParse(t);
+    if (uri == null) return null;
+    if ((uri.scheme != 'http' && uri.scheme != 'https') || uri.host.isEmpty) {
+      return null;
+    }
+    return t;
   }
 
   static bool _parseAllowShareColumn(dynamic raw) {
@@ -478,21 +545,20 @@ class HomeDatasourceImpl implements HomeDatasource {
     if (sessionUser == null) return user;
 
     final fromAuth = UserModel.fromSupabaseUser(sessionUser);
-    final emailLocal =
-        sessionUser.email?.split('@').first.trim() ?? '';
+    final emailLocal = sessionUser.email?.split('@').first.trim() ?? '';
 
     return UserModel(
       id: user.id,
       username: hasName
           ? user.username
           : (fromAuth.username.trim().isNotEmpty
-              ? fromAuth.username
-              : (emailLocal.isNotEmpty ? emailLocal : 'User')),
+                ? fromAuth.username
+                : (emailLocal.isNotEmpty ? emailLocal : 'User')),
       avatarUrl: hasAvatar
           ? user.avatarUrl
           : (fromAuth.avatarUrl != null && fromAuth.avatarUrl!.trim().isNotEmpty
-              ? fromAuth.avatarUrl
-              : null),
+                ? fromAuth.avatarUrl
+                : null),
     );
   }
 
@@ -541,9 +607,7 @@ class HomeDatasourceImpl implements HomeDatasource {
       });
     } on PostgrestException catch (e) {
       if (_isUniqueViolation(e)) {
-        throw StateError(
-          'A friend request with this user already exists.',
-        );
+        throw StateError('A friend request with this user already exists.');
       }
       rethrow;
     }
@@ -608,10 +672,7 @@ class HomeDatasourceImpl implements HomeDatasource {
         map[ProfileCols.pushNotificationsEnabled],
         defaultValue: true,
       );
-      user = _mergeSessionProfileIfNeeded(
-        UserModel.fromJson(map),
-        uid,
-      );
+      user = _mergeSessionProfileIfNeeded(UserModel.fromJson(map), uid);
     }
 
     final postsRes = await _client
@@ -665,9 +726,10 @@ class HomeDatasourceImpl implements HomeDatasource {
     if (uid == null) {
       throw StateError('Not signed in.');
     }
-    await _client.from(HomeTable.profiles).update({
-      ProfileCols.acceptsMatchInvites: accepts,
-    }).eq(ProfileCols.id, uid);
+    await _client
+        .from(HomeTable.profiles)
+        .update({ProfileCols.acceptsMatchInvites: accepts})
+        .eq(ProfileCols.id, uid);
   }
 
   @override
@@ -682,7 +744,10 @@ class HomeDatasourceImpl implements HomeDatasource {
     if (!enabled) {
       patch[ProfileCols.fcmToken] = null;
     }
-    await _client.from(HomeTable.profiles).update(patch).eq(ProfileCols.id, uid);
+    await _client
+        .from(HomeTable.profiles)
+        .update(patch)
+        .eq(ProfileCols.id, uid);
   }
 
   @override
@@ -714,13 +779,10 @@ class HomeDatasourceImpl implements HomeDatasource {
       patch[ProfileCols.avatarUrl] = newAvatarUrl;
     }
 
-    await _client.from(HomeTable.profiles).upsert(
-          {
-            ProfileCols.id: uid,
-            ...patch,
-          },
-          onConflict: ProfileCols.id,
-        );
+    await _client.from(HomeTable.profiles).upsert({
+      ProfileCols.id: uid,
+      ...patch,
+    }, onConflict: ProfileCols.id);
 
     final meta = <String, dynamic>{'username': name};
     if (newAvatarUrl != null) {
@@ -857,7 +919,11 @@ class HomeDatasourceImpl implements HomeDatasource {
     }
     final fid = friendUserId.trim();
     if (fid.isEmpty) {
-      throw ArgumentError.value(friendUserId, 'friendUserId', 'must not be empty');
+      throw ArgumentError.value(
+        friendUserId,
+        'friendUserId',
+        'must not be empty',
+      );
     }
 
     final row = await _client
@@ -947,9 +1013,10 @@ class HomeDatasourceImpl implements HomeDatasource {
     if (uid == null) {
       throw StateError('Not signed in.');
     }
-    await _client.from(HomeTable.profiles).update({
-      ProfileCols.teamSquad: squadJson,
-    }).eq(ProfileCols.id, uid);
+    await _client
+        .from(HomeTable.profiles)
+        .update({ProfileCols.teamSquad: squadJson})
+        .eq(ProfileCols.id, uid);
   }
 
   @override
@@ -970,10 +1037,7 @@ class HomeDatasourceImpl implements HomeDatasource {
   }) async {
     final raw = await _client.rpc(
       'train_team_player',
-      params: {
-        'p_slot': playerSlot,
-        'p_stat': statKey,
-      },
+      params: {'p_slot': playerSlot, 'p_stat': statKey},
     );
     if (raw is Map<String, dynamic>) return raw;
     if (raw is Map) return Map<String, dynamic>.from(raw);
@@ -986,7 +1050,11 @@ class HomeDatasourceImpl implements HomeDatasource {
   ) async {
     final id = opponentUserId.trim();
     if (id.isEmpty) {
-      throw ArgumentError.value(opponentUserId, 'opponentUserId', 'must not be empty');
+      throw ArgumentError.value(
+        opponentUserId,
+        'opponentUserId',
+        'must not be empty',
+      );
     }
     final raw = await _client.rpc(
       'claim_team_squad_spar',
@@ -1091,8 +1159,6 @@ class HomeDatasourceImpl implements HomeDatasource {
         .limit(limit);
 
     final rows = _asMapList(response);
-    return rows
-        .map(UserFeedNotificationModel.fromJson)
-        .toList(growable: false);
+    return rows.map(UserFeedNotificationModel.fromJson).toList(growable: false);
   }
 }

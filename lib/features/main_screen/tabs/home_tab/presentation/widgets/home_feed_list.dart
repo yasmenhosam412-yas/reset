@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:new_project/core/utils/pagination_consts.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_event.dart';
@@ -31,7 +32,7 @@ class HomeFeedList extends StatelessWidget {
   Future<void> _onRefresh(BuildContext context) async {
     final bloc = context.read<HomeBloc>();
     if (bloc.state.status == HomeStatus.loading) return;
-    bloc.add(HomePostsRequested());
+    bloc.add(HomePostsRequested(limit: PaginationConsts.limitPosts, offset: PaginationConsts.offsetPosts));
     await bloc.stream.firstWhere((s) => s.status != HomeStatus.loading);
   }
 

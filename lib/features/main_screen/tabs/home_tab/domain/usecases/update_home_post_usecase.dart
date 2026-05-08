@@ -17,6 +17,9 @@ class UpdateHomePostUsecase {
     String? imageContentType,
     bool clearImage = false,
     required bool allowShare,
+    String postVisibility = 'general',
+    String postType = 'post',
+    String? adLink,
   }) {
     return _homeRepository.updatePost(
       postId: postId,
@@ -25,6 +28,9 @@ class UpdateHomePostUsecase {
       imageContentType: imageContentType,
       clearImage: clearImage,
       allowShare: allowShare,
+      postVisibility: postVisibility,
+      postType: postType,
+      adLink: adLink,
     );
   }
 }

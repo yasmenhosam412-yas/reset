@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/domain/models/team_roster_player.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/presentation/widgets/team_pitch_lines_painter.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/presentation/widgets/team_player_token.dart';
@@ -19,6 +20,7 @@ class TeamPitchBoard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
@@ -64,7 +66,7 @@ class TeamPitchBoard extends StatelessWidget {
               top: 10,
               child: Row(
                 children: [
-                  _EndZoneTag(theme: theme, text: 'DEF'),
+                  _EndZoneTag(theme: theme, text: l10n.teamDefenseShort),
                   const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -85,7 +87,7 @@ class TeamPitchBoard extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  _EndZoneTag(theme: theme, text: 'ATK'),
+                  _EndZoneTag(theme: theme, text: l10n.teamAttackShort),
                 ],
               ),
             ),

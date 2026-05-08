@@ -5,6 +5,7 @@ import 'package:new_project/features/authentication/data/datasource/remote/auth_
 import 'package:new_project/features/authentication/data/repositories/auth_repository_impl.dart';
 import 'package:new_project/features/authentication/domain/repositories/auth_repository.dart';
 import 'package:new_project/features/authentication/domain/usecases/forgot_password_usecase.dart';
+import 'package:new_project/features/authentication/domain/usecases/delete_account_usecase.dart';
 import 'package:new_project/features/authentication/domain/usecases/login_usecase.dart';
 import 'package:new_project/features/authentication/domain/usecases/logout_usecase.dart';
 import 'package:new_project/features/authentication/domain/usecases/signup_usecase.dart';
@@ -77,6 +78,10 @@ void configureDependencies() {
     () => LogoutUsecase(authRepository: getIt<AuthRepository>()),
   );
 
+  getIt.registerLazySingleton<DeleteAccountUsecase>(
+    () => DeleteAccountUsecase(authRepository: getIt<AuthRepository>()),
+  );
+
   getIt.registerLazySingleton<ForgotPasswordUsecase>(
     () => ForgotPasswordUsecase(authRepository: getIt<AuthRepository>()),
   );
@@ -86,6 +91,7 @@ void configureDependencies() {
       loginUsecase: getIt(),
       signupUsecase: getIt(),
       logoutUsecase: getIt(),
+      deleteAccountUsecase: getIt(),
       forgotPasswordUsecase: getIt(),
     ),
   );

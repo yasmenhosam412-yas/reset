@@ -277,26 +277,29 @@ class _GoalFrame extends StatelessWidget {
           children: [
             CustomPaint(painter: _NetPainter(scheme: scheme)),
             if (dragNorm != null)
-              Row(
-                children: aimLanes == PenaltyAimLanes.wide5
-                    ? List.generate(
-                        5,
-                        (i) => Expanded(
-                          child: _ZoneHint(
-                            active: _activeFive(i, dragNorm!),
-                            dragging: dragging,
+              Directionality(
+                textDirection: TextDirection.ltr,
+                child: Row(
+                  children: aimLanes == PenaltyAimLanes.wide5
+                      ? List.generate(
+                          5,
+                          (i) => Expanded(
+                            child: _ZoneHint(
+                              active: _activeFive(i, dragNorm!),
+                              dragging: dragging,
+                            ),
+                          ),
+                        )
+                      : List.generate(
+                          3,
+                          (i) => Expanded(
+                            child: _ZoneHint(
+                              active: _activeThree(i, dragNorm!),
+                              dragging: dragging,
+                            ),
                           ),
                         ),
-                      )
-                    : List.generate(
-                        3,
-                        (i) => Expanded(
-                          child: _ZoneHint(
-                            active: _activeThree(i, dragNorm!),
-                            dragging: dragging,
-                          ),
-                        ),
-                      ),
+                ),
               ),
           ],
         ),

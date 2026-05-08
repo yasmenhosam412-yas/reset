@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/bottom_sheets/home_post_author_actions_sheet.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
@@ -25,12 +26,13 @@ void openAuthorPostsScreen({
         value: hostContext.read<HomeBloc>(),
         child: AuthorPostsScreen(
           authorId: id,
-          authorName: authorName.trim().isEmpty ? 'Posts' : authorName.trim(),
+          authorName: authorName.trim().isEmpty
+              ? hostContext.l10n.posts
+              : authorName.trim(),
           focusPostId: focus.isEmpty ? null : focus,
           commentController: commentController,
           openCommentsAfterScroll: openCommentsAfterScroll,
           onAuthorTapFromFeed: (PostModel p) {
-            Navigator.of(routeContext).pop();
             showHomePostAuthorActionsSheet(hostContext, p);
           },
         ),

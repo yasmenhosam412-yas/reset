@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 
 class HelpSupportPage extends StatelessWidget {
   const HelpSupportPage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Help & support'),
+        title: Text(l10n.helpSupport),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.pop(),
@@ -22,7 +24,7 @@ class HelpSupportPage extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
           Text(
-            'Get started',
+            l10n.helpGetStarted,
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w800,
             ),
@@ -31,42 +33,30 @@ class HelpSupportPage extends StatelessWidget {
           _FaqTile(
             scheme: scheme,
             theme: theme,
-            question: 'What are the main tabs?',
-            answer:
-                'Home is your social feed and friends. Online is live challenges '
-                'and games with people you know. Team is your six-player squad, '
-                'training, and squad battles. Profile is your account, requests, '
-                'and settings.',
+            question: l10n.helpQMainTabs,
+            answer: l10n.helpAMainTabs,
           ),
           _FaqTile(
             scheme: scheme,
             theme: theme,
-            question: 'How do I add friends?',
-            answer:
-                'Send a request from Home. The other person accepts under '
-                'Profile → Friend requests. You both need an account.',
+            question: l10n.helpQAddFriends,
+            answer: l10n.helpAAddFriends,
           ),
           _FaqTile(
             scheme: scheme,
             theme: theme,
-            question: 'How does the Team tab work?',
-            answer:
-                'Create a team, name your players, then train stats with skill '
-                'points. You can run daily challenges, lineup races, friend '
-                'spars, and a solo Academy friendly for extra points—check each '
-                'card for rules and limits.',
+            question: l10n.helpQTeamTab,
+            answer: l10n.helpATeamTab,
           ),
           _FaqTile(
             scheme: scheme,
             theme: theme,
-            question: 'Why can’t I save my squad?',
-            answer:
-                'Make sure you are signed in and online. Open Team after login so '
-                'your squad can sync to your profile.',
+            question: l10n.helpQSaveSquad,
+            answer: l10n.helpASaveSquad,
           ),
           const SizedBox(height: 8),
           Text(
-            'Troubleshooting',
+            l10n.helpTroubleshooting,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w800,
             ),
@@ -75,18 +65,14 @@ class HelpSupportPage extends StatelessWidget {
           _FaqTile(
             scheme: scheme,
             theme: theme,
-            question: 'Something looks stuck',
-            answer:
-                'Pull to refresh on Profile. For Online, use refresh where shown. '
-                'If a game won’t load, go back and open the challenge again.',
+            question: l10n.helpQStuck,
+            answer: l10n.helpAStuck,
           ),
           _FaqTile(
             scheme: scheme,
             theme: theme,
-            question: 'I signed out by accident',
-            answer:
-                'Sign in again from the login screen with the same email. Your '
-                'cloud data stays tied to your account.',
+            question: l10n.helpQSignedOut,
+            answer: l10n.helpASignedOut,
           ),
           const SizedBox(height: 20),
           Card(
@@ -102,7 +88,7 @@ class HelpSupportPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Contact',
+                    l10n.contact,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),

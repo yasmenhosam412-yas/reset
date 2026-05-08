@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 
 /// In-app summary of how the app handles account data and safety expectations.
 /// Replace with your lawyer-reviewed policy before production if required.
@@ -8,12 +9,13 @@ class PrivacySecurityPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Privacy & security'),
+        title: Text(l10n.privacySecurity),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.pop(),
@@ -24,7 +26,7 @@ class PrivacySecurityPage extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
           Text(
-            'Your account and data',
+            l10n.privacyYourAccountData,
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w800,
             ),
@@ -32,15 +34,13 @@ class PrivacySecurityPage extends StatelessWidget {
           const SizedBox(height: 10),
           _Paragraph(
             text:
-                'You sign in with email and password. Your session is managed '
-                'securely by our backend (Supabase Auth). We store the profile '
-                'information you choose to save, such as display name and avatar.',
+                l10n.privacyYourAccountDataBody,
             scheme: scheme,
             theme: theme,
           ),
           const SizedBox(height: 20),
           Text(
-            'What we use your data for',
+            l10n.privacyDataUsageTitle,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w800,
             ),
@@ -50,63 +50,23 @@ class PrivacySecurityPage extends StatelessWidget {
             scheme: scheme,
             theme: theme,
             text:
-                'Home and social features: posts, comments, likes, and friend requests.',
+                l10n.privacyDataUsageHome,
           ),
           _Bullet(
             scheme: scheme,
             theme: theme,
             text:
-                'Online play: challenges, match state, and related game records.',
+                l10n.privacyDataUsageOnline,
           ),
           _Bullet(
             scheme: scheme,
             theme: theme,
             text:
-                'Team mode: squad lineup, skill points, daily challenges, and leaderboards.',
+                l10n.privacyDataUsageTeam,
           ),
           const SizedBox(height: 20),
           Text(
-            'Friends and visibility',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _Paragraph(
-            text:
-                'When you accept a friend request, each of you can interact in '
-                'features that require friends (for example invites and team '
-                'battles). Declined requests are not shown as active connections.',
-            scheme: scheme,
-            theme: theme,
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'Security tips',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _Bullet(
-            scheme: scheme,
-            theme: theme,
-            text: 'Use a strong, unique password for this app.',
-          ),
-          _Bullet(
-            scheme: scheme,
-            theme: theme,
-            text: 'Sign out from Profile when using a shared device.',
-          ),
-          _Bullet(
-            scheme: scheme,
-            theme: theme,
-            text:
-                'If you suspect unauthorized access, change your password and sign out everywhere from your account provider if available.',
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'Questions',
+            l10n.privacyFriendsVisibilityTitle,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w800,
             ),
@@ -114,9 +74,45 @@ class PrivacySecurityPage extends StatelessWidget {
           const SizedBox(height: 8),
           _Paragraph(
             text:
-                'This screen is a product summary, not a legal contract. For '
-                'formal terms or data requests, contact the team that operates '
-                'this app and publish a full privacy policy where your users expect it.',
+                l10n.privacyFriendsVisibilityBody,
+            scheme: scheme,
+            theme: theme,
+          ),
+          const SizedBox(height: 20),
+          Text(
+            l10n.privacySecurityTipsTitle,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _Bullet(
+            scheme: scheme,
+            theme: theme,
+            text: l10n.privacyTipStrongPassword,
+          ),
+          _Bullet(
+            scheme: scheme,
+            theme: theme,
+            text: l10n.privacyTipSignOutShared,
+          ),
+          _Bullet(
+            scheme: scheme,
+            theme: theme,
+            text:
+                l10n.privacyTipUnauthorizedAccess,
+          ),
+          const SizedBox(height: 20),
+          Text(
+            l10n.privacyQuestionsTitle,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _Paragraph(
+            text:
+                l10n.privacyQuestionsBody,
             scheme: scheme,
             theme: theme,
           ),

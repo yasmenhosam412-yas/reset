@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:new_project/core/di/di.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/authentication/data/models/user_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/team_challenge_results.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/bloc/online_bloc.dart';
@@ -17,12 +18,13 @@ Color _battleAvatarColor(String name) {
   return Colors.primaries[i];
 }
 
-String _prettyStatKey(String k) {
+String _prettyStatKey(String k, BuildContext context) {
+  final l10n = context.l10n;
   switch (k) {
     case 'attack':
-      return 'ATK';
+      return l10n.teamAttackShort;
     case 'defense':
-      return 'DEF';
+      return l10n.teamDefenseShort;
     case 'speed':
       return 'SPD';
     case 'stamina':
@@ -32,10 +34,20 @@ String _prettyStatKey(String k) {
   }
 }
 
-String _statDeltaLine(TeamSquadSparStatDelta d, {required bool gain}) {
+String _statDeltaLine(
+  TeamSquadSparStatDelta d, {
+  required bool gain,
+  required BuildContext context,
+}) {
+  final l10n = context.l10n;
   final arrow = gain ? '↑' : '↓';
-  return 'Player ${d.slotIndex + 1}: ${_prettyStatKey(d.statKey)} $arrow '
-      '${d.before} → ${d.after}';
+  return l10n.teamBattleStatDelta(
+    d.slotIndex + 1,
+    _prettyStatKey(d.statKey, context),
+    arrow,
+    d.before,
+    d.after,
+  );
 }
 
 /// Skill-point battles: async squad spar vs friends + pointer to realtime Online duels.
@@ -68,28 +80,23 @@ class _TeamBattleActivitiesCardState extends State<TeamBattleActivitiesCard> {
   bool _academyScrimBusy = false;
 
   Future<void> _playAcademyScrim(BuildContext context) async {
+    final l10n = context.l10n;
     if (!widget.hasSquad || widget.ensureSquadSynced == null) return;
     final go = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Academy friendly'),
-        content: const SingleChildScrollView(
-          child: Text(
-            'A quick solo match vs a rotating reserve side. Same Power total as lineup races.\n\n'
-            '• Win: +18 skill pts · Tie: +12 · Loss: still +8\n'
-            '• No stat changes — just a fun daily warm-up\n'
-            '• Once per UTC day\n\n'
-            'Kick off?',
-          ),
+        title: Text(l10n.teamBattleAcademyFriendly),
+        content: SingleChildScrollView(
+          child: Text(l10n.teamBattleAcademyDialogBody),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Not now'),
+            child: Text(l10n.teamBattleNotNow),
           ),
           FilledButton.tonal(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Kick off'),
+            child: Text(l10n.teamBattleKickOff),
           ),
         ],
       ),
@@ -121,31 +128,26 @@ class _TeamBattleActivitiesCardState extends State<TeamBattleActivitiesCard> {
   }
 
   Future<void> _sparWithFriend(BuildContext context, UserModel friend) async {
+    final l10n = context.l10n;
     if (!widget.hasSquad || widget.ensureSquadSynced == null) return;
-    final name = friend.username.trim().isEmpty ? 'this friend' : friend.username;
+    final name = friend.username.trim().isEmpty
+        ? l10n.teamBattleThisFriend
+        : friend.username;
     final go = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Squad spar'),
+        title: Text(l10n.teamBattleSquadSpar),
         content: SingleChildScrollView(
-          child: Text(
-            'Both squads are scored with the same Power formula as lineup races '
-            "(sum of every player's ATK+DEF+SPD+STM).\n\n"
-            '• Win: +20 skill pts and +1 random stat (max 99)\n'
-            '• Tie: +8 skill pts each · stats unchanged\n'
-            '• Loss: −1 random stat (min 40)\n\n'
-            'One spar per friend pair per UTC day. Higher risk, bigger rush.\n\n'
-            'Challenge $name?',
-          ),
+          child: Text(l10n.teamBattleSquadSparDialogBody(name)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Battle'),
+            child: Text(l10n.battle),
           ),
         ],
       ),
@@ -174,22 +176,34 @@ class _TeamBattleActivitiesCardState extends State<TeamBattleActivitiesCard> {
         switch (ok.outcome) {
           case 'win':
             lines.add(
-              'Victory ${ok.myScore}–${ok.opponentScore}! +${ok.pointsAwarded} skill pts',
+              l10n.teamBattleVictory(
+                ok.myScore,
+                ok.opponentScore,
+                ok.pointsAwarded,
+              ),
             );
             if (ok.statBonus != null) {
-              lines.add(_statDeltaLine(ok.statBonus!, gain: true));
+              lines.add(
+                _statDeltaLine(ok.statBonus!, gain: true, context: context),
+              );
             }
           case 'lose':
-            lines.add('Defeat ${ok.myScore}–${ok.opponentScore}. Come back stronger tomorrow.');
+            lines.add(l10n.teamBattleDefeat(ok.myScore, ok.opponentScore));
             if (ok.statPenalty != null) {
-              lines.add(_statDeltaLine(ok.statPenalty!, gain: false));
+              lines.add(
+                _statDeltaLine(ok.statPenalty!, gain: false, context: context),
+              );
             }
           case 'tie':
             lines.add(
-              'Draw ${ok.myScore}–${ok.opponentScore} · +${ok.pointsAwarded} skill pts each',
+              l10n.teamBattleDraw(
+                ok.myScore,
+                ok.opponentScore,
+                ok.pointsAwarded,
+              ),
             );
           default:
-            lines.add('Spar settled · balance ${ok.balanceAfter}');
+            lines.add(l10n.teamBattleSparSettled(ok.balanceAfter));
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -204,6 +218,7 @@ class _TeamBattleActivitiesCardState extends State<TeamBattleActivitiesCard> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
@@ -237,15 +252,14 @@ class _TeamBattleActivitiesCardState extends State<TeamBattleActivitiesCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Battles for skill points',
+                          l10n.teamBattleBattlesForSkillPoints,
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w900,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Academy friendly for a relaxed daily match, friend spars for high stakes, '
-                          'and Online duels for the full rush.',
+                          l10n.teamBattleHeaderSubtitle,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
                             height: 1.35,
@@ -255,7 +269,7 @@ class _TeamBattleActivitiesCardState extends State<TeamBattleActivitiesCard> {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Refresh friends',
+                    tooltip: l10n.teamRefreshFriends,
                     onPressed: () => context.read<OnlineBloc>().add(
                           OnlineLoadRequested(),
                         ),
@@ -275,21 +289,21 @@ class _TeamBattleActivitiesCardState extends State<TeamBattleActivitiesCard> {
                     scheme: scheme,
                     theme: theme,
                     icon: Icons.trending_up_rounded,
-                    label: 'Win: pts + buff',
+                    label: l10n.teamBattleChipWin,
                     color: scheme.primary,
                   ),
                   _StakesChip(
                     scheme: scheme,
                     theme: theme,
                     icon: Icons.balance_rounded,
-                    label: 'Tie: safe pts',
+                    label: l10n.teamBattleChipTie,
                     color: scheme.tertiary,
                   ),
                   _StakesChip(
                     scheme: scheme,
                     theme: theme,
                     icon: Icons.trending_down_rounded,
-                    label: 'Loss: stat hit',
+                    label: l10n.teamBattleChipLoss,
                     color: scheme.error,
                   ),
                 ],
@@ -309,15 +323,14 @@ class _TeamBattleActivitiesCardState extends State<TeamBattleActivitiesCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Academy friendly',
+                          l10n.teamBattleAcademyFriendly,
                           style: theme.textTheme.labelLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Solo scrim vs a named reserve side. Scores tick up live — '
-                          'no roster risk, and you always earn skill points.',
+                          l10n.teamBattleAcademySubtitle,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
                             height: 1.35,
@@ -337,21 +350,21 @@ class _TeamBattleActivitiesCardState extends State<TeamBattleActivitiesCard> {
                     scheme: scheme,
                     theme: theme,
                     icon: Icons.sentiment_satisfied_rounded,
-                    label: 'No stat risk',
+                    label: l10n.teamBattleChipNoStatRisk,
                     color: scheme.tertiary,
                   ),
                   _StakesChip(
                     scheme: scheme,
                     theme: theme,
                     icon: Icons.today_rounded,
-                    label: 'Daily once',
+                    label: l10n.teamBattleChipDailyOnce,
                     color: scheme.primary,
                   ),
                   _StakesChip(
                     scheme: scheme,
                     theme: theme,
                     icon: Icons.stars_rounded,
-                    label: 'Always +pts',
+                    label: l10n.teamBattleChipAlwaysPts,
                     color: scheme.secondary,
                   ),
                 ],
@@ -397,14 +410,14 @@ class _TeamBattleActivitiesCardState extends State<TeamBattleActivitiesCard> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Kick off vs Academy XI',
+                                  l10n.teamBattleKickOffAcademy,
                                   style: theme.textTheme.titleSmall?.copyWith(
                                     fontWeight: FontWeight.w900,
                                     color: scheme.onTertiaryContainer,
                                   ),
                                 ),
                                 Text(
-                                  'Tap for the animated scoreboard',
+                                  l10n.teamBattleTapAnimatedScoreboard,
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: scheme.onTertiaryContainer
                                         .withValues(alpha: 0.85),
@@ -433,7 +446,7 @@ class _TeamBattleActivitiesCardState extends State<TeamBattleActivitiesCard> {
               ),
               const SizedBox(height: 18),
               Text(
-                'Squad spar (friends)',
+                l10n.teamBattleSquadSparFriends,
                 style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -459,7 +472,7 @@ class _TeamBattleActivitiesCardState extends State<TeamBattleActivitiesCard> {
                   }
                   if (state.friends.isEmpty) {
                     return Text(
-                      'Add friends from Home, then refresh. You need a saved squad and an accepted friend with a squad.',
+                      l10n.teamBattleAddFriendsHint,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                         height: 1.35,
@@ -510,15 +523,14 @@ class _TeamBattleActivitiesCardState extends State<TeamBattleActivitiesCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Live duels (Online tab)',
+                          l10n.teamBattleLiveDuels,
                           style: theme.textTheme.labelLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Penalty, rock–paper–scissors, fantasy cards — head-to-head matches. '
-                          'Random roster stat swings apply in friend spar above; live games fuel your daily "Match-day rhythm" claim.',
+                          l10n.teamBattleLiveDuelsSubtitle,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
                             height: 1.35,
@@ -588,7 +600,8 @@ class _SparFriendChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = friend.username.trim().isEmpty ? 'Player' : friend.username;
+    final l10n = context.l10n;
+    final label = friend.username.trim().isEmpty ? l10n.player : friend.username;
     final avatarUrl = friend.avatarUrl?.trim();
     final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
 
@@ -642,7 +655,7 @@ class _SparFriendChip extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Battle',
+                  l10n.battle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
@@ -705,17 +718,18 @@ class _AcademyScrimRevealDialogState extends State<_AcademyScrimRevealDialog>
     super.dispose();
   }
 
-  String _outcomeLine() {
+  String _outcomeLine(BuildContext context) {
+    final l10n = context.l10n;
     final r = widget.result;
     switch (r.outcome) {
       case 'win':
-        return 'Win — your Power edged them out!';
+        return l10n.teamBattleOutcomeWin;
       case 'lose':
-        return 'Narrow loss — reserve side had the edge today.';
+        return l10n.teamBattleOutcomeLose;
       case 'tie':
-        return 'Dead heat — split the difference.';
+        return l10n.teamBattleOutcomeTie;
       default:
-        return 'Match complete';
+        return l10n.teamBattleOutcomeComplete;
     }
   }
 
@@ -732,6 +746,7 @@ class _AcademyScrimRevealDialogState extends State<_AcademyScrimRevealDialog>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final r = widget.result;
@@ -748,7 +763,7 @@ class _AcademyScrimRevealDialogState extends State<_AcademyScrimRevealDialog>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Academy friendly',
+                  l10n.teamBattleAcademyFriendly,
                   style: theme.textTheme.labelLarge?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: scheme.onSurfaceVariant,
@@ -756,7 +771,7 @@ class _AcademyScrimRevealDialogState extends State<_AcademyScrimRevealDialog>
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'You vs ${r.opponentName}',
+                  l10n.teamBattleYouVs(r.opponentName),
                   textAlign: TextAlign.center,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w900,
@@ -769,7 +784,7 @@ class _AcademyScrimRevealDialogState extends State<_AcademyScrimRevealDialog>
                       child: Column(
                         children: [
                           Text(
-                            'Your squad',
+                            l10n.teamBattleYourSquad,
                             style: theme.textTheme.labelMedium?.copyWith(
                               color: scheme.onSurfaceVariant,
                             ),
@@ -800,7 +815,7 @@ class _AcademyScrimRevealDialogState extends State<_AcademyScrimRevealDialog>
                       child: Column(
                         children: [
                           Text(
-                            'Their Power',
+                            l10n.teamBattleTheirPower,
                             style: theme.textTheme.labelMedium?.copyWith(
                               color: scheme.onSurfaceVariant,
                             ),
@@ -826,7 +841,7 @@ class _AcademyScrimRevealDialogState extends State<_AcademyScrimRevealDialog>
                   child: Column(
                     children: [
                       Text(
-                        _outcomeLine(),
+                        _outcomeLine(context),
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w700,
@@ -836,7 +851,10 @@ class _AcademyScrimRevealDialogState extends State<_AcademyScrimRevealDialog>
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        '+${r.pointsAwarded} skill pts · balance ${r.balanceAfter}',
+                        l10n.teamBattlePointsBalance(
+                          r.pointsAwarded,
+                          r.balanceAfter,
+                        ),
                         textAlign: TextAlign.center,
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w800,
@@ -848,7 +866,7 @@ class _AcademyScrimRevealDialogState extends State<_AcademyScrimRevealDialog>
                 const SizedBox(height: 20),
                 FilledButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Nice'),
+                  child: Text(l10n.nice),
                 ),
               ],
             ),

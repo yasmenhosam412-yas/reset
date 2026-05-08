@@ -8,6 +8,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:new_project/core/di/di.dart';
+import 'package:new_project/core/l10n/app_locale_controller.dart';
+import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/core/widgets/tab_loading_skeletons.dart';
 import 'package:new_project/core/routing/app_router.dart';
 import 'package:new_project/features/authentication/presentation/controller/auth_bloc.dart';
@@ -23,6 +25,7 @@ import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/w
 import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/widgets/profile_preferences_card.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/widgets/profile_section_sliver.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/widgets/profile_sign_out_button.dart';
+import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/widgets/profile_delete_account_button.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/navigation/open_author_posts_screen.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/pages/profile_friends_screen.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/pages/profile_online_challenges_screen.dart';
@@ -93,11 +96,9 @@ class _ProfileTabState extends State<ProfileTab> {
   }
 
   Future<void> _openStoreListing(BuildContext context) async {
+    final l10n = context.l10n;
     if (kIsWeb) {
-      _showSnack(
-        context,
-        'Rate us from your phone’s app store once the app is published.',
-      );
+      _showSnack(context, l10n.rateAppFromPhoneHint);
       return;
     }
     final uri = Uri.parse(
@@ -108,22 +109,23 @@ class _ProfileTabState extends State<ProfileTab> {
     final ok = await canLaunchUrl(uri);
     if (!context.mounted) return;
     if (!ok) {
-      _showSnack(context, 'Could not open the store link.');
+      _showSnack(context, l10n.couldNotOpenStoreLink);
       return;
     }
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
-  void _onAccountRowTap(BuildContext context, String title) {
-    switch (title) {
-      case 'Privacy & security':
+  void _onAccountRowTap(BuildContext context, int index) {
+    final l10n = context.l10n;
+    switch (index) {
+      case 0:
         context.push(AppRouter.privacySecurityPath);
-      case 'Rate the app':
+      case 1:
         unawaited(_openStoreListing(context));
-      case 'Help & support':
+      case 2:
         context.push(AppRouter.helpSupportPath);
       default:
-        _showSnack(context, 'Coming soon.');
+        _showSnack(context, l10n.comingSoon);
     }
   }
 
@@ -134,6 +136,10 @@ class _ProfileTabState extends State<ProfileTab> {
     required ProfileDashboardModel dashboard,
     required ProfileState state,
   }) {
+    final l10n = context.l10n;
+    final currentCode =
+        AppLocaleController.instance.locale?.languageCode ??
+        Localizations.localeOf(context).languageCode;
     final requests = dashboard.incomingFriendRequests;
 
     return [
@@ -141,7 +147,7 @@ class _ProfileTabState extends State<ProfileTab> {
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
         sliver: SliverToBoxAdapter(
           child: Text(
-            'Profile',
+            l10n.profile,
             style: theme.textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.w900,
             ),
@@ -160,7 +166,7 @@ class _ProfileTabState extends State<ProfileTab> {
           ),
         ),
       ),
-      profileSectionTitleSliver(theme, 'Overview', top: 22),
+      profileSectionTitleSliver(theme, l10n.overview, top: 22),
       SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         sliver: SliverToBoxAdapter(
@@ -169,11 +175,11 @@ class _ProfileTabState extends State<ProfileTab> {
             scheme: scheme,
             stats: dashboard.stats,
             onPostsTap: () => openAuthorPostsScreen(
-                  context: context,
-                  authorId: dashboard.user.id,
-                  authorName: dashboard.user.username,
-                  commentController: _authorPostsCommentController,
-                ),
+              context: context,
+              authorId: dashboard.user.id,
+              authorName: dashboard.user.username,
+              commentController: _authorPostsCommentController,
+            ),
             onFriendsTap: () {
               Navigator.of(context).push<void>(
                 MaterialPageRoute<void>(
@@ -191,13 +197,13 @@ class _ProfileTabState extends State<ProfileTab> {
           ),
         ),
       ),
-      profileSectionTitleSliver(theme, 'Friend requests', top: 26),
+      profileSectionTitleSliver(theme, l10n.friendRequests, top: 26),
       if (requests.isEmpty)
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           sliver: SliverToBoxAdapter(
             child: Text(
-              'No pending friend requests.',
+              l10n.noPendingFriendRequests,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
@@ -222,7 +228,7 @@ class _ProfileTabState extends State<ProfileTab> {
             },
           ),
         ),
-      profileSectionTitleSliver(theme, 'Preferences', top: 26),
+      profileSectionTitleSliver(theme, l10n.preferences, top: 26),
       SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         sliver: SliverToBoxAdapter(
@@ -237,13 +243,57 @@ class _ProfileTabState extends State<ProfileTab> {
           ),
         ),
       ),
-      profileSectionTitleSliver(theme, 'Account', top: 26),
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+        sliver: SliverToBoxAdapter(
+          child: Card(
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.language,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SegmentedButton<String>(
+                    segments: [
+                      ButtonSegment<String>(
+                        value: 'en',
+                        label: Text(l10n.english),
+                      ),
+                      ButtonSegment<String>(
+                        value: 'ar',
+                        label: Text(l10n.arabic),
+                      ),
+                    ],
+                    selected: {currentCode == 'ar' ? 'ar' : 'en'},
+                    onSelectionChanged: (values) {
+                      if (values.isEmpty) return;
+                      unawaited(
+                        AppLocaleController.instance.setLocaleCode(
+                          values.first,
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+      profileSectionTitleSliver(theme, l10n.account, top: 26),
       SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         sliver: SliverToBoxAdapter(
           child: ProfileAccountSettingsCard(
             scheme: scheme,
-            onItemTap: (title) => _onAccountRowTap(context, title),
+            onItemTap: (index) => _onAccountRowTap(context, index),
           ),
         ),
       ),
@@ -262,13 +312,17 @@ class _ProfileTabState extends State<ProfileTab> {
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
         sliver: SliverToBoxAdapter(
-          child: ProfileSignOutButton(
-            scheme: scheme,
-            onConfirmed: () async {
-              _showSnack(context, 'Signed out');
-              context.read<AuthBloc>().add(AuthLogoutEvent());
-              context.go(AppRouter.loginPath);
-            },
+          child: Column(
+            children: [
+              ProfileSignOutButton(
+                scheme: scheme,
+                onConfirmed: () async {
+                  context.read<AuthBloc>().add(AuthLogoutEvent());
+                },
+              ),
+              const SizedBox(height: 12),
+              ProfileDeleteAccountButton(scheme: scheme),
+            ],
           ),
         ),
       ),
@@ -277,6 +331,7 @@ class _ProfileTabState extends State<ProfileTab> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
@@ -291,7 +346,14 @@ class _ProfileTabState extends State<ProfileTab> {
         listener: (context, state) {
           final err = state.errorMessage;
           if (err != null) _showSnack(context, err);
-          final ok = state.successMessage;
+          final ok = switch (state.successType) {
+            ProfileSuccessType.friendRequestAccepted =>
+              l10n.friendRequestAccepted,
+            ProfileSuccessType.friendRequestDeclined =>
+              l10n.friendRequestDeclined,
+            ProfileSuccessType.profileUpdated => l10n.profileUpdated,
+            null => state.successMessage,
+          };
           if (ok != null) _showSnack(context, ok);
         },
         builder: (context, state) {
@@ -305,7 +367,7 @@ class _ProfileTabState extends State<ProfileTab> {
           if (state.status == ProfileStatus.failure &&
               state.dashboard == null) {
             return ProfileErrorView(
-              message: state.errorMessage ?? 'Could not load profile',
+              message: state.errorMessage ?? l10n.couldNotLoadProfile,
               onRetry: () => _bloc.add(ProfileLoadRequested()),
             );
           }
@@ -364,7 +426,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   Uint8List? _pickedBytes;
   String? _pickedContentType;
-  String _pickedLabel = 'No new photo';
+  String _pickedLabel = '';
 
   @override
   void initState() {
@@ -380,9 +442,10 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     return AlertDialog(
-      title: const Text('Edit profile'),
+      title: Text(l10n.editProfile),
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
@@ -392,17 +455,32 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
             children: [
               TextFormField(
                 controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: 'Display name'),
-                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(labelText: '', hintText: '')
+                    .copyWith(
+                      labelText: l10n.username,
+                      hintText: l10n.usernameAllowedHint,
+                    ),
+                textCapitalization: TextCapitalization.none,
+                autocorrect: false,
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) {
-                    return 'Enter a name';
+                  final name = (v ?? '').trim();
+                  if (name.isEmpty) {
+                    return l10n.enterUsername;
                   }
+                  if (name.length < 3) {
+                    return l10n.usernameAtLeast3;
+                  }
+                  // if (!_usernamePattern.hasMatch(name)) {
+                  //   return l10n.usernameAllowedChars;
+                  // }
                   return null;
                 },
               ),
               const SizedBox(height: 16),
-              Text(_pickedLabel, style: theme.textTheme.bodySmall),
+              Text(
+                _pickedLabel.isEmpty ? l10n.noNewPhoto : _pickedLabel,
+                style: theme.textTheme.bodySmall,
+              ),
               const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: () async {
@@ -418,11 +496,11 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                   setState(() {
                     _pickedBytes = bytes;
                     _pickedContentType = ct;
-                    _pickedLabel = 'New photo selected';
+                    _pickedLabel = l10n.newPhotoSelected;
                   });
                 },
                 icon: const Icon(Icons.photo_outlined),
-                label: const Text('Choose profile photo'),
+                label: Text(l10n.chooseProfilePhoto),
               ),
             ],
           ),
@@ -431,7 +509,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(l10n.cancel),
         ),
         FilledButton(
           onPressed: () {
@@ -445,7 +523,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
               ),
             );
           },
-          child: const Text('Save'),
+          child: Text(l10n.save),
         ),
       ],
     );
