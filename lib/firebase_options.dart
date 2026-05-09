@@ -53,7 +53,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyB81847HksYt8k6kgc64hbObOAu1OTNZp4',
-    appId: '1:730383670245:android:8bb8808d1030161de16d0c',
+    appId: '1:730383670245:android:a928842d21dff8cfe16d0c',
     messagingSenderId: '730383670245',
     projectId: 'football-21204',
     databaseURL: 'https://football-21204-default-rtdb.firebaseio.com',

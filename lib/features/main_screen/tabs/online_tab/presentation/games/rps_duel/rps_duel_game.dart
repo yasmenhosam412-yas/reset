@@ -72,6 +72,7 @@ class RpsDuelGame extends StatefulWidget {
 
 class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin {
   final _rng = math.Random();
+  static const int _pickSecondsPerRound = 5;
 
   /// Last completed throws (for the “paper covers rock” clash vignette).
   String? _duelFromPick;
@@ -93,6 +94,9 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
 
   Timer? _poll;
   Timer? _aiTimer;
+  Timer? _pickCountdownTimer;
+  int _pickSecondsLeft = _pickSecondsPerRound;
+  int _pickTimerRoundSeq = -1;
 
   OnlineRepository get _repo => widget.online!.repository;
   String get _cid => widget.online!.challengeId;
@@ -156,17 +160,60 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
         unawaited(_pollRemote());
       });
     }
+    _syncPickTimer();
+  }
+
+  void _syncPickTimer() {
+    if (!mounted) return;
+    final revealVisible = _duelFromPick != null || _duelToPick != null;
+    if (_status == 'done' || !_canPickThisRound || revealVisible) {
+      _pickCountdownTimer?.cancel();
+      _pickCountdownTimer = null;
+      return;
+    }
+    if (_pickTimerRoundSeq != _roundSeq || _pickCountdownTimer == null) {
+      _pickTimerRoundSeq = _roundSeq;
+      _pickSecondsLeft = _pickSecondsPerRound;
+      _pickCountdownTimer?.cancel();
+      _pickCountdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted || _status == 'done' || !_canPickThisRound) {
+          _pickCountdownTimer?.cancel();
+          _pickCountdownTimer = null;
+          return;
+        }
+        if (_pickSecondsLeft <= 1) {
+          _pickCountdownTimer?.cancel();
+          _pickCountdownTimer = null;
+          final forced = RpsDuelGame.picks[_rng.nextInt(RpsDuelGame.picks.length)];
+          unawaited(_onPick(forced));
+          return;
+        }
+        setState(() => _pickSecondsLeft--);
+      });
+      setState(() {});
+    }
   }
 
   Future<void> _bootstrapOnline() async {
     await _repo.ensureRpsSession(challengeId: _cid);
     final r = await _repo.fetchRpsSession(challengeId: _cid);
-    await r.fold((_) async {}, (m) async {
+    await r.fold((failure) async {
+      if (!mounted) return;
+      if (_looksLikeOpponentLeftMessage(failure.message)) {
+        setState(() {
+          _status = 'done';
+          _busy = false;
+          _banner = context.l10n.opponentLeftMatch;
+        });
+        _syncPickTimer();
+      }
+    }, (m) async {
       if (!mounted || m == null) return;
       setState(() {
         _applySession(m);
         _lastResolvedRoundSeq = m.roundSeq;
       });
+      _syncPickTimer();
     });
   }
 
@@ -194,11 +241,23 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
   Future<void> _pollRemote() async {
     if (!_online || !mounted || _busy) return;
     final r = await _repo.fetchRpsSession(challengeId: _cid);
-    await r.fold((_) async {}, (m) async {
+    await r.fold((failure) async {
+      if (!mounted) return;
+      if (_looksLikeOpponentLeftMessage(failure.message)) {
+        setState(() {
+          _status = 'done';
+          _busy = false;
+          _banner = context.l10n.opponentLeftMatch;
+        });
+        _syncPickTimer();
+      }
+    }, (m) async {
       if (!mounted || m == null) return;
       final prevFrom = _scoreFrom;
       final prevTo = _scoreTo;
       final prevResolved = _lastResolvedRoundSeq;
+      final prevFromPick = _fromPick;
+      final prevToPick = _toPick;
       setState(() {
         _applySession(m);
         if (prevResolved < 0) {
@@ -216,7 +275,8 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
             m.scoreFrom,
             m.scoreTo,
           );
-          final mySide = _asFrom ? _fromPick : _toPick;
+          // Use pre-apply picks; server clears picks on round resolve.
+          final mySide = _asFrom ? prevFromPick : prevToPick;
           if (rw != null && mySide != null) {
             final opp = RpsDuelGame.inferOpponentPick(
               myPick: mySide,
@@ -241,6 +301,7 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
           _hapticRoundResult(rw, online: true);
         }
       });
+      _syncPickTimer();
     });
   }
 
@@ -283,6 +344,7 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
         _banner = null;
         _fromPick = pick;
       });
+      _syncPickTimer();
       _aiTimer?.cancel();
       _aiTimer = Timer(
         Duration(milliseconds: 380 + _rng.nextInt(520)),
@@ -292,6 +354,7 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
     }
 
     setState(() => _busy = true);
+    _syncPickTimer();
     final res = await _repo.submitRpsPick(
       challengeId: _cid,
       asFrom: _asFrom,
@@ -302,8 +365,9 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
       (failure) {
         setState(() {
           _busy = false;
-          _banner = failure.message;
+          _banner = _friendlyServerMessage(failure.message);
         });
+        _syncPickTimer();
         HapticFeedback.heavyImpact();
       },
       (resp) {
@@ -312,6 +376,7 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
             _busy = false;
             _banner = _errorToUser(resp.error);
           });
+          _syncPickTimer();
           HapticFeedback.heavyImpact();
           return;
         }
@@ -348,6 +413,7 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
           }
           _busy = false;
         });
+        _syncPickTimer();
       },
     );
   }
@@ -415,11 +481,13 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
         if (mounted) _kickPickRowIntro();
       });
     }
+    _syncPickTimer();
   }
 
   String? _errorToUser(String? code) {
     final l10n = context.l10n;
-    switch (code) {
+    final normalized = (code ?? '').trim().toLowerCase();
+    switch (normalized) {
       case 'invalid_pick':
         return l10n.rpsInvalidThrow;
       case 'not_participant':
@@ -429,8 +497,59 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
       case 'already_submitted':
         return l10n.rpsAlreadyLockedForRound;
       default:
-        return code ?? l10n.somethingWentWrong;
+        if (normalized.contains('not_participant') ||
+            normalized.contains('not participant')) {
+          return l10n.rpsNotInThisMatch;
+        }
+        if (normalized.contains('match_over') ||
+            normalized.contains('match over') ||
+            normalized.contains('query returned no rows') ||
+            normalized.contains('unexpected missing match data') ||
+            normalized.contains('missing match data') ||
+            normalized.contains('already finished') ||
+            normalized.contains('cancelled') ||
+            normalized.contains('canceled') ||
+            normalized.contains('not found')) {
+          return l10n.opponentLeftMatch;
+        }
+        if (normalized.contains('already_submitted') ||
+            normalized.contains('already submitted') ||
+            normalized.contains('already locked')) {
+          return l10n.rpsAlreadyLockedForRound;
+        }
+        return l10n.somethingWentWrong;
     }
+  }
+
+  String _friendlyServerMessage(String? raw) {
+    final n = (raw ?? '').trim().toLowerCase();
+    if (n.contains('internal server error') ||
+        n.contains('server error') ||
+        n.contains('500') ||
+        n.contains('query returned no rows') ||
+        n.contains('unexpected missing match data') ||
+        n.contains('missing match data')) {
+      // Common when the opponent has already left/cancelled the match.
+      return context.l10n.opponentLeftMatch;
+    }
+    return _errorToUser(raw) ?? context.l10n.somethingWentWrong;
+  }
+
+  bool _looksLikeOpponentLeftMessage(String? raw) {
+    final n = (raw ?? '').trim().toLowerCase();
+    if (n.isEmpty) return false;
+    return n.contains('query returned no rows') ||
+        n.contains('unexpected missing match data') ||
+        n.contains('missing match data') ||
+        n.contains('not found') ||
+        n.contains('match_over') ||
+        n.contains('match over') ||
+        n.contains('already finished') ||
+        n.contains('cancelled') ||
+        n.contains('canceled') ||
+        n.contains('internal server error') ||
+        n.contains('server error') ||
+        n.contains('500');
   }
 
   String _roundMessage(int? roundWinner, {required bool online}) {
@@ -458,10 +577,13 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
       final res = await _repo.resetRpsMatch(challengeId: _cid);
       if (!mounted) return;
       res.fold(
-        (_) {
+        (failure) {
           setState(() {
-            _banner = context.l10n.couldNotResetBout;
+            _banner = _looksLikeOpponentLeftMessage(failure.message)
+                ? context.l10n.opponentLeftMatch
+                : context.l10n.couldNotResetBout;
           });
+          _syncPickTimer();
         },
         (_) {
           if (widget.onPlayAgain != null) {
@@ -473,6 +595,7 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
                 _banner = null;
                 _busy = false;
               });
+              _syncPickTimer();
             }
           }
         },
@@ -491,6 +614,7 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
         _toPick = null;
         _banner = null;
       });
+      _syncPickTimer();
     }
   }
 
@@ -509,6 +633,7 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
         _duelFromPick = null;
         _duelToPick = null;
       });
+      _syncPickTimer();
     });
   }
 
@@ -516,6 +641,7 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
   void dispose() {
     _poll?.cancel();
     _aiTimer?.cancel();
+    _pickCountdownTimer?.cancel();
     _duelRevealClear?.cancel();
     _duelCtrl.dispose();
     _pickIntroCtrl.dispose();
@@ -783,6 +909,30 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
                       height: 1.25,
                     ),
                   ),
+                  if (_status != 'done' && _canPickThisRound) ...[
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.timer_rounded,
+                          size: 14,
+                          color: _pickSecondsLeft <= 4
+                              ? scheme.error
+                              : scheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          l10n.secondsShort(_pickSecondsLeft),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: _pickSecondsLeft <= 4
+                                ? scheme.error
+                                : scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -862,6 +1012,12 @@ class _RpsDuelGameState extends State<RpsDuelGame> with TickerProviderStateMixin
             theme: theme,
             fromPick: _duelFromPick!,
             toPick: _duelToPick!,
+            challengerName: _online
+                ? (_asFrom ? l10n.you : widget.opponentName)
+                : l10n.you,
+            hostName: _online
+                ? (_asFrom ? widget.opponentName : l10n.you)
+                : widget.opponentName,
             animation: _duelCtrl,
           ),
       ],
@@ -1964,6 +2120,8 @@ class _RpsRoundClashOverlay extends StatelessWidget {
     required this.theme,
     required this.fromPick,
     required this.toPick,
+    required this.challengerName,
+    required this.hostName,
     required this.animation,
   });
 
@@ -1971,6 +2129,8 @@ class _RpsRoundClashOverlay extends StatelessWidget {
   final ThemeData theme;
   final String fromPick;
   final String toPick;
+  final String challengerName;
+  final String hostName;
   final Animation<double> animation;
 
   static IconData _iconFor(String pick) {
@@ -1997,6 +2157,40 @@ class _RpsRoundClashOverlay extends StatelessWidget {
     }
     if (rw == 0) return l10n.rpsChallengerWinsThrow;
     return l10n.rpsHostWinsThrow;
+  }
+
+  String _pickLabel(BuildContext context, String pick) {
+    final l10n = context.l10n;
+    switch (pick) {
+      case 'rock':
+        return l10n.rpsRock;
+      case 'paper':
+        return l10n.rpsPaper;
+      case 'scissors':
+        return l10n.rpsScissors;
+      default:
+        return pick;
+    }
+  }
+
+  String _winnerDetailLine(BuildContext context, int rw) {
+    if (rw == -1) return context.l10n.drawReplayRound;
+    final winner = rw == 0 ? challengerName : hostName;
+    return winner;
+  }
+
+  String _whyLine(BuildContext context, String winnerPick, String loserPick) {
+    final l10n = context.l10n;
+    if (winnerPick == 'paper' && loserPick == 'rock') {
+      return '${l10n.rpsPaper} ${l10n.coversRock}';
+    }
+    if (winnerPick == 'rock' && loserPick == 'scissors') {
+      return '${l10n.rpsRock} ${l10n.crushesScissors}';
+    }
+    if (winnerPick == 'scissors' && loserPick == 'paper') {
+      return '${l10n.rpsScissors} ${l10n.cutsPaper}';
+    }
+    return '';
   }
 
   @override
@@ -2127,6 +2321,36 @@ class _RpsRoundClashOverlay extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 16),
+                      Text(
+                        '$challengerName: ${_pickLabel(context, fromPick)}   vs   $hostName: ${_pickLabel(context, toPick)}',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (rw != -1) ...[
+                        Builder(
+                          builder: (context) {
+                            final winnerPick = rw == 0 ? fromPick : toPick;
+                            final loserPick = rw == 0 ? toPick : fromPick;
+                            final why = _whyLine(context, winnerPick, loserPick);
+                            if (why.isEmpty) return const SizedBox.shrink();
+                            return Text(
+                              '${_winnerDetailLine(context, rw)} - $why',
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: scheme.primary,
+                                height: 1.3,
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                      ],
                       Text(
                         _outcomeLine(context, fromPick, toPick, rw),
                         textAlign: TextAlign.center,

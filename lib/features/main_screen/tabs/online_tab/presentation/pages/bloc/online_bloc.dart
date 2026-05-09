@@ -259,7 +259,7 @@ class OnlineBloc extends Bloc<OnlineEvent, OnlineState> {
       },
       (_) async {
         final raw = event.friend.username.trim();
-        final short = raw.isEmpty ? 'your friend' : raw.split(' ').first;
+        final short = raw.isEmpty ? '' : raw.split(' ').first;
         emit(
           state.copyWith(
             successType: OnlineSuccessType.challengeSent,
@@ -295,7 +295,7 @@ class OnlineBloc extends Bloc<OnlineEvent, OnlineState> {
         if (!event.accept) {
           emit(
             state.copyWith(
-              successMessage: 'Challenge declined',
+              successType: OnlineSuccessType.challengeDeclined,
               clearError: true,
             ),
           );
@@ -337,9 +337,7 @@ class OnlineBloc extends Bloc<OnlineEvent, OnlineState> {
           } else {
             emit(
               state.copyWith(
-                successMessage:
-                    'Match accepted. You already have other active matches—'
-                    'use Active matches for each game and Ready.',
+                successType: OnlineSuccessType.challengeAcceptedHasOtherMatches,
                 clearError: true,
               ),
             );
@@ -347,7 +345,7 @@ class OnlineBloc extends Bloc<OnlineEvent, OnlineState> {
         } else {
           emit(
             state.copyWith(
-              successMessage: 'Challenge accepted',
+              successType: OnlineSuccessType.challengeAccepted,
               clearError: true,
             ),
           );
@@ -384,7 +382,7 @@ class OnlineBloc extends Bloc<OnlineEvent, OnlineState> {
         } else {
           emit(
             state.copyWith(
-              successMessage: "You're ready — waiting for your opponent.",
+              successType: OnlineSuccessType.readyWaitingOpponent,
               clearError: true,
             ),
           );

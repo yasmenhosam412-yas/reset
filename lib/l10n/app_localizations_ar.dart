@@ -824,7 +824,24 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get privacyQuestionsBody =>
-      'هذه الشاشة ملخص للمنتج وليست عقدًا قانونيًا. للشروط الرسمية أو طلبات البيانات، تواصل مع الجهة المشغلة للتطبيق وانشر سياسة خصوصية كاملة في المكان المتوقع من المستخدمين.';
+      'هذه الشاشة ملخص للمنتج وليست عقدًا قانونيًا. للشروط الرسمية أو طلبات البيانات، تواصل مع الجهة المشغلة للتطبيق. استخدم رابط سياسة الخصوصية الكاملة أدناه للنص التفصيلي.';
+
+  @override
+  String get privacyFullPolicyTitle => 'سياسة الخصوصية الكاملة';
+
+  @override
+  String get privacyFullPolicyOpen => 'عرض في المتصفح';
+
+  @override
+  String get privacySafetyTitle => 'السلامة والإبلاغ';
+
+  @override
+  String privacySafetyBody(Object email) {
+    return 'يتيح Joy للجميع نشر المنشورات. إذا رأيت إساءة أو خطرًا على شخص أو محتوى غير قانوني—بما في ذلك أي مادة تُجَرِّد الأطفال جنسيًا—راسلنا على $email مع وصف ما رأيته وأي تفاصيل تساعدنا على إيجاد المنشور (مثل اسم الناشر والوقت التقريبي). نراجع البلاغات ونتصرف وفق قواعدنا والقانون المعمول به.';
+  }
+
+  @override
+  String get privacyCouldNotOpenPolicyLink => 'تعذر فتح رابط سياسة الخصوصية.';
 
   @override
   String get practiceVsAi => 'تدريب ضد الذكاء الاصطناعي';
@@ -1574,6 +1591,43 @@ class AppLocalizationsAr extends AppLocalizations {
   String leftTheMatch(Object name, Object game) {
     return 'غادر $name مباراة $game.';
   }
+
+  @override
+  String get opponentLeftMatch => 'الخصم غادر المباراة.';
+
+  @override
+  String get matchNoLongerAvailable => 'هذه المباراة لم تعد متاحة.';
+
+  @override
+  String get challengeDeclined => 'تم رفض التحدي.';
+
+  @override
+  String get challengeAccepted => 'تم قبول التحدي.';
+
+  @override
+  String get challengeAcceptedHasOtherMatches =>
+      'تم قبول المباراة. لديك مباريات نشطة أخرى بالفعل - استخدم المباريات النشطة لكل لعبة واضغط جاهز.';
+
+  @override
+  String get readyWaitingForOpponent => 'أنت جاهز - بانتظار خصمك.';
+
+  @override
+  String get reactionLike => 'إعجاب';
+
+  @override
+  String get reactionLove => 'حب';
+
+  @override
+  String get reactionHaha => 'هاها';
+
+  @override
+  String get reactionWow => 'واو';
+
+  @override
+  String get reactionSad => 'حزين';
+
+  @override
+  String get reactionCare => 'اهتمام';
 
   @override
   String roundsLabel(int count) {

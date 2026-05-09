@@ -261,7 +261,17 @@
   "privacyTipSignOutShared": "Sign out from Profile when using a shared device.",
   "privacyTipUnauthorizedAccess": "If you suspect unauthorized access, change your password and sign out everywhere from your account provider if available.",
   "privacyQuestionsTitle": "Questions",
-  "privacyQuestionsBody": "This screen is a product summary, not a legal contract. For formal terms or data requests, contact the team that operates this app and publish a full privacy policy where your users expect it.",
+  "privacyQuestionsBody": "This screen is a product summary, not a legal contract. For formal terms or data requests, contact the team that operates this app. Use the full privacy policy link below for the detailed version.",
+  "privacyFullPolicyTitle": "Full privacy policy",
+  "privacyFullPolicyOpen": "View in browser",
+  "privacySafetyTitle": "Safety and reporting",
+  "privacySafetyBody": "Joy lets everyone share posts. If you see abuse, someone at risk, or illegal material—including anything that sexualizes minors—email {email} with what you saw and any details that help us find the post (for example author name and approximate time). We review reports and act per our rules and applicable law.",
+  "@privacySafetyBody": {
+    "placeholders": {
+      "email": {}
+    }
+  },
+  "privacyCouldNotOpenPolicyLink": "Could not open the privacy policy link.",
   "practiceVsAi": "Practice vs AI",
   "singleDeviceNotOnlineMatch": "Single device - not an online match.",
   "singleDeviceChallengeFriendHint": "Single device - challenge a friend online for a real duel.",
@@ -545,6 +555,18 @@
       "game": {}
     }
   },
+  "opponentLeftMatch": "Opponent left the match.",
+  "matchNoLongerAvailable": "This match is no longer available.",
+  "challengeDeclined": "Challenge declined.",
+  "challengeAccepted": "Challenge accepted.",
+  "challengeAcceptedHasOtherMatches": "Match accepted. You already have other active matches - use Active matches for each game and Ready.",
+  "readyWaitingForOpponent": "You're ready - waiting for your opponent.",
+  "reactionLike": "Like",
+  "reactionLove": "Love",
+  "reactionHaha": "Haha",
+  "reactionWow": "Wow",
+  "reactionSad": "Sad",
+  "reactionCare": "Care",
   "roundsLabel": "Rounds {count}",
   "@roundsLabel": {
     "placeholders": {

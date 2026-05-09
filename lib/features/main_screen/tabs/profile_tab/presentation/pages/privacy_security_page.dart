@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:new_project/core/legal/app_legal_urls.dart';
 import 'package:new_project/core/l10n/l10n.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// In-app summary of how the app handles account data and safety expectations.
 /// Replace with your lawyer-reviewed policy before production if required.
@@ -104,6 +108,19 @@ class PrivacySecurityPage extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Text(
+            l10n.privacySafetyTitle,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _Paragraph(
+            text: l10n.privacySafetyBody(AppLegalUrls.supportEmail),
+            scheme: scheme,
+            theme: theme,
+          ),
+          const SizedBox(height: 20),
+          Text(
             l10n.privacyQuestionsTitle,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w800,
@@ -118,6 +135,39 @@ class PrivacySecurityPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+Future<void> _launchPrivacyPolicy(BuildContext context) async {
+  final l10n = context.l10n;
+  final uri = Uri.parse(AppLegalUrls.privacyPolicy);
+  final ok = await canLaunchUrl(uri);
+  if (!context.mounted) return;
+  if (!ok) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.privacyCouldNotOpenPolicyLink)),
+    );
+    return;
+  }
+  await launchUrl(uri, mode: LaunchMode.externalApplication);
+}
+
+Future<void> _launchSupportEmail(BuildContext context) async {
+  final l10n = context.l10n;
+  final uri = Uri(scheme: 'mailto', path: AppLegalUrls.supportEmail);
+  try {
+    final launched = await launchUrl(uri);
+    if (!context.mounted) return;
+    if (!launched) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.privacyCouldNotOpenPolicyLink)),
+      );
+    }
+  } catch (_) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.privacyCouldNotOpenPolicyLink)),
     );
   }
 }

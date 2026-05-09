@@ -109,7 +109,7 @@ class HomePostCard extends StatelessWidget {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              postReactionLabel(key),
+                              postReactionLabelL10n(l10n, key),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,

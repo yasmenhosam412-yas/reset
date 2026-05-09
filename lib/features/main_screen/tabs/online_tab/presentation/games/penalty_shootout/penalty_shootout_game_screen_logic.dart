@@ -6,6 +6,54 @@ class _PenaltyShootoutLogic {
 
   final _PenaltyShootoutGameState _s;
 
+  String _friendlyPenaltyServerMessage(String? raw) {
+    final msg = (raw ?? '').trim().toLowerCase();
+    if (msg.contains('internal server error') ||
+        msg.contains('server error') ||
+        msg.contains('500') ||
+        msg.contains('cancelled') ||
+        msg.contains('canceled') ||
+        msg.contains('not found') ||
+        msg.contains('match_over') ||
+        msg.contains('match over') ||
+        msg.contains('already finished')) {
+      return _s.context.l10n.matchNoLongerAvailable;
+    }
+    return raw ?? _s.context.l10n.somethingWentWrong;
+  }
+
+  bool _looksLikeMatchGone(String? raw) {
+    final msg = (raw ?? '').trim().toLowerCase();
+    if (msg.isEmpty) return false;
+    return msg.contains('not found') ||
+        msg.contains('already finished') ||
+        msg.contains('match_over') ||
+        msg.contains('match over') ||
+        msg.contains('cancelled') ||
+        msg.contains('canceled');
+  }
+
+  void _handleOpponentLeftMatch() {
+    if (!_s.mounted || _s.widget.online == null || _s._opponentLeftSnackShown) {
+      return;
+    }
+    // Do not override a legitimately finished match; session cleanup can remove rows.
+    if (_s._phase == PenaltyShootoutPhase.finished) return;
+    _s._opponentLeftSnackShown = true;
+    _s._countdown?.cancel();
+    _s._onlinePickPoll?.cancel();
+    _s._onlineBgSyncTimer?.cancel();
+    _s._mutate(() {
+      _s._onlinePickSubmitting = false;
+      _s._onlineWaitingForOpponent = false;
+      _s._endedByOpponentLeaving = true;
+      _s._phase = PenaltyShootoutPhase.finished;
+    });
+    ScaffoldMessenger.maybeOf(_s.context)?.showSnackBar(
+      SnackBar(content: Text(_s.context.l10n.opponentLeftMatch)),
+    );
+  }
+
   /// Online challenges always use five lanes (must match DB / opponent).
   PenaltyAimLanes get effectiveAimLanes =>
       _s.widget.online != null ? PenaltyAimLanes.wide5 : _s._aimLanes;
@@ -50,7 +98,11 @@ class _PenaltyShootoutLogic {
         _s._onlineMatchCleanupDone = false;
         ScaffoldMessenger.maybeOf(_s.context)?.showSnackBar(
           SnackBar(
-            content: Text(_s.context.l10n.couldNotCloseOutMatch(f.message)),
+            content: Text(
+              _s.context.l10n.couldNotCloseOutMatch(
+                _friendlyPenaltyServerMessage(f.message),
+              ),
+            ),
           ),
         );
       },
@@ -110,9 +162,21 @@ class _PenaltyShootoutLogic {
       final res =
           await cfg.repository.fetchPenaltyShootoutSession(challengeId: cfg.challengeId);
       PenaltyShootoutSessionModel? session;
-      res.fold((_) => session = null, (v) => session = v);
+      res.fold((f) {
+        if (_looksLikeMatchGone(f.message) &&
+            _s._phase != PenaltyShootoutPhase.finished) {
+          _handleOpponentLeftMatch();
+        }
+        session = null;
+      }, (v) => session = v);
       final sess = session;
-      if (!_s.mounted || sess == null) return;
+      if (!_s.mounted) return;
+      if (sess == null) {
+        if (_s._phase != PenaltyShootoutPhase.finished) {
+          _handleOpponentLeftMatch();
+        }
+        return;
+      }
       if (_sessionVisuallyEquals(sess)) return;
       _s._mutate(() => _applySession(sess));
     } finally {
@@ -125,6 +189,7 @@ class _PenaltyShootoutLogic {
   }
 
   void _applySession(PenaltyShootoutSessionModel v) {
+    final wasFinished = _s._phase == PenaltyShootoutPhase.finished;
     _s._roundIndex = v.roundIndex;
     final cfg = _s.widget.online!;
     final uid = _s._myUserId;
@@ -135,6 +200,29 @@ class _PenaltyShootoutLogic {
     } else {
       _s._myGoals = v.toGoals;
       _s._oppGoals = v.fromGoals;
+    }
+    // Another player started a shared rematch: adopt fresh round-zero state.
+    if (wasFinished &&
+        _s._roundIndex == 0 &&
+        _s._myGoals == 0 &&
+        _s._oppGoals == 0) {
+      _s._endedByOpponentLeaving = false;
+      _s._opponentLeftSnackShown = false;
+      _s._onlineMatchCleanupDone = false;
+      _s._countdown?.cancel();
+      _s._onlinePickPoll?.cancel();
+      _s._phase = PenaltyShootoutPhase.pick;
+      _s._secondsLeft = PenaltyShootoutRules.secondsPerRound;
+      _s._lastResultLine = null;
+      _s._lastKickScored = false;
+      _s._strikerPick = null;
+      _s._keeperPick = null;
+      _s._onlinePickSubmitting = false;
+      _s._onlineWaitingForOpponent = false;
+      _s._roundBeingResolved = 0;
+      _s._lastStrikerUserId = null;
+      _s._kickOutcomeHandled = false;
+      _startPickPhaseCountdown();
     }
   }
 
@@ -323,7 +411,11 @@ class _PenaltyShootoutLogic {
         });
         ScaffoldMessenger.maybeOf(_s.context)?.showSnackBar(
           SnackBar(
-            content: Text(_s.context.l10n.couldNotSubmitPick(f.message)),
+            content: Text(
+              _s.context.l10n.couldNotSubmitPick(
+                _friendlyPenaltyServerMessage(f.message),
+              ),
+            ),
           ),
         );
       },
@@ -383,7 +475,12 @@ class _PenaltyShootoutLogic {
     if (_s._phase != PenaltyShootoutPhase.pick) return;
 
     List<PenaltyRoundPickModel>? picks;
-    res.fold((_) => picks = null, (list) => picks = list);
+    res.fold((f) {
+      if (_looksLikeMatchGone(f.message)) {
+        _handleOpponentLeftMatch();
+      }
+      picks = null;
+    }, (list) => picks = list);
     final list = picks;
     if (!_s.mounted || list == null || list.length < 2) return;
 

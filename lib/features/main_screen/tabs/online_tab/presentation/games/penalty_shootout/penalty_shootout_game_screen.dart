@@ -84,6 +84,8 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
   bool _onlinePickSubmitting = false;
   bool _onlineWaitingForOpponent = false;
   bool _onlineMatchCleanupDone = false;
+  bool _opponentLeftSnackShown = false;
+  bool _endedByOpponentLeaving = false;
 
   String _dirLabelL10n(PenaltyShootoutDir d, AppLocalizations l10n) =>
       switch (d) {
@@ -108,12 +110,37 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
     });
   }
 
-  void _onPlayAgainPressed() {
+  Future<void> _onPlayAgainPressed() async {
+    if (widget.online != null) {
+      final cfg = widget.online!;
+      final cleanup = await cfg.repository.finishPenaltyMatchCleanup(
+        challengeId: cfg.challengeId,
+      );
+      if (!mounted) return;
+      var ok = true;
+      cleanup.fold((_) => ok = false, (_) {});
+      if (!ok) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(content: Text(context.l10n.matchNoLongerAvailable)),
+        );
+        return;
+      }
+      _countdown?.cancel();
+      _onlinePickPoll?.cancel();
+      _onlineBgSyncTimer?.cancel();
+      _mutate(() {
+        _onlineBootstrap = true;
+        _onlineMatchCleanupDone = false;
+        _opponentLeftSnackShown = false;
+        _endedByOpponentLeaving = false;
+      });
+      await _play.bootstrapOnlinePlay();
+      return;
+    }
     if (widget.onPlayAgain != null) {
       widget.onPlayAgain!();
       return;
     }
-    if (widget.online != null) return;
     _restartLocalMatch();
   }
 
@@ -139,6 +166,8 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
       _roundBeingResolved = 0;
       _lastStrikerUserId = null;
       _onlineMatchCleanupDone = false;
+      _opponentLeftSnackShown = false;
+      _endedByOpponentLeaving = false;
     });
     _play.beginRound();
   }
@@ -214,11 +243,13 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
     }
 
     if (_phase == PenaltyShootoutPhase.finished) {
-      final winner = _myGoals > _oppGoals
+      final winner = _endedByOpponentLeaving
           ? l10n.youWon
-          : _oppGoals > _myGoals
-              ? l10n.opponentWins(widget.opponentName)
-              : l10n.draw;
+          : _myGoals > _oppGoals
+              ? l10n.youWon
+              : _oppGoals > _myGoals
+                  ? l10n.opponentWins(widget.opponentName)
+                  : l10n.draw;
       final outcome = gameMatchOutcomeFromScores(
         myScore: _myGoals,
         oppScore: _oppGoals,
@@ -233,11 +264,13 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
         GameMatchOutcome.loss => s.tertiary,
         GameMatchOutcome.draw => s.secondary,
       };
-      final subline = switch (outcome) {
-        GameMatchOutcome.win => l10n.shootoutWinSubline,
-        GameMatchOutcome.loss => l10n.shootoutLossSubline,
-        GameMatchOutcome.draw => l10n.shootoutDrawSubline,
-      };
+      final subline = _endedByOpponentLeaving
+          ? l10n.opponentLeftMatch
+          : switch (outcome) {
+              GameMatchOutcome.win => l10n.shootoutWinSubline,
+              GameMatchOutcome.loss => l10n.shootoutLossSubline,
+              GameMatchOutcome.draw => l10n.shootoutDrawSubline,
+            };
       return GameMatchOutcomeLayer(
         outcome: outcome,
         scheme: s,
@@ -318,9 +351,9 @@ class _PenaltyShootoutGameState extends State<PenaltyShootoutGame>
                 ),
                 const SizedBox(height: 28),
                 FilledButton.tonal(
-                  onPressed: (widget.onPlayAgain == null && widget.online != null)
+                  onPressed: _endedByOpponentLeaving
                       ? null
-                      : _onPlayAgainPressed,
+                      : () => unawaited(_onPlayAgainPressed()),
                   child: Text(l10n.playAgain),
                 ),
                 const SizedBox(height: 12),

@@ -1095,12 +1095,13 @@ class _PartyReactionRelayGameStateV2 extends State<PartyReactionRelayGame> {
   }
 
   Widget _buildActionCard(ThemeData theme, ColorScheme scheme) {
+    final l10n = context.l10n;
     switch (_phase) {
       case _RelayPhase.setup:
         return _infoCard(
           theme,
           scheme,
-          'Hit START MATCH when everyone is ready. You have $_matchTimeLimitSeconds seconds for all 5 rounds.',
+          '${l10n.tapStartWhenReady} ${l10n.reactionRelayOnlineSubtitle(_matchTimeLimitSeconds)}',
           icon: Icons.sports_esports_rounded,
         );
       case _RelayPhase.waitingArm:
@@ -1125,7 +1126,7 @@ class _PartyReactionRelayGameStateV2 extends State<PartyReactionRelayGame> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'UP NOW',
+                          l10n.ready.toUpperCase(),
                           style: theme.textTheme.labelSmall?.copyWith(
                             fontWeight: FontWeight.w900,
                             letterSpacing: 1.2,
@@ -1147,11 +1148,11 @@ class _PartyReactionRelayGameStateV2 extends State<PartyReactionRelayGame> {
               Text(
                 _online
                     ? (_isChaseRound
-                          ? 'After GO, hunt the moving TAP chip inside the arena.'
-                          : 'After GO, smash the big reaction button.')
+                          ? l10n.reactionRelayPassPhoneTo(_playerLabel(_turn))
+                          : l10n.reactionRelayYouPlayThisRound)
                     : (_isChaseRound
-                          ? 'Chase round — handoff to ${_playerLabel(_turn)}.'
-                          : 'Hand the device to ${_playerLabel(_turn)}.'),
+                          ? l10n.reactionRelayPassPhoneTo(_playerLabel(_turn))
+                          : l10n.reactionRelayYouPlayThisRound),
                 style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
               ),
               if (_roundHint != null) ...[
@@ -1176,7 +1177,7 @@ class _PartyReactionRelayGameStateV2 extends State<PartyReactionRelayGame> {
                     ? null
                     : _arm,
                 child: Text(
-                  'ARM • READY',
+                  l10n.arm.toUpperCase(),
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.6,
@@ -1209,7 +1210,7 @@ class _PartyReactionRelayGameStateV2 extends State<PartyReactionRelayGame> {
                   const SizedBox(height: 18),
                   _Pulse(
                     child: Text(
-                      'GET READY',
+                      l10n.waitForGo.toUpperCase(),
                       textAlign: TextAlign.center,
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w900,
@@ -1219,7 +1220,7 @@ class _PartyReactionRelayGameStateV2 extends State<PartyReactionRelayGame> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Do not tap early. Early tap = retry. Max 3 tries for this turn.',
+                    l10n.reactionRelayStartRoundHint,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                       height: 1.4,
@@ -1228,7 +1229,7 @@ class _PartyReactionRelayGameStateV2 extends State<PartyReactionRelayGame> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Tries left: $_falseStartTriesLeft/$_maxFalseStartTries',
+                    l10n.tooEarlyTryAgain(_falseStartTriesLeft, _maxFalseStartTries),
                     style: theme.textTheme.labelLarge?.copyWith(
                       color: _falseStartTriesLeft == 1
                           ? scheme.error
@@ -1264,7 +1265,9 @@ class _PartyReactionRelayGameStateV2 extends State<PartyReactionRelayGame> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        last == null ? 'Round saved.' : '$last ms • nice hit',
+                        last == null
+                            ? l10n.yourRunFinished
+                            : l10n.bestReactionMs(last),
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w900,
                         ),
@@ -1274,7 +1277,7 @@ class _PartyReactionRelayGameStateV2 extends State<PartyReactionRelayGame> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Round ${_myOnlineRoundTimes.length} locked in. Queue NEXT ROUND when you want more heat.',
+                  l10n.waitingOpponentFinishRounds(_totalRounds),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                     height: 1.35,
@@ -1288,7 +1291,7 @@ class _PartyReactionRelayGameStateV2 extends State<PartyReactionRelayGame> {
           return _infoCard(
             theme,
             scheme,
-            'Round complete.',
+            l10n.roundComplete,
             icon: Icons.emoji_events_outlined,
           );
         }
@@ -1296,19 +1299,22 @@ class _PartyReactionRelayGameStateV2 extends State<PartyReactionRelayGame> {
         return _infoCard(
           theme,
           scheme,
-          'Round ${lastWinner.round} → ${_playerLabel(lastWinner.playerIndex)} '
-          '(${lastWinner.ms} ms)',
+          l10n.roundWinnerMs(
+            lastWinner.round,
+            _playerLabel(lastWinner.playerIndex),
+            lastWinner.ms,
+          ),
           icon: Icons.military_tech_rounded,
         );
       case _RelayPhase.finished:
         final msg = _matchTimedOut && !_online
-            ? 'Time ran out before all 5 rounds. Match over — no champion.'
+            ? l10n.timeRanOutBeforeFinishingRoundsLose(_totalRounds)
             : _online
             ? (_onlineFinalOutcomeText ??
-                  'Finished 5 rounds. Waiting final result against opponent...')
+                  l10n.waitingOpponentFinishRounds(_totalRounds))
             : (_winnerQueue.isEmpty
-                  ? 'Finished.'
-                  : 'Champion: ${_playerLabel(_offlineRanking.first.key)}');
+                  ? l10n.finished
+                  : l10n.championLabel(_playerLabel(_offlineRanking.first.key)));
         final lower = msg.toLowerCase();
         final won = lower.contains('you win');
         final couchPodium =
@@ -1327,6 +1333,7 @@ class _PartyReactionRelayGameStateV2 extends State<PartyReactionRelayGame> {
   }
 
   Widget _buildTapPhase(ThemeData theme, ColorScheme scheme) {
+    final l10n = context.l10n;
     if (_matchTimedOut) {
       return const SizedBox.shrink();
     }
@@ -1359,7 +1366,7 @@ class _PartyReactionRelayGameStateV2 extends State<PartyReactionRelayGame> {
                     Icon(Icons.bolt_rounded, color: scheme.onPrimary, size: 42),
                     const SizedBox(height: 6),
                     Text(
-                      'GO!  TAP!',
+                      l10n.goTap,
                       style: theme.textTheme.headlineSmall?.copyWith(
                         color: scheme.onPrimary,
                         fontWeight: FontWeight.w900,
@@ -1368,7 +1375,7 @@ class _PartyReactionRelayGameStateV2 extends State<PartyReactionRelayGame> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'One clean hit',
+                      l10n.yourRunFinished,
                       style: theme.textTheme.labelLarge?.copyWith(
                         color: scheme.onPrimary.withValues(alpha: 0.9),
                         fontWeight: FontWeight.w600,
@@ -1412,7 +1419,7 @@ class _PartyReactionRelayGameStateV2 extends State<PartyReactionRelayGame> {
                   ),
                 ),
                 child: Text(
-                  'LIVE',
+                  l10n.inProgress.toUpperCase(),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: scheme.error,
                     fontWeight: FontWeight.w900,
@@ -1424,7 +1431,7 @@ class _PartyReactionRelayGameStateV2 extends State<PartyReactionRelayGame> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Target is slippery — track it and tap the chip.',
+            l10n.reactionRelayYouPlayThisRound,
             style: theme.textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
               height: 1.35,
@@ -1496,7 +1503,7 @@ class _PartyReactionRelayGameStateV2 extends State<PartyReactionRelayGame> {
                             height: _chaseTargetH,
                             alignment: Alignment.center,
                             child: Text(
-                              'TAP!',
+                              l10n.goTap,
                               style: theme.textTheme.titleSmall?.copyWith(
                                 color: scheme.onPrimary,
                                 fontWeight: FontWeight.w900,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/post_reactions_codec.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
+import 'package:new_project/l10n/app_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 export 'package:new_project/features/main_screen/tabs/home_tab/data/post_reactions_codec.dart'
@@ -113,5 +114,23 @@ String postReactionLabel(String key) {
     case 'like':
     default:
       return 'Like';
+  }
+}
+
+String postReactionLabelL10n(AppLocalizations l10n, String key) {
+  switch (key) {
+    case 'love':
+      return l10n.reactionLove;
+    case 'laugh':
+      return l10n.reactionHaha;
+    case 'wow':
+      return l10n.reactionWow;
+    case 'sad':
+      return l10n.reactionSad;
+    case 'care':
+      return l10n.reactionCare;
+    case 'like':
+    default:
+      return l10n.reactionLike;
   }
 }

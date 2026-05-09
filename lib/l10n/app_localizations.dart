@@ -1595,8 +1595,38 @@ abstract class AppLocalizations {
   /// No description provided for @privacyQuestionsBody.
   ///
   /// In en, this message translates to:
-  /// **'This screen is a product summary, not a legal contract. For formal terms or data requests, contact the team that operates this app and publish a full privacy policy where your users expect it.'**
+  /// **'This screen is a product summary, not a legal contract. For formal terms or data requests, contact the team that operates this app. Use the full privacy policy link below for the detailed version.'**
   String get privacyQuestionsBody;
+
+  /// No description provided for @privacyFullPolicyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Full privacy policy'**
+  String get privacyFullPolicyTitle;
+
+  /// No description provided for @privacyFullPolicyOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'View in browser'**
+  String get privacyFullPolicyOpen;
+
+  /// No description provided for @privacySafetyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Safety and reporting'**
+  String get privacySafetyTitle;
+
+  /// No description provided for @privacySafetyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Joy lets everyone share posts. If you see abuse, someone at risk, or illegal material—including anything that sexualizes minors—email {email} with what you saw and any details that help us find the post (for example author name and approximate time). We review reports and act per our rules and applicable law.'**
+  String privacySafetyBody(Object email);
+
+  /// No description provided for @privacyCouldNotOpenPolicyLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open the privacy policy link.'**
+  String get privacyCouldNotOpenPolicyLink;
 
   /// No description provided for @practiceVsAi.
   ///
@@ -2754,6 +2784,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{name} left the {game} match.'**
   String leftTheMatch(Object name, Object game);
+
+  /// No description provided for @opponentLeftMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Opponent left the match.'**
+  String get opponentLeftMatch;
+
+  /// No description provided for @matchNoLongerAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This match is no longer available.'**
+  String get matchNoLongerAvailable;
+
+  /// No description provided for @challengeDeclined.
+  ///
+  /// In en, this message translates to:
+  /// **'Challenge declined.'**
+  String get challengeDeclined;
+
+  /// No description provided for @challengeAccepted.
+  ///
+  /// In en, this message translates to:
+  /// **'Challenge accepted.'**
+  String get challengeAccepted;
+
+  /// No description provided for @challengeAcceptedHasOtherMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'Match accepted. You already have other active matches - use Active matches for each game and Ready.'**
+  String get challengeAcceptedHasOtherMatches;
+
+  /// No description provided for @readyWaitingForOpponent.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re ready - waiting for your opponent.'**
+  String get readyWaitingForOpponent;
+
+  /// No description provided for @reactionLike.
+  ///
+  /// In en, this message translates to:
+  /// **'Like'**
+  String get reactionLike;
+
+  /// No description provided for @reactionLove.
+  ///
+  /// In en, this message translates to:
+  /// **'Love'**
+  String get reactionLove;
+
+  /// No description provided for @reactionHaha.
+  ///
+  /// In en, this message translates to:
+  /// **'Haha'**
+  String get reactionHaha;
+
+  /// No description provided for @reactionWow.
+  ///
+  /// In en, this message translates to:
+  /// **'Wow'**
+  String get reactionWow;
+
+  /// No description provided for @reactionSad.
+  ///
+  /// In en, this message translates to:
+  /// **'Sad'**
+  String get reactionSad;
+
+  /// No description provided for @reactionCare.
+  ///
+  /// In en, this message translates to:
+  /// **'Care'**
+  String get reactionCare;
 
   /// No description provided for @roundsLabel.
   ///

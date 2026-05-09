@@ -80,6 +80,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
   bool _asFrom = true;
   int _deckSeed = 1;
   String? _error;
+  bool _endedByOpponentLeaving = false;
 
   bool get _online => widget.online != null;
   OnlineRepository get _repo => widget.online!.repository;
@@ -126,7 +127,15 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
   Future<void> _bootstrapOnline() async {
     await _repo.ensureFantasyDuelSession(challengeId: _cid);
     final r = await _repo.fetchFantasyDuelSession(challengeId: _cid);
-    r.fold((_) {}, (m) {
+    r.fold((failure) {
+      if (_looksLikeOpponentLeftMessage(failure.message)) {
+        _markEndedByOpponentLeft();
+      }
+    }, (m) {
+      if (_online && m == null) {
+        _markEndedByOpponentLeft();
+        return;
+      }
       if (!mounted || m == null) return;
       final both = m.bothSubmitted;
       setState(() {
@@ -229,6 +238,36 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
     return l10n.opponentWinsDuelScore(widget.opponentName, opp, mine);
   }
 
+  bool _looksLikeOpponentLeftMessage(String? raw) {
+    final n = (raw ?? '').trim().toLowerCase();
+    if (n.isEmpty) return false;
+    return n.contains('query returned no rows') ||
+        n.contains('not found') ||
+        n.contains('match_over') ||
+        n.contains('match over') ||
+        n.contains('already finished') ||
+        n.contains('cancelled') ||
+        n.contains('canceled') ||
+        n.contains('internal server error') ||
+        n.contains('server error') ||
+        n.contains('500');
+  }
+
+  void _markEndedByOpponentLeft() {
+    if (!mounted || _endedByOpponentLeaving) return;
+    _cancelPickPhaseTimer();
+    setState(() {
+      _endedByOpponentLeaving = true;
+      _phase = _DuelPhase.matchComplete;
+      _error = null;
+      _duelSummaryLine = context.l10n.opponentLeftMatch;
+      _outcomeLine = context.l10n.matchNoLongerAvailable;
+      _myTrio = null;
+      _oppTrio = null;
+      _pickOrder.clear();
+    });
+  }
+
   void _applyRemoteTrios(FantasyDuelSessionModel m) {
     if (!_online) return;
     final mine = _asFrom ? m.fromTrio : m.toTrio;
@@ -252,7 +291,15 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
     if (!_online || !mounted || _phase == _DuelPhase.matchComplete) return;
     if (_phase == _DuelPhase.reveal) return;
     final r = await _repo.fetchFantasyDuelSession(challengeId: _cid);
-    r.fold((_) {}, (m) {
+    r.fold((failure) {
+      if (_looksLikeOpponentLeftMessage(failure.message)) {
+        _markEndedByOpponentLeft();
+      }
+    }, (m) {
+      if (_online && m == null) {
+        _markEndedByOpponentLeft();
+        return;
+      }
       if (!mounted || m == null) return;
       final resolveNow = m.bothSubmitted &&
           !m.matchComplete &&
@@ -481,7 +528,15 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
         return;
       }
       final r = await _repo.fetchFantasyDuelSession(challengeId: _cid);
-      r.fold((_) {}, (m) {
+      r.fold((failure) {
+        if (_looksLikeOpponentLeftMessage(failure.message)) {
+          _markEndedByOpponentLeft();
+        }
+      }, (m) {
+        if (_online && m == null) {
+          _markEndedByOpponentLeft();
+          return;
+        }
         if (!mounted || m == null) return;
         setState(() {
           _applyMatchScoresFromModel(m);
@@ -554,6 +609,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
   void _restartOffline() {
     setState(() {
       _deckSeed = _rng.nextInt(1 << 29) + 1;
+      _endedByOpponentLeaving = false;
       _phase = _DuelPhase.picking;
       _pickOrder.clear();
       _myTrio = null;
@@ -572,6 +628,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
   }
 
   Future<void> _onDuelPlayAgainPressed() async {
+    if (_endedByOpponentLeaving) return;
     if (_online) {
       final res = await _repo.resetFantasyDuelMatch(challengeId: _cid);
       if (!mounted) return;
@@ -619,10 +676,12 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
     final theme = widget.theme;
 
     final matchOutcome = _phase == _DuelPhase.matchComplete
-        ? gameMatchOutcomeFromScores(
-            myScore: _myMatchWins,
-            oppScore: _oppMatchWins,
-          )
+        ? (_endedByOpponentLeaving
+              ? GameMatchOutcome.draw
+              : gameMatchOutcomeFromScores(
+                  myScore: _myMatchWins,
+                  oppScore: _oppMatchWins,
+                ))
         : null;
 
     var duelSummaryIcon = Icons.military_tech_rounded;
@@ -652,11 +711,11 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _matchdayHeader(theme, scheme),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         _offlineDuelStrip(theme, scheme),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         _howToPlayCard(theme, scheme),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
         if (_error != null)
           Material(
             color: scheme.errorContainer.withValues(alpha: 0.35),
@@ -677,7 +736,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
               ),
             ),
           ),
-        if (_error != null) const SizedBox(height: 12),
+        if (_error != null) const SizedBox(height: 14),
         if (_phase == _DuelPhase.picking ||
             _phase == _DuelPhase.waitingOnline ||
             (!_online &&
@@ -689,7 +748,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
             l10n.yourSquad,
             l10n.fantasyYourSquadSubtitle(_squadSize, _starters),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           SizedBox(
             height: 216,
             child: ListView.separated(
@@ -701,7 +760,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
               itemBuilder: (context, i) => _playerCard(_myHand[i], theme, scheme),
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 20),
           _pitchStrip(theme, scheme),
         ] else ...[
           _sectionTitle(
@@ -710,9 +769,9 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
             l10n.lastRound,
             l10n.cardsLockedSeeResultBelow,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
         ],
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -729,11 +788,11 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
               ],
             ),
             if (_phase == _DuelPhase.picking || _phase == _DuelPhase.waitingOnline) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               _starterSlotStrip(theme, scheme),
             ],
             if (_phase == _DuelPhase.picking) ...[
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
@@ -743,7 +802,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
                       label: Text(l10n.clear),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
                   Expanded(
                     flex: 2,
                     child: FilledButton.icon(
@@ -762,7 +821,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
         ),
         if (_phase == _DuelPhase.waitingOnline)
           Padding(
-            padding: const EdgeInsets.only(top: 16),
+            padding: const EdgeInsets.only(top: 18),
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHigh.withValues(alpha: 0.85),
@@ -781,12 +840,12 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
                         color: scheme.primary,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 18),
                     Text(
                       l10n.lineupLocked,
                       style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Text(
                       l10n.waitingForOpponentToSubmit(widget.opponentName),
                       textAlign: TextAlign.center,
@@ -803,9 +862,9 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
         if (_phase == _DuelPhase.reveal ||
             _phase == _DuelPhase.roundComplete ||
             _phase == _DuelPhase.matchComplete) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           _revealBoard(theme, scheme),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           _resultBanner(
             theme,
             scheme,
@@ -816,7 +875,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
             isLarge: false,
           ),
           if (_duelSummaryLine != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             TweenAnimationBuilder<double>(
               key: ValueKey<String>(
                 '${_phase.name}${_duelSummaryLine!}${matchOutcome?.name ?? ''}',
@@ -843,7 +902,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
           ],
         ],
         if (_phase == _DuelPhase.roundComplete && !_online) ...[
-          const SizedBox(height: 18),
+          const SizedBox(height: 20),
           FilledButton(
             onPressed: _startNextRound,
             child: Text(
@@ -856,13 +915,15 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
           ),
         ],
         if (_phase == _DuelPhase.matchComplete) ...[
-          const SizedBox(height: 18),
+          const SizedBox(height: 20),
           FilledButton.icon(
-            onPressed: () => unawaited(_onDuelPlayAgainPressed()),
+            onPressed: _endedByOpponentLeaving
+                ? null
+                : () => unawaited(_onDuelPlayAgainPressed()),
             icon: const Icon(Icons.replay_rounded),
             label: Text(l10n.playAgain),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => unawaited(
               showShareGameResultToFeedDialog(
@@ -1283,41 +1344,48 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
     int score, {
     required bool filled,
   }) {
+    final bg = filled
+        ? scheme.secondary.withValues(alpha: 0.26)
+        : scheme.surface.withValues(alpha: 0.82);
+    final border = filled
+        ? scheme.secondary.withValues(alpha: 0.6)
+        : scheme.outline.withValues(alpha: 0.35);
+    final labelColor = filled
+        ? scheme.onSecondaryContainer.withValues(alpha: 0.95)
+        : scheme.onSurfaceVariant;
+    final scoreColor = filled ? scheme.onSecondaryContainer : scheme.onSurface;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      constraints: const BoxConstraints(minHeight: 72),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: filled
-            ? scheme.secondary.withValues(alpha: 0.22)
-            : scheme.surface.withValues(alpha: 0.55),
+        color: bg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: scheme.secondary.withValues(alpha: filled ? 0.35 : 0.2),
-        ),
+        border: Border.all(color: border, width: filled ? 1.6 : 1.2),
       ),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: Alignment.center,
-        child: Column(
-          children: [
-            Text(
-              who,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: scheme.onSecondaryContainer.withValues(alpha: 0.85),
-              ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            who,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: labelColor,
             ),
-            Text(
-              '$score',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w900,
-                color: scheme.onSecondaryContainer,
-                height: 1.1,
-              ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '$score',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+              color: scoreColor,
+              height: 1.0,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1697,7 +1765,7 @@ class _FantasyDuelGameState extends State<FantasyDuelGame> {
                       child: Column(
                         children: [
                           Text(
-                            'ZONE ${i + 1}',
+                            context.l10n.slotNumber(i + 1),
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: scheme.onPrimary,
                               fontWeight: FontWeight.w900,

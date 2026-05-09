@@ -794,12 +794,12 @@ class _OnlineTabViewState extends State<_OnlineTabView> {
                 ? l10n.friend
                 : state.successName!.trim(),
           ),
-          OnlineSuccessType.leftMatch => l10n.leftTheMatch(
-            (state.successName?.trim().isEmpty ?? true)
-                ? l10n.player
-                : state.successName!.trim(),
-            onlineGameTitleL10n(l10n, state.successGameId ?? 1),
-          ),
+          OnlineSuccessType.leftMatch => l10n.opponentLeftMatch,
+          OnlineSuccessType.challengeDeclined => l10n.challengeDeclined,
+          OnlineSuccessType.challengeAccepted => l10n.challengeAccepted,
+          OnlineSuccessType.challengeAcceptedHasOtherMatches =>
+            l10n.challengeAcceptedHasOtherMatches,
+          OnlineSuccessType.readyWaitingOpponent => l10n.readyWaitingForOpponent,
           null => state.successMessage,
         };
         if (ok != null) {

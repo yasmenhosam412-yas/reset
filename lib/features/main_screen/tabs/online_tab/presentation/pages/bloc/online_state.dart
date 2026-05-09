@@ -11,6 +11,10 @@ enum OnlineStatus {
 enum OnlineSuccessType {
   challengeSent,
   leftMatch,
+  challengeDeclined,
+  challengeAccepted,
+  challengeAcceptedHasOtherMatches,
+  readyWaitingOpponent,
 }
 
 /// Shown after the user accepts an invite: opponent + game + ready CTA.

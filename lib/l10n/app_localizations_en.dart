@@ -829,7 +829,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get privacyQuestionsBody =>
-      'This screen is a product summary, not a legal contract. For formal terms or data requests, contact the team that operates this app and publish a full privacy policy where your users expect it.';
+      'This screen is a product summary, not a legal contract. For formal terms or data requests, contact the team that operates this app. Use the full privacy policy link below for the detailed version.';
+
+  @override
+  String get privacyFullPolicyTitle => 'Full privacy policy';
+
+  @override
+  String get privacyFullPolicyOpen => 'View in browser';
+
+  @override
+  String get privacySafetyTitle => 'Safety and reporting';
+
+  @override
+  String privacySafetyBody(Object email) {
+    return 'Joy lets everyone share posts. If you see abuse, someone at risk, or illegal material—including anything that sexualizes minors—email $email with what you saw and any details that help us find the post (for example author name and approximate time). We review reports and act per our rules and applicable law.';
+  }
+
+  @override
+  String get privacyCouldNotOpenPolicyLink =>
+      'Could not open the privacy policy link.';
 
   @override
   String get practiceVsAi => 'Practice vs AI';
@@ -1577,6 +1595,44 @@ class AppLocalizationsEn extends AppLocalizations {
   String leftTheMatch(Object name, Object game) {
     return '$name left the $game match.';
   }
+
+  @override
+  String get opponentLeftMatch => 'Opponent left the match.';
+
+  @override
+  String get matchNoLongerAvailable => 'This match is no longer available.';
+
+  @override
+  String get challengeDeclined => 'Challenge declined.';
+
+  @override
+  String get challengeAccepted => 'Challenge accepted.';
+
+  @override
+  String get challengeAcceptedHasOtherMatches =>
+      'Match accepted. You already have other active matches - use Active matches for each game and Ready.';
+
+  @override
+  String get readyWaitingForOpponent =>
+      'You\'re ready - waiting for your opponent.';
+
+  @override
+  String get reactionLike => 'Like';
+
+  @override
+  String get reactionLove => 'Love';
+
+  @override
+  String get reactionHaha => 'Haha';
+
+  @override
+  String get reactionWow => 'Wow';
+
+  @override
+  String get reactionSad => 'Sad';
+
+  @override
+  String get reactionCare => 'Care';
 
   @override
   String roundsLabel(int count) {
