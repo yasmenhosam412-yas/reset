@@ -478,6 +478,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get exploreLinkNone => 'غير متصلين بعد';
 
   @override
+  String get viewUserPosts => 'عرض المنشورات';
+
+  @override
   String get noPostsFromProfileYet =>
       'لا توجد منشورات من هذا الملف في خلاصتك بعد. اسحب للتحديث في الصفحة الرئيسية.';
 

@@ -950,6 +950,12 @@ abstract class AppLocalizations {
   /// **'Not connected yet'**
   String get exploreLinkNone;
 
+  /// No description provided for @viewUserPosts.
+  ///
+  /// In en, this message translates to:
+  /// **'View posts'**
+  String get viewUserPosts;
+
   /// No description provided for @noPostsFromProfileYet.
   ///
   /// In en, this message translates to:

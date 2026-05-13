@@ -100,7 +100,11 @@ class _SavedPostsScreenState extends State<SavedPostsScreen> {
                     post: post,
                     commentController: widget.commentController,
                   ),
-                  onAuthorTap: () => showHomePostAuthorActionsSheet(context, post),
+                  onAuthorTap: () => showHomePostAuthorActionsSheet(
+                    context,
+                    post,
+                    commentController: widget.commentController,
+                  ),
                 );
               },
             ),

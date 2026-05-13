@@ -33,7 +33,11 @@ void openAuthorPostsScreen({
           commentController: commentController,
           openCommentsAfterScroll: openCommentsAfterScroll,
           onAuthorTapFromFeed: (PostModel p) {
-            showHomePostAuthorActionsSheet(hostContext, p);
+            showHomePostAuthorActionsSheet(
+              hostContext,
+              p,
+              commentController: commentController,
+            );
           },
         ),
       ),

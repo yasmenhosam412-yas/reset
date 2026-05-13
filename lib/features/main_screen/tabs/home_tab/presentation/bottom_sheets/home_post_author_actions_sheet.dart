@@ -5,13 +5,18 @@ import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_state.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/bottom_sheets/edit_home_post_sheet.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/presentation/pages/author_posts_screen.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_event.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/dialogs/home_user_safety_dialogs.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_challenge_games.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_titles.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-void showHomePostAuthorActionsSheet(BuildContext context, PostModel post) {
+void showHomePostAuthorActionsSheet(
+  BuildContext context,
+  PostModel post, {
+  required TextEditingController commentController,
+}) {
   final hostContext = context;
   final theme = Theme.of(hostContext);
   final scheme = theme.colorScheme;
@@ -53,6 +58,34 @@ void showHomePostAuthorActionsSheet(BuildContext context, PostModel post) {
                     ),
                   ),
                   const SizedBox(height: 20),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.grid_view_rounded, color: scheme.primary),
+                    title: Text(l10n.viewUserPosts),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      Navigator.of(hostContext).push<void>(
+                        MaterialPageRoute<void>(
+                          builder: (routeContext) => BlocProvider.value(
+                            value: hostContext.read<HomeBloc>(),
+                            child: AuthorPostsScreen(
+                              authorId: post.userModel.id,
+                              authorName: post.userModel.username,
+                              commentController: commentController,
+                              onAuthorTapFromFeed: (PostModel p) {
+                                showHomePostAuthorActionsSheet(
+                                  hostContext,
+                                  p,
+                                  commentController: commentController,
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const Divider(),
                   if (isSelf) ...[
                     Text(
                       l10n.thisIsYourPost,

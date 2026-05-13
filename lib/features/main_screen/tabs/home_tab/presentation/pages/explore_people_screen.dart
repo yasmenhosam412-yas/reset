@@ -344,6 +344,24 @@ class _ExplorePeopleScreenState extends State<ExplorePeopleScreen> {
                                         children: [
                                           ListTile(
                                             leading: Icon(
+                                              Icons.grid_view_rounded,
+                                              color: scheme.primary,
+                                            ),
+                                            title: Text(l10n.viewUserPosts),
+                                            onTap: () {
+                                              Navigator.pop(ctx);
+                                              openAuthorPostsScreen(
+                                                context: context,
+                                                authorId: u.id,
+                                                authorName: u.username,
+                                                commentController:
+                                                    _commentForAuthor,
+                                              );
+                                            },
+                                          ),
+                                          const Divider(height: 1),
+                                          ListTile(
+                                            leading: Icon(
                                               Icons.block_rounded,
                                               color: scheme.error,
                                             ),

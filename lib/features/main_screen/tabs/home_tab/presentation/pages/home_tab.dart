@@ -651,7 +651,6 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
     );
   }
 
-
   void _openComments(PostModel post) {
     showHomeCommentsSheet(
       context,
@@ -731,9 +730,7 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
         final empty = posts.isEmpty;
         final displayed = _filteredAndSorted(posts);
         final filterShowsNoPosts =
-            !empty &&
-            displayed.isEmpty &&
-            state.status == HomeStatus.loaded;
+            !empty && displayed.isEmpty && state.status == HomeStatus.loaded;
         final header = _buildInteractiveHeader(context);
 
         return Scaffold(
@@ -782,8 +779,11 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
                     scrollController: _scrollController,
                     feedHeader: header,
                     onOpenComments: _openComments,
-                    onAuthorTap: (post) =>
-                        showHomePostAuthorActionsSheet(context, post),
+                    onAuthorTap: (post) => showHomePostAuthorActionsSheet(
+                      context,
+                      post,
+                      commentController: _commentController,
+                    ),
                   ),
           ),
         );

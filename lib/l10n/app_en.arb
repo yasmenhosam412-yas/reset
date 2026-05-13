@@ -154,6 +154,7 @@
   "exploreLinkPendingOutgoing": "Request sent - waiting for them",
   "exploreLinkPendingIncoming": "Wants to connect - accept on Profile",
   "exploreLinkNone": "Not connected yet",
+  "viewUserPosts": "View posts",
   "noPostsFromProfileYet": "No posts from this profile in your feed yet. Pull to refresh on Home.",
   "noPostsYetTapNewPost": "No posts yet.\nTap New post to share something.",
   "noPostsFoundForFilter": "No posts found.\nTry another category or All.",

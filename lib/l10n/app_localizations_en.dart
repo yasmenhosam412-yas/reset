@@ -482,6 +482,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get exploreLinkNone => 'Not connected yet';
 
   @override
+  String get viewUserPosts => 'View posts';
+
+  @override
   String get noPostsFromProfileYet =>
       'No posts from this profile in your feed yet. Pull to refresh on Home.';
 
