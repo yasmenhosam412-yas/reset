@@ -37,6 +37,7 @@ DateTime _sortTime(DateTime? t) => t ?? DateTime.fromMillisecondsSinceEpoch(0);
 bool _isSupportedFeedKind(String kind) {
   return kind == UserNotificationKind.postLike ||
       kind == UserNotificationKind.postComment ||
+      kind == UserNotificationKind.commentMention ||
       kind == UserNotificationKind.friendRequest ||
       kind == UserNotificationKind.partyRoomInvite;
 }
@@ -48,6 +49,8 @@ String _friendlyFeedTitle(UserFeedNotificationModel f, BuildContext context) {
       return l10n.notifSomeoneReacted;
     case UserNotificationKind.postComment:
       return l10n.notifSomeoneCommented;
+    case UserNotificationKind.commentMention:
+      return l10n.notifYouWereMentioned;
     case UserNotificationKind.friendRequest:
       return f.body.trim().isEmpty ? l10n.notifFriendInvite : f.body;
     case UserNotificationKind.partyRoomInvite:
@@ -71,6 +74,8 @@ String _friendlyFeedSubtitle(
       return withTime(l10n.notifPostLikeOpenHint);
     case UserNotificationKind.postComment:
       return withTime(l10n.notifPostCommentOpenHint);
+    case UserNotificationKind.commentMention:
+      return withTime(l10n.notifMentionOpenHint);
     case UserNotificationKind.friendRequest:
       final status = f.data['status']?.toString().trim().toLowerCase() ?? '';
       if (status == 'accepted') {
@@ -348,6 +353,10 @@ class _NotificationsTabState extends State<NotificationsTab> {
                       Icons.chat_bubble_rounded,
                       scheme.tertiary,
                     ),
+                    UserNotificationKind.commentMention => (
+                      Icons.alternate_email_rounded,
+                      scheme.secondary,
+                    ),
                     UserNotificationKind.partyRoomInvite => (
                       Icons.groups_rounded,
                       scheme.primary,
@@ -358,6 +367,38 @@ class _NotificationsTabState extends State<NotificationsTab> {
                   final VoidCallback? onOpenRelated = switch (f.kind) {
                     UserNotificationKind.partyRoomInvite =>
                       () => getIt<MainShellController>().openOnlineTab(),
+                    UserNotificationKind.commentMention =>
+                      postId.isEmpty
+                          ? null
+                          : () {
+                              final fromData =
+                                  f.data['author_id']?.toString().trim() ?? '';
+                              final authorId = fromData.isNotEmpty
+                                  ? fromData
+                                  : (uid ?? '').trim();
+                              if (authorId.isEmpty) return;
+                              final selfName =
+                                  context
+                                      .read<ProfileBloc>()
+                                      .state
+                                      .dashboard
+                                      ?.user
+                                      .username
+                                      .trim() ??
+                                  '';
+                              final authorName =
+                                  uid != null && authorId == uid
+                                      ? selfName
+                                      : '';
+                              openAuthorPostsScreen(
+                                context: context,
+                                authorId: authorId,
+                                authorName: authorName,
+                                commentController: _alertsCommentController,
+                                focusPostId: postId,
+                                openCommentsAfterScroll: true,
+                              );
+                            },
                     _ =>
                       postId.isEmpty || uid == null || uid.isEmpty
                           ? null

@@ -9,6 +9,7 @@ import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_event.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/utils/shared_post_marker.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/presentation/widgets/home_post_media_attachment.dart';
 
 Future<void> showEditHomePostSheet(BuildContext context, PostModel post) async {
   final pid = post.id.trim();
@@ -166,18 +167,18 @@ class _EditHomePostBodyState extends State<_EditHomePostBody> {
       final clearImage =
           _removedImage && (_newImageBytes == null || _newImageBytes!.isEmpty);
       context.read<HomeBloc>().add(
-            HomePostUpdateRequested(
-              postId: widget.post.id.trim(),
-              postContent: merged,
-              imageBytes: _newImageBytes,
-              imageContentType: _newImageContentType,
-              clearImage: clearImage,
-              allowShare: _allowShare,
-              postVisibility: _postVisibility,
-              postType: _postType,
-              adLink: adLink,
-            ),
-          );
+        HomePostUpdateRequested(
+          postId: widget.post.id.trim(),
+          postContent: merged,
+          imageBytes: _newImageBytes,
+          imageContentType: _newImageContentType,
+          clearImage: clearImage,
+          allowShare: _allowShare,
+          postVisibility: _postVisibility,
+          postType: _postType,
+          adLink: adLink,
+        ),
+      );
       if (mounted) Navigator.of(context).pop();
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -188,191 +189,256 @@ class _EditHomePostBodyState extends State<_EditHomePostBody> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.9;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(l10n.editPost, style: theme.textTheme.titleLarge),
-          const SizedBox(height: 8),
-          SegmentedButton<String>(
-            segments: [
-              ButtonSegment<String>(
-                value: 'post',
-                icon: Icon(Icons.edit_note_rounded, size: 18),
-                label: Text(l10n.postTypePost),
-              ),
-              ButtonSegment<String>(
-                value: 'announcement',
-                icon: Icon(Icons.campaign_outlined, size: 18),
-                label: Text(l10n.postTypeAnnouncement),
-              ),
-              ButtonSegment<String>(
-                value: 'celebration',
-                icon: Icon(Icons.celebration_outlined, size: 18),
-                label: Text(l10n.postTypeCelebration),
-              ),
-              ButtonSegment<String>(
-                value: 'ads',
-                icon: Icon(Icons.storefront_outlined, size: 18),
-                label: Text(l10n.postTypeAds),
-              ),
-            ],
-            selected: {_postType},
-            onSelectionChanged: _saving
-                ? null
-                : (values) {
-                    if (values.isEmpty) return;
-                    setState(() {
-                      _postType = values.first;
-                      if (_postType == 'ads') {
-                        _allowShare = false;
-                      }
-                    });
-                  },
-          ),
-          const SizedBox(height: 8),
-          if (_postType == 'ads') ...[
-            TextField(
-              controller: _adLinkController,
-              keyboardType: TextInputType.url,
-              textInputAction: TextInputAction.next,
-              autocorrect: false,
-              onChanged: (_) {
-                if (_adLinkError != null) {
-                  setState(() => _adLinkError = null);
-                }
-              },
-              decoration: InputDecoration(
-                labelText: l10n.adLink,
-                hintText: l10n.adLinkHint,
-                prefixIcon: const Icon(Icons.link_rounded),
-                errorText: _adLinkError,
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-          SegmentedButton<String>(
-            segments: [
-              ButtonSegment<String>(
-                value: 'general',
-                icon: Icon(Icons.public_rounded, size: 18),
-                label: Text(l10n.general),
-              ),
-              ButtonSegment<String>(
-                value: 'friends',
-                icon: Icon(Icons.group_rounded, size: 18),
-                label: Text(l10n.friendsOnly),
-              ),
-            ],
-            selected: {_postVisibility},
-            onSelectionChanged: _saving
-                ? null
-                : (values) {
-                    if (values.isEmpty) return;
-                    setState(() => _postVisibility = values.first);
-                  },
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: widget.contentController,
-            maxLines: 5,
-            minLines: 3,
-            textCapitalization: TextCapitalization.sentences,
-            onChanged: (_) {
-              if (_contentError != null) {
-                setState(() => _contentError = null);
-              }
-            },
-            decoration: InputDecoration(
-              hintText: l10n.postContentHint,
-              alignLabelWithHint: true,
-              errorText: _contentError,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextButton.icon(
-                onPressed: _saving ? null : _pickImage,
-                icon: const Icon(Icons.photo_library_outlined, size: 20),
-                label: Text(
-                  _existingUrl.isNotEmpty ? l10n.changePhoto : l10n.addPhoto,
-                ),
+              Text(l10n.editPost, style: theme.textTheme.titleLarge),
+              const SizedBox(height: 8),
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                childAspectRatio: 2.6,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                children: [
+                  _PostTypeTile(
+                    selected: _postType == 'post',
+                    icon: Icons.edit_note_rounded,
+                    label: l10n.postTypePost,
+                    onTap: _saving
+                        ? null
+                        : () => setState(() => _postType = 'post'),
+                  ),
+                  _PostTypeTile(
+                    selected: _postType == 'announcement',
+                    icon: Icons.campaign_outlined,
+                    label: l10n.postTypeAnnouncement,
+                    onTap: _saving
+                        ? null
+                        : () => setState(() => _postType = 'announcement'),
+                  ),
+                  _PostTypeTile(
+                    selected: _postType == 'celebration',
+                    icon: Icons.celebration_outlined,
+                    label: l10n.postTypeCelebration,
+                    onTap: _saving
+                        ? null
+                        : () => setState(() => _postType = 'celebration'),
+                  ),
+                  _PostTypeTile(
+                    selected: _postType == 'ads',
+                    icon: Icons.storefront_outlined,
+                    label: l10n.postTypeAds,
+                    onTap: _saving
+                        ? null
+                        : () => setState(() {
+                            _postType = 'ads';
+                            _allowShare = false;
+                          }),
+                  ),
+                ],
               ),
-              if (_willHaveImage)
-                TextButton.icon(
-                  onPressed: _saving ? null : _removePhoto,
-                  icon: const Icon(Icons.close_rounded, size: 20),
-                  label: Text(l10n.removePhoto),
-                ),
-            ],
-          ),
-          if (_newImageBytes != null) ...[
-            const SizedBox(height: 4),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Image.memory(
-                  _newImageBytes!,
-                  fit: BoxFit.cover,
-                  gaplessPlayback: true,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-          ] else if (!_removedImage && _existingUrl.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Image.network(
-                  _existingUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const Icon(
-                    Icons.broken_image_outlined,
+              const SizedBox(height: 8),
+              if (_postType == 'ads') ...[
+                TextField(
+                  controller: _adLinkController,
+                  keyboardType: TextInputType.url,
+                  textInputAction: TextInputAction.next,
+                  autocorrect: false,
+                  onChanged: (_) {
+                    if (_adLinkError != null) {
+                      setState(() => _adLinkError = null);
+                    }
+                  },
+                  decoration: InputDecoration(
+                    labelText: l10n.adLink,
+                    hintText: l10n.adLinkHint,
+                    prefixIcon: const Icon(Icons.link_rounded),
+                    errorText: _adLinkError,
                   ),
                 ),
+                const SizedBox(height: 8),
+              ],
+              SegmentedButton<String>(
+                segments: [
+                  ButtonSegment<String>(
+                    value: 'general',
+                    icon: Icon(Icons.public_rounded, size: 18),
+                    label: Text(l10n.general),
+                  ),
+                  ButtonSegment<String>(
+                    value: 'friends',
+                    icon: Icon(Icons.group_rounded, size: 18),
+                    label: Text(l10n.friendsOnly),
+                  ),
+                ],
+                selected: {_postVisibility},
+                onSelectionChanged: _saving
+                    ? null
+                    : (values) {
+                        if (values.isEmpty) return;
+                        setState(() => _postVisibility = values.first);
+                      },
               ),
-            ),
-            const SizedBox(height: 8),
-          ],
-          SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.zero,
-            value: _allowShare,
-            onChanged: _saving || _postType == 'ads'
-                ? null
-                : (v) => setState(() => _allowShare = v),
-            title: Text(l10n.allowReposts),
-            subtitle: Text(
-              _postType == 'ads'
-                  ? l10n.adsCannotRepost
-                  : _allowShare
-                  ? l10n.othersCanShare
-                  : l10n.repostHidden,
-              style: theme.textTheme.bodySmall,
-            ),
-          ),
-          const SizedBox(height: 8),
-          FilledButton.icon(
-            onPressed: _saving ? null : _save,
-            icon: _saving
-                ? SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: theme.colorScheme.onPrimary,
+              const SizedBox(height: 12),
+              TextField(
+                controller: widget.contentController,
+                maxLines: 5,
+                minLines: 3,
+                textCapitalization: TextCapitalization.sentences,
+                onChanged: (_) {
+                  if (_contentError != null) {
+                    setState(() => _contentError = null);
+                  }
+                },
+                decoration: InputDecoration(
+                  hintText: l10n.postContentHint,
+                  alignLabelWithHint: true,
+                  errorText: _contentError,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  TextButton.icon(
+                    onPressed: _saving ? null : _pickImage,
+                    icon: const Icon(Icons.photo_library_outlined, size: 20),
+                    label: Text(
+                      _existingUrl.isNotEmpty
+                          ? l10n.changePhoto
+                          : l10n.addPhoto,
                     ),
-                  )
-                : const Icon(Icons.check_rounded, size: 20),
-            label: Text(_saving ? l10n.saving : l10n.save),
+                  ),
+                  if (_willHaveImage)
+                    TextButton.icon(
+                      onPressed: _saving ? null : _removePhoto,
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                      label: Text(l10n.removePhoto),
+                    ),
+                ],
+              ),
+              if (_newImageBytes != null) ...[
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: Image.memory(
+                      _newImageBytes!,
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ] else if (!_removedImage && _existingUrl.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: HomePostMediaAttachment(
+                    url: _existingUrl,
+                    scheme: Theme.of(context).colorScheme,
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: _allowShare,
+                onChanged: _saving || _postType == 'ads'
+                    ? null
+                    : (v) => setState(() => _allowShare = v),
+                title: Text(l10n.allowReposts),
+                subtitle: Text(
+                  _postType == 'ads'
+                      ? l10n.adsCannotRepost
+                      : _allowShare
+                      ? l10n.othersCanShare
+                      : l10n.repostHidden,
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+              const SizedBox(height: 8),
+              FilledButton.icon(
+                onPressed: _saving ? null : _save,
+                icon: _saving
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: theme.colorScheme.onPrimary,
+                        ),
+                      )
+                    : const Icon(Icons.check_rounded, size: 20),
+                label: Text(_saving ? l10n.saving : l10n.save),
+              ),
+            ],
           ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PostTypeTile extends StatelessWidget {
+  const _PostTypeTile({
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: selected
+          ? scheme.primaryContainer.withValues(alpha: 0.8)
+          : scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: selected
+                    ? scheme.onPrimaryContainer
+                    : scheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: selected
+                      ? scheme.onPrimaryContainer
+                      : scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

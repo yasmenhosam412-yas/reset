@@ -22,6 +22,7 @@ abstract class HomeRepository {
     String postImage = '',
     Uint8List? imageBytes,
     String? imageContentType,
+    String? mediaLocalPath,
     bool allowShare = true,
     String postVisibility = 'general',
     String postType = 'post',
@@ -47,12 +48,47 @@ abstract class HomeRepository {
     required String comment,
   });
 
+  Future<Either<Failure, void>> deleteComment({required String commentId});
+
+  Future<Either<Failure, void>> blockUser({required String blockedUserId});
+
+  Future<Either<Failure, void>> unblockUser({required String blockedUserId});
+
+  Future<Either<Failure, List<UserModel>>> getBlockedUsers();
+
+  Future<Either<Failure, void>> reportUser({
+    required String reportedUserId,
+    String? reason,
+    String? details,
+    Map<String, dynamic>? context,
+  });
+
   Future<Either<Failure, void>> setPostReaction({
     required String postId,
     String? reaction,
   });
 
   Future<Either<Failure, List<PostModel>>> getPosts({
+    required int limit,
+    required int offset,
+  });
+
+  Future<Either<Failure, List<PostModel>>> getPostsForAuthor({
+    required String authorUserId,
+    required int limit,
+    required int offset,
+  });
+
+  Future<Either<Failure, Set<String>>> getSavedPostIdsAmong(
+    Iterable<String> postIds,
+  );
+
+  Future<Either<Failure, void>> setPostSaved({
+    required String postId,
+    required bool saved,
+  });
+
+  Future<Either<Failure, List<PostModel>>> getSavedPosts({
     required int limit,
     required int offset,
   });
@@ -67,7 +103,15 @@ abstract class HomeRepository {
 
   Future<Either<Failure, Set<String>>> getAcceptedFriendUserIds();
 
+  Future<Either<Failure, Set<String>>> getPendingOutgoingFriendUserIds();
+
+  Future<Either<Failure, List<UserModel>>> getAcceptedFriendsProfiles();
+
   Future<Either<Failure, void>> sendFriendRequest(UserModel userModel);
+
+  Future<Either<Failure, void>> withdrawOutgoingFriendRequest(
+    UserModel userModel,
+  );
 
   Future<Either<Failure, void>> sendChallengeRequest(
     UserModel userModel,

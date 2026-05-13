@@ -3,109 +3,174 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_state.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/bottom_sheets/edit_home_post_sheet.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_event.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/presentation/dialogs/home_user_safety_dialogs.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_challenge_games.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_titles.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Author menu for a post (friend request, challenge, delete own post).
 void showHomePostAuthorActionsSheet(BuildContext context, PostModel post) {
-  final theme = Theme.of(context);
+  final hostContext = context;
+  final theme = Theme.of(hostContext);
   final scheme = theme.colorScheme;
   final author = post.userModel.username;
-  final l10n = context.l10n;
-  final state = context.read<HomeBloc>().state;
+  final l10n = hostContext.l10n;
   final authorIdNorm = post.userModel.id.trim().toLowerCase();
-  final alreadyFriend =
-      authorIdNorm.isNotEmpty &&
-      state.acceptedFriendUserIds.contains(authorIdNorm);
   final myId = Supabase.instance.client.auth.currentUser?.id
       .trim()
       .toLowerCase();
   final isSelf = myId != null && myId.isNotEmpty && myId == authorIdNorm;
 
   showModalBottomSheet<void>(
-    context: context,
+    context: hostContext,
     showDragHandle: true,
     builder: (sheetContext) {
       return SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                author,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 20),
-              if (isSelf) ...[
-                Text(
-                  l10n.thisIsYourPost,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+          child: BlocBuilder<HomeBloc, HomeState>(
+            buildWhen: (p, c) =>
+                p.acceptedFriendUserIds != c.acceptedFriendUserIds ||
+                p.pendingOutgoingFriendUserIds !=
+                    c.pendingOutgoingFriendUserIds,
+            builder: (_, state) {
+              final alreadyFriend =
+                  authorIdNorm.isNotEmpty &&
+                  state.acceptedFriendUserIds.contains(authorIdNorm);
+              final requestPending =
+                  authorIdNorm.isNotEmpty &&
+                  state.pendingOutgoingFriendUserIds.contains(authorIdNorm);
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    author,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                FilledButton.icon(
-                  onPressed: () {
-                    Navigator.of(sheetContext).pop();
-                    showEditHomePostSheet(context, post);
-                  },
-                  icon: const Icon(Icons.edit_outlined),
-                  label: Text(l10n.editPost),
-                ),
-                const SizedBox(height: 12),
-                FilledButton.tonalIcon(
-                  onPressed: () {
-                    Navigator.of(sheetContext).pop();
-                    _confirmDeletePost(context, post);
-                  },
-                  icon: Icon(Icons.delete_outline_rounded, color: scheme.error),
-                  label: Text(
-                    l10n.deletePost,
-                    style: TextStyle(color: scheme.error),
-                  ),
-                ),
-              ] else ...[
-                if (alreadyFriend)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.people_rounded, color: scheme.primary),
-                    title: Text(l10n.friends),
-                    subtitle: Text(
-                      l10n.alreadyConnectedNoRequestNeeded,
-                      style: theme.textTheme.bodySmall?.copyWith(
+                  const SizedBox(height: 20),
+                  if (isSelf) ...[
+                    Text(
+                      l10n.thisIsYourPost,
+                      style: theme.textTheme.bodyMedium?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
                     ),
-                  )
-                else
-                  FilledButton.icon(
-                    onPressed: () {
-                      Navigator.of(sheetContext).pop();
-                      context.read<HomeBloc>().add(
-                        HomeSendFriendRequest(userModel: post.userModel),
-                      );
-                    },
-                    icon: const Icon(Icons.person_add_rounded),
-                    label: Text(l10n.sendFriendRequest),
-                  ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.of(sheetContext).pop();
-                    _showChallengeGamePicker(context, post);
-                  },
-                  icon: const Icon(Icons.sports_esports_rounded),
-                  label: Text(l10n.sendChallenge),
-                ),
-              ],
-            ],
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(sheetContext).pop();
+                        showEditHomePostSheet(hostContext, post);
+                      },
+                      icon: const Icon(Icons.edit_outlined),
+                      label: Text(l10n.editPost),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.tonalIcon(
+                      onPressed: () {
+                        Navigator.of(sheetContext).pop();
+                        _confirmDeletePost(hostContext, post);
+                      },
+                      icon: Icon(
+                        Icons.delete_outline_rounded,
+                        color: scheme.error,
+                      ),
+                      label: Text(
+                        l10n.deletePost,
+                        style: TextStyle(color: scheme.error),
+                      ),
+                    ),
+                  ] else ...[
+                    if (alreadyFriend)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          Icons.people_rounded,
+                          color: scheme.primary,
+                        ),
+                        title: Text(l10n.friends),
+                        subtitle: Text(
+                          l10n.alreadyConnectedNoRequestNeeded,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      )
+                    else if (requestPending) ...[
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          Icons.schedule_rounded,
+                          color: scheme.primary,
+                        ),
+                        title: Text(l10n.exploreLinkPendingOutgoing),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          hostContext.read<HomeBloc>().add(
+                            HomeWithdrawFriendRequest(
+                              userModel: post.userModel,
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.undo_rounded),
+                        label: Text(l10n.undoFriendRequest),
+                      ),
+                    ] else
+                      FilledButton.icon(
+                        onPressed: () {
+                          Navigator.of(sheetContext).pop();
+                          context.read<HomeBloc>().add(
+                            HomeSendFriendRequest(userModel: post.userModel),
+                          );
+                        },
+                        icon: const Icon(Icons.person_add_rounded),
+                        label: Text(l10n.sendFriendRequest),
+                      ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(sheetContext).pop();
+                        _showChallengeGamePicker(hostContext, post);
+                      },
+                      icon: const Icon(Icons.sports_esports_rounded),
+                      label: Text(l10n.sendChallenge),
+                    ),
+                    const SizedBox(height: 8),
+                    const Divider(),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.block_rounded, color: scheme.error),
+                      title: Text(l10n.blockUser),
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        showHomeBlockUserDialog(hostContext, post.userModel);
+                      },
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.flag_outlined),
+                      title: Text(l10n.reportUser),
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        showHomeReportUserDialog(
+                          hostContext,
+                          post.userModel,
+                          contextPayload: {
+                            'source': 'post_author_menu',
+                            'post_id': post.id,
+                          },
+                        );
+                      },
+                    ),
+                  ],
+                ],
+              );
+            },
           ),
         ),
       );
@@ -116,17 +181,19 @@ void showHomePostAuthorActionsSheet(BuildContext context, PostModel post) {
 void _confirmDeletePost(BuildContext context, PostModel post) {
   final pid = post.id.trim();
   if (pid.isEmpty) return;
+  final l10n = context.l10n;
+  final bloc = context.read<HomeBloc>();
   final scheme = Theme.of(context).colorScheme;
   showDialog<void>(
     context: context,
     builder: (dialogContext) {
       return AlertDialog(
-        title: Text(context.l10n.deletePostQuestion),
-        content: Text(context.l10n.deletePostMessage),
+        title: Text(l10n.deletePostQuestion),
+        content: Text(l10n.deletePostMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(context.l10n.cancel),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -135,11 +202,9 @@ void _confirmDeletePost(BuildContext context, PostModel post) {
             ),
             onPressed: () {
               Navigator.of(dialogContext).pop();
-              context.read<HomeBloc>().add(
-                HomePostDeleteRequested(postId: pid),
-              );
+              bloc.add(HomePostDeleteRequested(postId: pid));
             },
-            child: Text(context.l10n.delete),
+            child: Text(l10n.delete),
           ),
         ],
       );

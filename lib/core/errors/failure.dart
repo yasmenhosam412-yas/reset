@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:new_project/core/errors/network_error_flags.dart'
     if (dart.library.html) 'package:new_project/core/errors/network_error_flags_stub.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
 abstract class Failure {
   final String message;
@@ -17,6 +18,15 @@ class NetworkFailure extends Failure {
   NetworkFailure({super.message = "No internet connection"});
 }
 
+/// Maps to a clear message when RLS blocks actions (e.g. frozen account).
+class AccountSuspendedFailure extends Failure {
+  AccountSuspendedFailure({super.message = _defaultSuspendedMessage});
+
+  static const String _defaultSuspendedMessage =
+      'Your account is temporarily suspended. Posting, comments, and other '
+      'actions are disabled until the suspension ends.';
+}
+
 Failure failureFromException(Object error) {
   if (error is Failure) return error;
   if (error is TimeoutException) {
@@ -25,7 +35,17 @@ Failure failureFromException(Object error) {
   if (isIoNetworkError(error)) {
     return NetworkFailure();
   }
+  if (error is PostgrestException && _postgrestIsRowLevelSecurityBlock(error)) {
+    return AccountSuspendedFailure();
+  }
   return ServerFailure(message: _sanitizeFailureMessage(error.toString()));
+}
+
+/// PostgREST surfaces RLS denials as row-level security violations (e.g. frozen account).
+bool _postgrestIsRowLevelSecurityBlock(PostgrestException e) {
+  final blob =
+      '${e.message} ${e.details ?? ''} ${e.hint ?? ''}'.toLowerCase();
+  return blob.contains('row-level security') || blob.contains('rls policy');
 }
 
 String _sanitizeFailureMessage(String raw) {

@@ -222,6 +222,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get addPhoto => 'إضافة صورة';
 
   @override
+  String get addVideo => 'إضافة فيديو';
+
+  @override
   String get removePhoto => 'إزالة الصورة';
 
   @override
@@ -268,6 +271,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get couldNotOpenAdLink => 'تعذر فتح رابط الإعلان.';
 
   @override
+  String get couldNotOpenLink => 'تعذر فتح هذا الرابط.';
+
+  @override
   String get shared => 'مُعاد نشره';
 
   @override
@@ -298,6 +304,109 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get writeAComment => 'اكتب تعليقًا...';
+
+  @override
+  String get mentionUsersHint =>
+      'اكتب @ لذكر الأصدقاء أو صاحب المنشور أو المعلقين.';
+
+  @override
+  String get noMentionMatches => 'لا توجد أسماء مطابقة في هذا المنشور.';
+
+  @override
+  String get deleteCommentQuestion => 'حذف هذا التعليق؟';
+
+  @override
+  String get deleteCommentMessage => 'ستُزال تعليقك عن الجميع.';
+
+  @override
+  String get blockUser => 'حظر';
+
+  @override
+  String blockUserTitle(String username) {
+    return 'حظر $username؟';
+  }
+
+  @override
+  String get blockUserMessage =>
+      'ستتوقفان عن رؤية منشورات بعضكما هنا، ويُزال أي ارتباط صداقة أو دعوات معلّقة مع هذا الشخص.';
+
+  @override
+  String get userBlockedSnackbar => 'تم حظر المستخدم.';
+
+  @override
+  String get blockedUsersTitle => 'الحسابات المحظورة';
+
+  @override
+  String get openBlockedUsersSubtitle =>
+      'الأشخاص الذين حظرتهم — ألغِ الحظر لترى منشوراتهم مجددًا.';
+
+  @override
+  String get noBlockedUsers => 'لم تحظر أحدًا.';
+
+  @override
+  String get unblockUser => 'إلغاء الحظر';
+
+  @override
+  String unblockUserTitle(String username) {
+    return 'إلغاء حظر $username؟';
+  }
+
+  @override
+  String get unblockUserMessage =>
+      'قد يظهرون في خلاصتك ويتواصلون معك وفقًا لقواعد التطبيق العادية.';
+
+  @override
+  String userUnblockedSnackbar(String username) {
+    return 'تم إلغاء حظر $username';
+  }
+
+  @override
+  String get reportUser => 'إبلاغ';
+
+  @override
+  String reportUserTitle(String username) {
+    return 'الإبلاغ عن $username';
+  }
+
+  @override
+  String get reportUserDescription =>
+      'اختر الخيار الذي يصف المشكلة بأفضل شكل. يراجع فريقنا كل بلاغ.';
+
+  @override
+  String get reportUserReasonPrompt => 'ما المشكلة؟';
+
+  @override
+  String get reportReasonHarassment => 'تحرش أو تنمر';
+
+  @override
+  String get reportReasonSpam => 'رسائل مزعجة أو مضللة';
+
+  @override
+  String get reportReasonHate => 'كراهية أو تمييز';
+
+  @override
+  String get reportReasonSexual => 'محتوى جنسي';
+
+  @override
+  String get reportReasonViolence => 'عنف أو تهديدات';
+
+  @override
+  String get reportReasonImpersonation => 'انتحال شخصية أو حساب مزيف';
+
+  @override
+  String get reportReasonScam => 'احتيال أو احتيال مالي';
+
+  @override
+  String get reportReasonOther => 'شيء آخر';
+
+  @override
+  String get reportUserOtherDetailsHint => 'صف باختصار ما حدث (اختياري)';
+
+  @override
+  String get reportUserDetailsLabel => 'تفاصيل (اختياري)';
+
+  @override
+  String get reportSubmittedSnackbar => 'شكرًا — استلمنا بلاغك.';
 
   @override
   String get thisIsYourPost => 'هذا منشورك.';
@@ -377,6 +486,10 @@ class AppLocalizationsAr extends AppLocalizations {
       'لا توجد منشورات بعد.\nاضغط منشور جديد لمشاركة شيء.';
 
   @override
+  String get noPostsFoundForFilter =>
+      'لا توجد منشورات.\nجرّب فئة أخرى أو الكل.';
+
+  @override
   String get cantRepostOwnPost => 'لا يمكنك إعادة نشر منشورك الخاص.';
 
   @override
@@ -404,6 +517,28 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get add => 'إضافة';
+
+  @override
+  String get saves => 'المحفوظات';
+
+  @override
+  String get saveToSaves => 'حفظ في المحفوظات';
+
+  @override
+  String get removeFromSaves => 'إزالة من المحفوظات';
+
+  @override
+  String get postSavedToSaves => 'تم الحفظ في قائمتك.';
+
+  @override
+  String get postRemovedFromSaves => 'تمت الإزالة من قائمتك.';
+
+  @override
+  String get savedPostsEmpty =>
+      'لا توجد منشورات محفوظة بعد. اضغط أيقونة الإشارة المرجعية على منشور في صفحتك الرئيسية.';
+
+  @override
+  String get openSavedPosts => 'فتح المنشورات المحفوظة';
 
   @override
   String get privacySecurity => 'الخصوصية والأمان';
@@ -516,6 +651,13 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get notifSomeoneCommented => 'علّق شخص على منشورك.';
+
+  @override
+  String get notifYouWereMentioned => 'تمت الإشارة إليك في تعليق.';
+
+  @override
+  String get notifMentionOpenHint =>
+      'افتح المنشور لقراءة التعليق الذي ذُكرت فيه.';
 
   @override
   String get notifFriendInvite => 'لديك دعوة صداقة جديدة.';
@@ -1573,6 +1715,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get homePostUpdated => 'تم تحديث المنشور';
 
   @override
+  String get homePostPublished => 'تم نشر المنشور';
+
+  @override
   String alreadyFriendsWith(Object name) {
     return 'أنت بالفعل صديق لـ $name.';
   }
@@ -1581,6 +1726,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String friendRequestSentTo(Object name) {
     return 'تم إرسال طلب صداقة إلى $name';
   }
+
+  @override
+  String get undoFriendRequest => 'تراجع';
+
+  @override
+  String get friendRequestWithdrawn => 'تم إلغاء طلب الصداقة.';
 
   @override
   String challengeSentTo(Object game, Object name) {

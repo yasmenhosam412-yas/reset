@@ -224,6 +224,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addPhoto => 'Add photo';
 
   @override
+  String get addVideo => 'Add video';
+
+  @override
   String get removePhoto => 'Remove photo';
 
   @override
@@ -270,6 +273,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get couldNotOpenAdLink => 'Could not open ad link.';
 
   @override
+  String get couldNotOpenLink => 'Could not open this link.';
+
+  @override
   String get shared => 'Shared';
 
   @override
@@ -300,6 +306,111 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get writeAComment => 'Write a comment...';
+
+  @override
+  String get mentionUsersHint =>
+      'Type @ to mention friends, the author, or people who commented.';
+
+  @override
+  String get noMentionMatches => 'No matching names for this post.';
+
+  @override
+  String get deleteCommentQuestion => 'Delete this comment?';
+
+  @override
+  String get deleteCommentMessage =>
+      'Your comment will be removed for everyone.';
+
+  @override
+  String get blockUser => 'Block';
+
+  @override
+  String blockUserTitle(String username) {
+    return 'Block $username?';
+  }
+
+  @override
+  String get blockUserMessage =>
+      'You will stop seeing each other\'s posts here. Friend links and pending invites with this person are removed.';
+
+  @override
+  String get userBlockedSnackbar => 'User blocked.';
+
+  @override
+  String get blockedUsersTitle => 'Blocked accounts';
+
+  @override
+  String get openBlockedUsersSubtitle =>
+      'People you blocked — unblock to see their posts again.';
+
+  @override
+  String get noBlockedUsers => 'You have not blocked anyone.';
+
+  @override
+  String get unblockUser => 'Unblock';
+
+  @override
+  String unblockUserTitle(String username) {
+    return 'Unblock $username?';
+  }
+
+  @override
+  String get unblockUserMessage =>
+      'They can appear in your feeds and reach you again according to normal app rules.';
+
+  @override
+  String userUnblockedSnackbar(String username) {
+    return '$username unblocked';
+  }
+
+  @override
+  String get reportUser => 'Report';
+
+  @override
+  String reportUserTitle(String username) {
+    return 'Report $username';
+  }
+
+  @override
+  String get reportUserDescription =>
+      'Choose the option that best describes the problem. Our team reviews every report.';
+
+  @override
+  String get reportUserReasonPrompt => 'What is the issue?';
+
+  @override
+  String get reportReasonHarassment => 'Harassment or bullying';
+
+  @override
+  String get reportReasonSpam => 'Spam or misleading';
+
+  @override
+  String get reportReasonHate => 'Hate or discrimination';
+
+  @override
+  String get reportReasonSexual => 'Sexual content';
+
+  @override
+  String get reportReasonViolence => 'Violence or threats';
+
+  @override
+  String get reportReasonImpersonation => 'Impersonation or fake account';
+
+  @override
+  String get reportReasonScam => 'Scam or fraud';
+
+  @override
+  String get reportReasonOther => 'Something else';
+
+  @override
+  String get reportUserOtherDetailsHint =>
+      'Briefly describe what happened (optional)';
+
+  @override
+  String get reportUserDetailsLabel => 'Details (optional)';
+
+  @override
+  String get reportSubmittedSnackbar => 'Thanks — we received your report.';
 
   @override
   String get thisIsYourPost => 'This is your post.';
@@ -379,6 +490,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'No posts yet.\nTap New post to share something.';
 
   @override
+  String get noPostsFoundForFilter =>
+      'No posts found.\nTry another category or All.';
+
+  @override
   String get cantRepostOwnPost => 'You can\'t repost your own post.';
 
   @override
@@ -406,6 +521,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get add => 'Add';
+
+  @override
+  String get saves => 'Saves';
+
+  @override
+  String get saveToSaves => 'Save to Saves';
+
+  @override
+  String get removeFromSaves => 'Remove from Saves';
+
+  @override
+  String get postSavedToSaves => 'Saved to your list.';
+
+  @override
+  String get postRemovedFromSaves => 'Removed from your list.';
+
+  @override
+  String get savedPostsEmpty =>
+      'No saved posts yet. Tap the bookmark on a post in your feed.';
+
+  @override
+  String get openSavedPosts => 'Open saved posts';
 
   @override
   String get privacySecurity => 'Privacy & security';
@@ -519,6 +656,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notifSomeoneCommented => 'Someone commented on your post.';
+
+  @override
+  String get notifYouWereMentioned => 'You were mentioned in a comment.';
+
+  @override
+  String get notifMentionOpenHint =>
+      'Open the post to read the comment you were tagged in.';
 
   @override
   String get notifFriendInvite => 'You received a new friend invite.';
@@ -1577,6 +1721,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homePostUpdated => 'Post updated';
 
   @override
+  String get homePostPublished => 'Post published';
+
+  @override
   String alreadyFriendsWith(Object name) {
     return 'You are already friends with $name.';
   }
@@ -1585,6 +1732,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String friendRequestSentTo(Object name) {
     return 'Friend request sent to $name';
   }
+
+  @override
+  String get undoFriendRequest => 'Undo';
+
+  @override
+  String get friendRequestWithdrawn => 'Friend request cancelled.';
 
   @override
   String challengeSentTo(Object game, Object name) {

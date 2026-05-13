@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -21,6 +22,7 @@ import 'package:new_project/features/main_screen/tabs/home_tab/presentation/widg
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/games/online_game_titles.dart';
 
 enum _FeedSort { latest, mostLiked }
+
 enum _PostTypeFilter { all, post, announcement, celebration, ads }
 
 class HomeTab extends StatefulWidget {
@@ -106,9 +108,9 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
     if (post == null) {
       shell.clearHomePost();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.couldNotFindPostInFeed)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.couldNotFindPostInFeed)));
       }
       return;
     }
@@ -194,20 +196,22 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
   }
 
   List<PostModel> _filteredAndSorted(List<PostModel> posts) {
-    var list = posts.where((post) {
-      switch (_postTypeFilter) {
-        case _PostTypeFilter.all:
-          return true;
-        case _PostTypeFilter.post:
-          return post.postType == 'post';
-        case _PostTypeFilter.announcement:
-          return post.postType == 'announcement';
-        case _PostTypeFilter.celebration:
-          return post.postType == 'celebration';
-        case _PostTypeFilter.ads:
-          return post.postType == 'ads';
-      }
-    }).toList(growable: false);
+    var list = posts
+        .where((post) {
+          switch (_postTypeFilter) {
+            case _PostTypeFilter.all:
+              return true;
+            case _PostTypeFilter.post:
+              return post.postType == 'post';
+            case _PostTypeFilter.announcement:
+              return post.postType == 'announcement';
+            case _PostTypeFilter.celebration:
+              return post.postType == 'celebration';
+            case _PostTypeFilter.ads:
+              return post.postType == 'ads';
+          }
+        })
+        .toList(growable: false);
     switch (_feedSort) {
       case _FeedSort.latest:
         break;
@@ -508,6 +512,7 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
                 ),
               ],
             ),
+
             const SizedBox(height: 12),
             SegmentedButton<_FeedSort>(
               segments: [
@@ -577,29 +582,55 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
     String content,
     Uint8List? imageBytes,
     String? imageContentType,
+    String? mediaLocalPath,
     bool allowShare,
     String postVisibility,
     String postType,
     String? adLink,
   ) async {
     final trimmed = content.trim();
-    if (trimmed.isEmpty && (imageBytes == null || imageBytes.isEmpty)) {
+    final hasBytes = imageBytes != null && imageBytes.isNotEmpty;
+    final hasPath = mediaLocalPath != null && mediaLocalPath.trim().isNotEmpty;
+    if (trimmed.isEmpty && !hasBytes && !hasPath) {
       return;
     }
     if (!mounted) return;
-    context.read<HomeBloc>().add(
+    final navigator = Navigator.of(context);
+    final bloc = context.read<HomeBloc>();
+    bloc.add(
       HomePostCreateRequested(
         postContent: trimmed,
         imageBytes: imageBytes,
         imageContentType: imageContentType,
+        mediaLocalPath: mediaLocalPath,
         allowShare: allowShare,
         postVisibility: postVisibility,
         postType: postType,
         adLink: adLink,
       ),
     );
-    _newPostController.clear();
-    if (mounted) Navigator.of(context).pop();
+    try {
+      await bloc.stream
+          .firstWhere(
+            (s) =>
+                s.successType == HomeSuccessType.postCreated ||
+                (s.status == HomeStatus.failure &&
+                    (s.errorMessage?.trim().isNotEmpty ?? false)),
+          )
+          .timeout(const Duration(minutes: 2));
+    } on TimeoutException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.somethingWentWrong)),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+    if (bloc.state.successType == HomeSuccessType.postCreated) {
+      _newPostController.clear();
+      navigator.pop();
+    }
   }
 
   void _openNewPostSheet() {
@@ -619,6 +650,7 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
       ),
     );
   }
+
 
   void _openComments(PostModel post) {
     showHomeCommentsSheet(
@@ -649,7 +681,8 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
           (curr.errorMessage != null &&
               curr.errorMessage != prev.errorMessage) ||
           (curr.successMessage != null &&
-              curr.successMessage != prev.successMessage),
+              curr.successMessage != prev.successMessage) ||
+          (curr.successType != prev.successType),
       listener: (context, state) {
         final l10n = context.l10n;
         final err = state.errorMessage;
@@ -659,8 +692,11 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
           ).showSnackBar(SnackBar(content: Text(err)));
         }
         final ok = switch (state.successType) {
+          HomeSuccessType.postCreated => l10n.homePostPublished,
           HomeSuccessType.postDeleted => l10n.homePostDeleted,
           HomeSuccessType.postUpdated => l10n.homePostUpdated,
+          HomeSuccessType.postSaved => l10n.postSavedToSaves,
+          HomeSuccessType.postUnsaved => l10n.postRemovedFromSaves,
           HomeSuccessType.alreadyFriends => l10n.alreadyFriendsWith(
             (state.successName?.trim().isEmpty ?? true)
                 ? l10n.player
@@ -671,12 +707,15 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
                 ? l10n.player
                 : state.successName!.trim(),
           ),
+          HomeSuccessType.friendRequestWithdrawn => l10n.friendRequestWithdrawn,
           HomeSuccessType.challengeSent => l10n.challengeSentTo(
             onlineGameTitleL10n(l10n, state.successGameId ?? 1),
             (state.successName?.trim().isEmpty ?? true)
                 ? l10n.player
                 : state.successName!.trim(),
           ),
+          HomeSuccessType.userBlocked => l10n.userBlockedSnackbar,
+          HomeSuccessType.userReported => l10n.reportSubmittedSnackbar,
           null => state.successMessage,
         };
         if (ok != null) {
@@ -691,6 +730,10 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
         final loading = state.status == HomeStatus.loading;
         final empty = posts.isEmpty;
         final displayed = _filteredAndSorted(posts);
+        final filterShowsNoPosts =
+            !empty &&
+            displayed.isEmpty &&
+            state.status == HomeStatus.loaded;
         final header = _buildInteractiveHeader(context);
 
         return Scaffold(
@@ -713,6 +756,23 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
                         SliverFillRemaining(
                           hasScrollBody: false,
                           child: HomeFeedEmptyPlaceholder(),
+                        ),
+                      ],
+                    ),
+                  )
+                : filterShowsNoPosts
+                ? RefreshIndicator(
+                    onRefresh: _refreshFeed,
+                    child: CustomScrollView(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        SliverToBoxAdapter(child: header),
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: HomeFeedEmptyPlaceholder(
+                            message: l10n.noPostsFoundForFilter,
+                          ),
                         ),
                       ],
                     ),

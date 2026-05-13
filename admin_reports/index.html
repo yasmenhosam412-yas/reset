@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User reports — Admin</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #3d8bfd;
+      --danger: #f85149;
+      --ok: #3fb950;
+      --border: #30363d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.45;
+    }
+    header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+    }
+    h1 { margin: 0; font-size: 1.15rem; font-weight: 700; }
+    .sub { color: var(--muted); font-size: 0.8rem; margin-top: 0.35rem; }
+    main { padding: 1rem 1.25rem 3rem; max-width: 1200px; margin: 0 auto; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+      margin-bottom: 1rem;
+    }
+    label { display: block; font-size: 0.75rem; color: var(--muted); margin-bottom: 0.25rem; }
+    input, select, textarea {
+      width: 100%;
+      padding: 0.5rem 0.65rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #0d1117;
+      color: var(--text);
+      font: inherit;
+    }
+    textarea { min-height: 4rem; resize: vertical; }
+    button {
+      font: inherit;
+      cursor: pointer;
+      border-radius: 6px;
+      border: none;
+      padding: 0.55rem 1rem;
+      font-weight: 600;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .row { display: grid; gap: 0.75rem; }
+    @media (min-width: 640px) {
+      .row-2 { grid-template-columns: 1fr 1fr; }
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    th, td { border: 1px solid var(--border); padding: 0.45rem 0.5rem; vertical-align: top; }
+    th { text-align: left; background: #0d1117; color: var(--muted); font-weight: 600; }
+    .mono { font-family: ui-monospace, monospace; font-size: 0.72rem; word-break: break-all; }
+    .err { color: var(--danger); font-size: 0.85rem; margin-top: 0.5rem; }
+    .hint { color: var(--muted); font-size: 0.85rem; margin-top: 0.5rem; }
+    .ok { color: var(--ok); font-size: 0.85rem; margin-top: 0.5rem; }
+    .hidden { display: none !important; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; }
+    .pill { font-size: 0.72rem; padding: 0.15rem 0.45rem; border-radius: 999px; background: #21262d; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>User reports</h1>
+    <div class="sub">Sign in with a staff account where <span class="mono">profiles.is_admin = true</span>. You can extend or clear a suspension on the <strong>reported</strong> user when saving a report (freeze days: 0 = clear, blank = leave unchanged; max 365 days per save). Apply the SQL migrations, then promote your user in the Supabase SQL editor.</div>
+  </header>
+  <main>
+    <section id="login-section" class="card">
+      <h2 style="margin:0 0 0.75rem;font-size:1rem;">Sign in</h2>
+      <div class="row row-2">
+        <div>
+          <label for="email">Email</label>
+          <input id="email" type="email" autocomplete="username" />
+        </div>
+        <div>
+          <label for="password">Password</label>
+          <input id="password" type="password" autocomplete="current-password" />
+        </div>
+      </div>
+      <div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <button class="btn-primary" type="button" id="btn-login">Sign in</button>
+        <button class="btn-ghost hidden" type="button" id="btn-logout">Sign out</button>
+      </div>
+      <div id="login-msg" class="err"></div>
+    </section>
+
+    <section id="app-section" class="hidden">
+      <div class="toolbar">
+        <span class="pill" id="user-pill"></span>
+        <button class="btn-ghost" type="button" id="btn-refresh" title="Limited to once every few seconds to avoid API rate limits">Refresh list</button>
+      </div>
+      <div id="list-msg" class="err"></div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Created</th>
+              <th>Reporter</th>
+              <th>Reported</th>
+              <th>Frozen until</th>
+              <th>Reason</th>
+              <th>Details</th>
+              <th>Context</th>
+              <th>Status</th>
+              <th>Resolution / notes</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

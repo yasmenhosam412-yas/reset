@@ -1,15 +1,17 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/post_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_event.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_state.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/utils/home_feed_ui.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/post_reactions_codec.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/utils/post_reactions.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/utils/repost_post_to_feed.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/utils/shared_post_marker.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/presentation/widgets/home_post_media_attachment.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/presentation/widgets/post_text_with_links.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class HomePostCard extends StatelessWidget {
@@ -196,8 +198,8 @@ class HomePostCard extends StatelessWidget {
             ],
             if (displayContent.trim().isNotEmpty) ...[
               const SizedBox(height: 10),
-              Text(
-                displayContent,
+              PostTextWithLinks(
+                text: displayContent,
                 style: theme.textTheme.bodyLarge?.copyWith(height: 1.35),
               ),
             ],
@@ -205,37 +207,9 @@ class HomePostCard extends StatelessWidget {
               const SizedBox(height: 12),
               ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                child: AspectRatio(
-                  aspectRatio: 16 / 12,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      CachedNetworkImage(
-                        imageUrl: feedImageUrl,
-                        fit: BoxFit.cover,
-                        errorWidget: (context, error, stackTrace) => Container(
-                          color: scheme.surfaceContainerHighest,
-                          alignment: Alignment.center,
-                          child: Icon(
-                            Icons.broken_image_outlined,
-                            color: scheme.outline,
-                          ),
-                        ),
-                      ),
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.black.withValues(alpha: 0.0),
-                              Colors.black.withValues(alpha: 0.06),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                child: HomePostMediaAttachment(
+                  url: feedImageUrl,
+                  scheme: scheme,
                 ),
               ),
             ],
@@ -383,6 +357,36 @@ class HomePostCard extends StatelessWidget {
                                 post: post,
                               ),
                       ),
+                    ),
+                  ],
+                  if (post.id.trim().isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    BlocSelector<HomeBloc, HomeState, bool>(
+                      selector: (s) {
+                        final id = post.id.trim();
+                        return id.isNotEmpty && s.savedPostIds.contains(id);
+                      },
+                      builder: (context, isSaved) {
+                        return Tooltip(
+                          message: isSaved
+                              ? l10n.removeFromSaves
+                              : l10n.saveToSaves,
+                          child: _ActionPill(
+                            icon: isSaved
+                                ? Icons.bookmark_rounded
+                                : Icons.bookmark_border_rounded,
+                            scheme: scheme,
+                            onTap: () {
+                              context.read<HomeBloc>().add(
+                                HomePostSaveToggled(
+                                  postId: post.id,
+                                  saved: !isSaved,
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ],

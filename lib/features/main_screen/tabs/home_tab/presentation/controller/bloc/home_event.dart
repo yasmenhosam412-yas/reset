@@ -17,6 +17,7 @@ final class HomePostCreateRequested extends HomeEvent {
     this.postImage = '',
     this.imageBytes,
     this.imageContentType,
+    this.mediaLocalPath,
     this.allowShare = true,
     this.postVisibility = 'general',
     this.postType = 'post',
@@ -27,6 +28,7 @@ final class HomePostCreateRequested extends HomeEvent {
   final String postImage;
   final Uint8List? imageBytes;
   final String? imageContentType;
+  final String? mediaLocalPath;
   final bool allowShare;
   final String postVisibility;
   final String postType;
@@ -70,6 +72,33 @@ final class HomeCommentCreateRequested extends HomeEvent {
   final String comment;
 }
 
+final class HomeCommentDeleteRequested extends HomeEvent {
+  HomeCommentDeleteRequested({required this.postId, required this.commentId});
+
+  final String postId;
+  final String commentId;
+}
+
+final class HomeUserBlockRequested extends HomeEvent {
+  HomeUserBlockRequested({required this.blockedUserId});
+
+  final String blockedUserId;
+}
+
+final class HomeUserReportRequested extends HomeEvent {
+  HomeUserReportRequested({
+    required this.reportedUserId,
+    this.reason,
+    this.details,
+    this.context,
+  });
+
+  final String reportedUserId;
+  final String? reason;
+  final String? details;
+  final Map<String, dynamic>? context;
+}
+
 /// [reaction] is one of: like, love, laugh, wow, sad, care — or `null` to remove yours.
 final class HomePostReactionRequested extends HomeEvent {
   HomePostReactionRequested({required this.postId, this.reaction});
@@ -84,6 +113,12 @@ final class HomeSendFriendRequest extends HomeEvent {
   final UserModel userModel;
 }
 
+final class HomeWithdrawFriendRequest extends HomeEvent {
+  HomeWithdrawFriendRequest({required this.userModel});
+
+  final UserModel userModel;
+}
+
 final class HomeSendChallenge extends HomeEvent {
   HomeSendChallenge({required this.userModel, required this.gameId});
 
@@ -92,3 +127,17 @@ final class HomeSendChallenge extends HomeEvent {
 }
 
 final class ResetHomeEvent extends HomeEvent {}
+
+final class HomePostSaveToggled extends HomeEvent {
+  HomePostSaveToggled({required this.postId, required this.saved});
+
+  final String postId;
+  final bool saved;
+}
+
+final class HomeSavedPostsLoadRequested extends HomeEvent {
+  HomeSavedPostsLoadRequested({this.limit = 60, this.offset = 0});
+
+  final int limit;
+  final int offset;
+}

@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:new_project/core/l10n/l10n.dart';
@@ -11,6 +12,7 @@ Future<void> showHomeNewPostSheet(
     String content,
     Uint8List? imageBytes,
     String? imageContentType,
+    String? mediaLocalPath,
     bool allowShare,
     String postVisibility,
     String postType,
@@ -49,6 +51,7 @@ class _HomeNewPostSheetBody extends StatefulWidget {
     String content,
     Uint8List? imageBytes,
     String? imageContentType,
+    String? mediaLocalPath,
     bool allowShare,
     String postVisibility,
     String postType,
@@ -62,6 +65,9 @@ class _HomeNewPostSheetBody extends StatefulWidget {
 class _HomeNewPostSheetBodyState extends State<_HomeNewPostSheetBody> {
   Uint8List? _imageBytes;
   String? _imageContentType;
+  String? _videoPath;
+  String? _videoContentType;
+  String _videoLabel = '';
   bool _posting = false;
   bool _allowShare = true;
   String _postVisibility = 'general';
@@ -76,6 +82,10 @@ class _HomeNewPostSheetBodyState extends State<_HomeNewPostSheetBody> {
     super.dispose();
   }
 
+  bool get _hasImage => _imageBytes != null && _imageBytes!.isNotEmpty;
+  bool get _hasVideo =>
+      _videoPath != null && _videoPath!.trim().isNotEmpty;
+
   String? _normalizedAdLink() {
     final raw = _adLinkController.text.trim();
     if (raw.isEmpty) return null;
@@ -87,7 +97,7 @@ class _HomeNewPostSheetBodyState extends State<_HomeNewPostSheetBody> {
     return raw;
   }
 
-  String? _mimeFromFile(XFile file) {
+  String? _mimeFromImageFile(XFile file) {
     final fromPicker = file.mimeType;
     if (fromPicker != null && fromPicker.isNotEmpty) return fromPicker;
     final name = file.name.toLowerCase();
@@ -95,6 +105,16 @@ class _HomeNewPostSheetBodyState extends State<_HomeNewPostSheetBody> {
     if (name.endsWith('.webp')) return 'image/webp';
     if (name.endsWith('.gif')) return 'image/gif';
     return 'image/jpeg';
+  }
+
+  String? _mimeFromVideoFile(XFile file) {
+    final fromPicker = file.mimeType;
+    if (fromPicker != null && fromPicker.isNotEmpty) return fromPicker;
+    final name = file.name.toLowerCase();
+    if (name.endsWith('.webm')) return 'video/webm';
+    if (name.endsWith('.mov')) return 'video/quicktime';
+    if (name.endsWith('.mkv')) return 'video/x-matroska';
+    return 'video/mp4';
   }
 
   Future<void> _pickImage() async {
@@ -110,14 +130,37 @@ class _HomeNewPostSheetBodyState extends State<_HomeNewPostSheetBody> {
     if (!mounted) return;
     setState(() {
       _imageBytes = bytes;
-      _imageContentType = _mimeFromFile(file);
+      _imageContentType = _mimeFromImageFile(file);
+      _videoPath = null;
+      _videoContentType = null;
+      _videoLabel = '';
     });
   }
 
-  void _clearImage() {
+  Future<void> _pickVideo() async {
+    final l10n = context.l10n;
+    final picker = ImagePicker();
+    final file = await picker.pickVideo(
+      source: ImageSource.gallery,
+      maxDuration: const Duration(minutes: 5),
+    );
+    if (file == null || !mounted) return;
     setState(() {
       _imageBytes = null;
       _imageContentType = null;
+      _videoPath = file.path;
+      _videoContentType = _mimeFromVideoFile(file);
+      _videoLabel = file.name.isNotEmpty ? file.name : l10n.addVideo;
+    });
+  }
+
+  void _clearMedia() {
+    setState(() {
+      _imageBytes = null;
+      _imageContentType = null;
+      _videoPath = null;
+      _videoContentType = null;
+      _videoLabel = '';
     });
   }
 
@@ -127,9 +170,16 @@ class _HomeNewPostSheetBodyState extends State<_HomeNewPostSheetBody> {
     final trimmed = text.trim();
     String? contentError;
     String? adLinkError;
-    if (trimmed.isEmpty) {
+    final hasMedia = _hasImage || _hasVideo;
+
+    if (_postType == 'ads') {
+      if (trimmed.isEmpty) {
+        contentError = l10n.postTextEmptyError;
+      }
+    } else if (trimmed.isEmpty && !hasMedia) {
       contentError = l10n.postTextEmptyError;
     }
+
     final adLink = _normalizedAdLink();
     if (_postType == 'ads' && adLink == null) {
       adLinkError = l10n.adLinkInvalidError;
@@ -143,10 +193,27 @@ class _HomeNewPostSheetBodyState extends State<_HomeNewPostSheetBody> {
     }
     setState(() => _posting = true);
     try {
+      Uint8List? outBytes = _imageBytes;
+      String? outMime = _imageContentType;
+      String? outPath;
+
+      if (_hasVideo) {
+        outMime = _videoContentType ?? 'video/mp4';
+        if (kIsWeb) {
+          final xf = XFile(_videoPath!);
+          outBytes = await xf.readAsBytes();
+          outPath = null;
+        } else {
+          outBytes = null;
+          outPath = _videoPath;
+        }
+      }
+
       await widget.onPublish(
         trimmed,
-        _imageBytes,
-        _imageContentType,
+        outBytes,
+        outMime,
+        outPath,
         _allowShare,
         _postVisibility,
         _postType,
@@ -164,15 +231,20 @@ class _HomeNewPostSheetBodyState extends State<_HomeNewPostSheetBody> {
     final media = MediaQuery.of(context);
     final maxHeight = media.size.height * 0.9;
 
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: maxHeight),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(l10n.newPost, style: theme.textTheme.titleLarge),
+    return PopScope(
+      canPop: !_posting,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxHeight),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(l10n.newPost, style: theme.textTheme.titleLarge),
             const SizedBox(height: 6),
             Text(
               _postType == 'announcement'
@@ -303,22 +375,29 @@ class _HomeNewPostSheetBodyState extends State<_HomeNewPostSheetBody> {
               ),
             ),
             const SizedBox(height: 8),
-            Row(
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
               children: [
                 TextButton.icon(
                   onPressed: _posting ? null : _pickImage,
                   icon: const Icon(Icons.photo_library_outlined, size: 20),
                   label: Text(l10n.addPhoto),
                 ),
-                if (_imageBytes != null)
+                TextButton.icon(
+                  onPressed: _posting ? null : _pickVideo,
+                  icon: const Icon(Icons.videocam_outlined, size: 20),
+                  label: Text(l10n.addVideo),
+                ),
+                if (_hasImage || _hasVideo)
                   TextButton.icon(
-                    onPressed: _posting ? null : _clearImage,
+                    onPressed: _posting ? null : _clearMedia,
                     icon: const Icon(Icons.close_rounded, size: 20),
                     label: Text(l10n.removePhoto),
                   ),
               ],
             ),
-            if (_imageBytes != null) ...[
+            if (_hasImage) ...[
               const SizedBox(height: 4),
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
@@ -332,6 +411,26 @@ class _HomeNewPostSheetBodyState extends State<_HomeNewPostSheetBody> {
                 ),
               ),
               const SizedBox(height: 12),
+            ],
+            if (_hasVideo) ...[
+              const SizedBox(height: 4),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  Icons.movie_outlined,
+                  color: theme.colorScheme.primary,
+                ),
+                title: Text(
+                  _videoLabel,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  l10n.addVideo,
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+              const SizedBox(height: 8),
             ],
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
@@ -349,22 +448,44 @@ class _HomeNewPostSheetBodyState extends State<_HomeNewPostSheetBody> {
                 style: theme.textTheme.bodySmall,
               ),
             ),
-            FilledButton.icon(
-              onPressed: _posting ? null : _submit,
-              icon: _posting
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: theme.colorScheme.onPrimary,
-                      ),
-                    )
-                  : const Icon(Icons.send_rounded, size: 20),
-              label: Text(_posting ? l10n.posting : l10n.post),
+                  FilledButton.icon(
+                    onPressed: _posting ? null : _submit,
+                    icon: _posting
+                        ? SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: theme.colorScheme.onPrimary,
+                            ),
+                          )
+                        : const Icon(Icons.send_rounded, size: 20),
+                    label: Text(_posting ? l10n.posting : l10n.post),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
+          ),
+          if (_posting)
+            Positioned.fill(
+              child: ColoredBox(
+                color: theme.colorScheme.surface.withValues(alpha: 0.6),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 14),
+                      Text(
+                        l10n.posting,
+                        style: theme.textTheme.titleSmall,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

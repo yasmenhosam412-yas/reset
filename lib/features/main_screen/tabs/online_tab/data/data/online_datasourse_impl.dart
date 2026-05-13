@@ -206,6 +206,31 @@ class OnlineDatasourseImpl implements OnlineDatasourse {
         .toList(growable: false);
   }
 
+  Future<Set<String>> _blockedRelevantUserIds(String uid) async {
+    final iBlocked = await supabaseClient
+        .from(HomeTable.userBlocks)
+        .select(UserBlockCols.blockedUserId)
+        .eq(UserBlockCols.blockerUserId, uid);
+    final blockedMe = await supabaseClient
+        .from(HomeTable.userBlocks)
+        .select(UserBlockCols.blockerUserId)
+        .eq(UserBlockCols.blockedUserId, uid);
+    final out = <String>{};
+    for (final e in iBlocked as List<dynamic>) {
+      final m = Map<String, dynamic>.from(e as Map);
+      final id =
+          m[UserBlockCols.blockedUserId]?.toString().trim().toLowerCase() ?? '';
+      if (id.isNotEmpty) out.add(id);
+    }
+    for (final e in blockedMe as List<dynamic>) {
+      final m = Map<String, dynamic>.from(e as Map);
+      final id =
+          m[UserBlockCols.blockerUserId]?.toString().trim().toLowerCase() ?? '';
+      if (id.isNotEmpty) out.add(id);
+    }
+    return out;
+  }
+
   @override
   Future<List<UserModel>> getFriends() async {
     final uid = supabaseClient.auth.currentUser?.id;
@@ -235,6 +260,9 @@ class OnlineDatasourseImpl implements OnlineDatasourse {
         friendIds.add(from);
       }
     }
+
+    final blocked = await _blockedRelevantUserIds(uid);
+    friendIds.removeWhere((fid) => blocked.contains(fid.trim().toLowerCase()));
 
     if (friendIds.isEmpty) return const [];
 

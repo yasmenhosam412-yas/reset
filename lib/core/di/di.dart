@@ -13,17 +13,29 @@ import 'package:new_project/features/authentication/presentation/controller/auth
 import 'package:new_project/features/main_screen/tabs/home_tab/data/datasource/home_datasource_impl.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/repositories/home_repository_impl.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_comment_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/delete_home_comment_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/block_home_user_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/report_home_user_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_post_like_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/add_home_post_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/delete_home_post_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/update_home_post_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_home_accepted_friend_ids_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_home_pending_outgoing_friend_ids_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_home_accepted_friends_profiles_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_home_blocked_users_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/unblock_home_user_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_home_posts_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_home_posts_for_author_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_home_saved_post_ids_among_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_home_saved_posts_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/set_home_post_saved_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/get_my_user_notifications_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/send_home_challenge_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/remove_home_friend_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/search_people_discovery_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/send_home_friend_request_usecase.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/withdraw_home_friend_request_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/data/global_battles_repository.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/domain/usecases/claim_team_daily_challenge_usecase.dart';
@@ -110,6 +122,12 @@ void configureDependencies() {
     () => GetHomePostsUsecase(homeRepository: getIt<HomeRepositoryImpl>()),
   );
 
+  getIt.registerLazySingleton<GetHomePostsForAuthorUsecase>(
+    () => GetHomePostsForAuthorUsecase(
+      homeRepository: getIt<HomeRepositoryImpl>(),
+    ),
+  );
+
   getIt.registerLazySingleton<GetMyUserNotificationsUsecase>(
     () => GetMyUserNotificationsUsecase(
       homeRepository: getIt<HomeRepositoryImpl>(),
@@ -118,6 +136,18 @@ void configureDependencies() {
 
   getIt.registerLazySingleton<GetHomeAcceptedFriendIdsUsecase>(
     () => GetHomeAcceptedFriendIdsUsecase(
+      homeRepository: getIt<HomeRepositoryImpl>(),
+    ),
+  );
+
+  getIt.registerLazySingleton<GetHomePendingOutgoingFriendIdsUsecase>(
+    () => GetHomePendingOutgoingFriendIdsUsecase(
+      homeRepository: getIt<HomeRepositoryImpl>(),
+    ),
+  );
+
+  getIt.registerLazySingleton<GetHomeAcceptedFriendsProfilesUsecase>(
+    () => GetHomeAcceptedFriendsProfilesUsecase(
       homeRepository: getIt<HomeRepositoryImpl>(),
     ),
   );
@@ -138,12 +168,52 @@ void configureDependencies() {
     () => AddHomeCommentUsecase(homeRepository: getIt<HomeRepositoryImpl>()),
   );
 
+  getIt.registerLazySingleton<DeleteHomeCommentUsecase>(
+    () => DeleteHomeCommentUsecase(homeRepository: getIt<HomeRepositoryImpl>()),
+  );
+
+  getIt.registerLazySingleton<BlockHomeUserUsecase>(
+    () => BlockHomeUserUsecase(homeRepository: getIt<HomeRepositoryImpl>()),
+  );
+
+  getIt.registerLazySingleton<ReportHomeUserUsecase>(
+    () => ReportHomeUserUsecase(homeRepository: getIt<HomeRepositoryImpl>()),
+  );
+
+  getIt.registerLazySingleton<GetHomeBlockedUsersUsecase>(
+    () => GetHomeBlockedUsersUsecase(homeRepository: getIt<HomeRepositoryImpl>()),
+  );
+
+  getIt.registerLazySingleton<UnblockHomeUserUsecase>(
+    () => UnblockHomeUserUsecase(homeRepository: getIt<HomeRepositoryImpl>()),
+  );
+
   getIt.registerLazySingleton<AddHomePostLikeUsecase>(
     () => AddHomePostLikeUsecase(homeRepository: getIt<HomeRepositoryImpl>()),
   );
 
+  getIt.registerLazySingleton<GetHomeSavedPostIdsAmongUsecase>(
+    () => GetHomeSavedPostIdsAmongUsecase(
+      homeRepository: getIt<HomeRepositoryImpl>(),
+    ),
+  );
+
+  getIt.registerLazySingleton<SetHomePostSavedUsecase>(
+    () => SetHomePostSavedUsecase(homeRepository: getIt<HomeRepositoryImpl>()),
+  );
+
+  getIt.registerLazySingleton<GetHomeSavedPostsUsecase>(
+    () => GetHomeSavedPostsUsecase(homeRepository: getIt<HomeRepositoryImpl>()),
+  );
+
   getIt.registerLazySingleton<SendHomeFriendRequestUsecase>(
     () => SendHomeFriendRequestUsecase(
+      homeRepository: getIt<HomeRepositoryImpl>(),
+    ),
+  );
+
+  getIt.registerLazySingleton<WithdrawHomeFriendRequestUsecase>(
+    () => WithdrawHomeFriendRequestUsecase(
       homeRepository: getIt<HomeRepositoryImpl>(),
     ),
   );
@@ -218,13 +288,21 @@ void configureDependencies() {
     () => HomeBloc(
       getHomePostsUsecase: getIt(),
       getHomeAcceptedFriendIdsUsecase: getIt(),
+      getHomePendingOutgoingFriendIdsUsecase: getIt(),
       addHomePostUsecase: getIt(),
       deleteHomePostUsecase: getIt(),
       updateHomePostUsecase: getIt(),
       addHomeCommentUsecase: getIt(),
+      deleteHomeCommentUsecase: getIt(),
+      blockHomeUserUsecase: getIt(),
+      reportHomeUserUsecase: getIt(),
       addHomePostLikeUsecase: getIt(),
       sendHomeFriendRequestUsecase: getIt(),
+      withdrawHomeFriendRequestUsecase: getIt(),
       sendHomeChallengeUsecase: getIt(),
+      getHomeSavedPostIdsAmongUsecase: getIt(),
+      setHomePostSavedUsecase: getIt(),
+      getHomeSavedPostsUsecase: getIt(),
     ),
   );
 

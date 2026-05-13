@@ -5,12 +5,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:new_project/core/di/di.dart';
 import 'package:new_project/core/l10n/l10n.dart';
 import 'package:new_project/core/navigation/main_shell_controller.dart';
+import 'package:new_project/features/authentication/data/models/user_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/people_discovery_row.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/usecases/search_people_discovery_usecase.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_event.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_state.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/navigation/open_author_posts_screen.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/presentation/dialogs/home_user_safety_dialogs.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/utils/home_feed_ui.dart';
 
 /// Search players by name and send friend requests (or jump to Profile for incoming).
@@ -97,13 +99,25 @@ class _ExplorePeopleScreenState extends State<ExplorePeopleScreen> {
     return BlocListener<HomeBloc, HomeState>(
       listenWhen: (p, c) =>
           (c.successMessage != null && c.successMessage != p.successMessage) ||
-          (c.errorMessage != null && c.errorMessage != p.errorMessage),
+          (c.errorMessage != null && c.errorMessage != p.errorMessage) ||
+          (c.successType != p.successType &&
+              (c.successType == HomeSuccessType.friendRequestSent ||
+                  c.successType == HomeSuccessType.friendRequestWithdrawn ||
+                  c.successType == HomeSuccessType.userBlocked)),
       listener: (context, state) {
         if (_busyAddId != null) {
           setState(() => _busyAddId = null);
         }
         if (state.successType == HomeSuccessType.friendRequestSent &&
             _lastQuery.length >= 2) {
+          _fetch(_lastQuery);
+        }
+        if (state.successType == HomeSuccessType.friendRequestWithdrawn &&
+            _lastQuery.length >= 2) {
+          _fetch(_lastQuery);
+        }
+        if (state.successType == HomeSuccessType.userBlocked &&
+            _lastQuery.trim().length >= 2) {
           _fetch(_lastQuery);
         }
       },
@@ -297,6 +311,7 @@ class _ExplorePeopleScreenState extends State<ExplorePeopleScreen> {
                               _linkAction(
                                 context: context,
                                 link: link,
+                                userModel: u,
                                 busyAdd: busyAdd,
                                 onAdd: () {
                                   setState(() => _busyAddId = bid);
@@ -313,6 +328,52 @@ class _ExplorePeopleScreenState extends State<ExplorePeopleScreen> {
                                   );
                                 },
                                 onOpenProfile: _openProfileTab,
+                              ),
+                              IconButton(
+                                icon: Icon(
+                                  Icons.more_vert_rounded,
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                                onPressed: () {
+                                  showModalBottomSheet<void>(
+                                    context: context,
+                                    showDragHandle: true,
+                                    builder: (ctx) => SafeArea(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          ListTile(
+                                            leading: Icon(
+                                              Icons.block_rounded,
+                                              color: scheme.error,
+                                            ),
+                                            title: Text(l10n.blockUser),
+                                            onTap: () {
+                                              Navigator.pop(ctx);
+                                              showHomeBlockUserDialog(context, u);
+                                            },
+                                          ),
+                                          ListTile(
+                                            leading: const Icon(
+                                              Icons.flag_outlined,
+                                            ),
+                                            title: Text(l10n.reportUser),
+                                            onTap: () {
+                                              Navigator.pop(ctx);
+                                              showHomeReportUserDialog(
+                                                context,
+                                                u,
+                                                contextPayload: const {
+                                                  'source': 'explore_people',
+                                                },
+                                              );
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ),
@@ -345,6 +406,7 @@ class _ExplorePeopleScreenState extends State<ExplorePeopleScreen> {
   Widget _linkAction({
     required BuildContext context,
     required PeopleDiscoveryLink link,
+    required UserModel userModel,
     required bool busyAdd,
     required VoidCallback onAdd,
     required VoidCallback onOpenPosts,
@@ -359,9 +421,13 @@ class _ExplorePeopleScreenState extends State<ExplorePeopleScreen> {
           child: Text(l10n.posts),
         );
       case PeopleDiscoveryLink.pendingOutgoing:
-        return Padding(
-          padding: const EdgeInsets.only(right: 4),
-          child: Icon(Icons.schedule_rounded, color: scheme.outline, size: 22),
+        return TextButton(
+          onPressed: () {
+            context.read<HomeBloc>().add(
+                  HomeWithdrawFriendRequest(userModel: userModel),
+                );
+          },
+          child: Text(l10n.undoFriendRequest),
         );
       case PeopleDiscoveryLink.pendingIncoming:
         return FilledButton.tonal(

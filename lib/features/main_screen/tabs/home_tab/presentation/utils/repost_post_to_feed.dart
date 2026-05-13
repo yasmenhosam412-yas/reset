@@ -10,6 +10,7 @@ import 'package:new_project/features/main_screen/tabs/home_tab/presentation/cont
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_event.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/utils/home_feed_ui.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/utils/shared_post_marker.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/presentation/widgets/home_post_media_attachment.dart';
 
 /// Opens a dialog to publish an editable repost to the home feed (same as New post).
 Future<void> showRepostPostToFeedDialog(
@@ -63,15 +64,9 @@ Future<void> showRepostPostToFeedDialog(
                 if (imageUrl.isNotEmpty) ...[
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: AspectRatio(
-                      aspectRatio: 16 / 9,
-                      child: Image.network(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const Icon(
-                          Icons.broken_image_outlined,
-                        ),
-                      ),
+                    child: HomePostMediaAttachment(
+                      url: imageUrl,
+                      scheme: Theme.of(ctx).colorScheme,
                     ),
                   ),
                   const SizedBox(height: 12),

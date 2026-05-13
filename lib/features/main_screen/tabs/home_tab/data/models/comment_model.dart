@@ -2,17 +2,24 @@ import 'package:new_project/features/authentication/data/models/user_model.dart'
 import 'package:new_project/features/main_screen/tabs/home_tab/domain/entities/comment_entity.dart';
 
 class CommentModel extends CommentEntity {
-  CommentModel({required super.userModel, required super.comment});
+  CommentModel({
+    required super.id,
+    required super.userModel,
+    required super.comment,
+  });
 
   factory CommentModel.fromJson(Map<String, dynamic> json) {
+    final cid = json['id']?.toString() ?? '';
     final userJson = json['user'];
     if (userJson is Map) {
       return CommentModel(
+        id: cid,
         userModel: UserModel.fromJson(Map<String, dynamic>.from(userJson)),
         comment: json['comment'] as String? ?? json['text'] as String? ?? '',
       );
     }
     return CommentModel(
+      id: cid,
       userModel: UserModel(
         id: json['author_id']?.toString() ?? '',
         username: (json['author'] ?? json['username'] ?? 'Unknown').toString(),

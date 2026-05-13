@@ -1,13 +1,8 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:new_project/core/legal/app_legal_urls.dart';
 import 'package:new_project/core/l10n/l10n.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-/// In-app summary of how the app handles account data and safety expectations.
-/// Replace with your lawyer-reviewed policy before production if required.
 class PrivacySecurityPage extends StatelessWidget {
   const PrivacySecurityPage({super.key});
 
@@ -37,8 +32,7 @@ class PrivacySecurityPage extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _Paragraph(
-            text:
-                l10n.privacyYourAccountDataBody,
+            text: l10n.privacyYourAccountDataBody,
             scheme: scheme,
             theme: theme,
           ),
@@ -53,20 +47,17 @@ class PrivacySecurityPage extends StatelessWidget {
           _Bullet(
             scheme: scheme,
             theme: theme,
-            text:
-                l10n.privacyDataUsageHome,
+            text: l10n.privacyDataUsageHome,
           ),
           _Bullet(
             scheme: scheme,
             theme: theme,
-            text:
-                l10n.privacyDataUsageOnline,
+            text: l10n.privacyDataUsageOnline,
           ),
           _Bullet(
             scheme: scheme,
             theme: theme,
-            text:
-                l10n.privacyDataUsageTeam,
+            text: l10n.privacyDataUsageTeam,
           ),
           const SizedBox(height: 20),
           Text(
@@ -77,8 +68,7 @@ class PrivacySecurityPage extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _Paragraph(
-            text:
-                l10n.privacyFriendsVisibilityBody,
+            text: l10n.privacyFriendsVisibilityBody,
             scheme: scheme,
             theme: theme,
           ),
@@ -103,8 +93,7 @@ class PrivacySecurityPage extends StatelessWidget {
           _Bullet(
             scheme: scheme,
             theme: theme,
-            text:
-                l10n.privacyTipUnauthorizedAccess,
+            text: l10n.privacyTipUnauthorizedAccess,
           ),
           const SizedBox(height: 20),
           Text(
@@ -128,46 +117,12 @@ class PrivacySecurityPage extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _Paragraph(
-            text:
-                l10n.privacyQuestionsBody,
+            text: l10n.privacyQuestionsBody,
             scheme: scheme,
             theme: theme,
           ),
         ],
       ),
-    );
-  }
-}
-
-Future<void> _launchPrivacyPolicy(BuildContext context) async {
-  final l10n = context.l10n;
-  final uri = Uri.parse(AppLegalUrls.privacyPolicy);
-  final ok = await canLaunchUrl(uri);
-  if (!context.mounted) return;
-  if (!ok) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.privacyCouldNotOpenPolicyLink)),
-    );
-    return;
-  }
-  await launchUrl(uri, mode: LaunchMode.externalApplication);
-}
-
-Future<void> _launchSupportEmail(BuildContext context) async {
-  final l10n = context.l10n;
-  final uri = Uri(scheme: 'mailto', path: AppLegalUrls.supportEmail);
-  try {
-    final launched = await launchUrl(uri);
-    if (!context.mounted) return;
-    if (!launched) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.privacyCouldNotOpenPolicyLink)),
-      );
-    }
-  } catch (_) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.privacyCouldNotOpenPolicyLink)),
     );
   }
 }

@@ -1,6 +1,7 @@
 abstract final class HomeTable {
   static const posts = 'posts';
   static const profiles = 'profiles';
+  static const postSaves = 'post_saves';
   static const userNotifications = 'user_notifications';
   static const postComments = 'post_comments';
   static const friendRequests = 'friend_requests';
@@ -12,6 +13,8 @@ abstract final class HomeTable {
   static const fantasyDuelSessions = 'fantasy_duel_sessions';
   static const teamChallengeDailyClaims = 'team_challenge_daily_claims';
   static const teamLineupRaceEntries = 'team_lineup_race_entries';
+  static const userBlocks = 'user_blocks';
+  static const userReports = 'user_reports';
 }
 
 abstract final class HomeStorage {
@@ -39,6 +42,36 @@ abstract final class PostCommentCols {
   static const createdAt = 'created_at';
 }
 
+abstract final class UserBlockCols {
+  static const blockerUserId = 'blocker_user_id';
+  static const blockedUserId = 'blocked_user_id';
+  static const createdAt = 'created_at';
+}
+
+abstract final class UserReportCols {
+  static const id = 'id';
+  static const reporterId = 'reporter_id';
+  static const reportedUserId = 'reported_user_id';
+  static const reason = 'reason';
+  static const details = 'details';
+  static const context = 'context';
+  static const createdAt = 'created_at';
+}
+
+abstract final class PostSaveCols {
+  static const userId = 'user_id';
+  static const postId = 'post_id';
+  static const savedAt = 'saved_at';
+}
+
+/// PostgREST embed hints when multiple FK paths exist between the same tables.
+abstract final class PostFkHint {
+  /// [posts].user_id → [profiles] (post author). Required once `post_saves` links posts↔profiles too.
+  static const postsAuthorToProfiles = 'posts_user_id_fkey';
+  /// [post_comments].user_id → [profiles] (comment author).
+  static const postCommentsAuthorToProfiles = 'post_comments_user_id_fkey';
+}
+
 abstract final class UserNotificationCols {
   static const id = 'id';
   static const userId = 'user_id';
@@ -58,6 +91,7 @@ abstract final class ProfileCols {
   static const acceptsMatchInvites = 'accepts_match_invites';
   static const fcmToken = 'fcm_token';
   static const pushNotificationsEnabled = 'push_notifications_enabled';
+  static const frozenUntil = 'frozen_until';
 }
 
 abstract final class TeamChallengeClaimCols {

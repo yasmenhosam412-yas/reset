@@ -500,6 +500,12 @@ abstract class AppLocalizations {
   /// **'Add photo'**
   String get addPhoto;
 
+  /// No description provided for @addVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Add video'**
+  String get addVideo;
+
   /// No description provided for @removePhoto.
   ///
   /// In en, this message translates to:
@@ -590,6 +596,12 @@ abstract class AppLocalizations {
   /// **'Could not open ad link.'**
   String get couldNotOpenAdLink;
 
+  /// No description provided for @couldNotOpenLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open this link.'**
+  String get couldNotOpenLink;
+
   /// No description provided for @shared.
   ///
   /// In en, this message translates to:
@@ -637,6 +649,186 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Write a comment...'**
   String get writeAComment;
+
+  /// No description provided for @mentionUsersHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Type @ to mention friends, the author, or people who commented.'**
+  String get mentionUsersHint;
+
+  /// No description provided for @noMentionMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching names for this post.'**
+  String get noMentionMatches;
+
+  /// No description provided for @deleteCommentQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this comment?'**
+  String get deleteCommentQuestion;
+
+  /// No description provided for @deleteCommentMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your comment will be removed for everyone.'**
+  String get deleteCommentMessage;
+
+  /// No description provided for @blockUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Block'**
+  String get blockUser;
+
+  /// No description provided for @blockUserTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Block {username}?'**
+  String blockUserTitle(String username);
+
+  /// No description provided for @blockUserMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'You will stop seeing each other\'s posts here. Friend links and pending invites with this person are removed.'**
+  String get blockUserMessage;
+
+  /// No description provided for @userBlockedSnackbar.
+  ///
+  /// In en, this message translates to:
+  /// **'User blocked.'**
+  String get userBlockedSnackbar;
+
+  /// No description provided for @blockedUsersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocked accounts'**
+  String get blockedUsersTitle;
+
+  /// No description provided for @openBlockedUsersSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'People you blocked — unblock to see their posts again.'**
+  String get openBlockedUsersSubtitle;
+
+  /// No description provided for @noBlockedUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'You have not blocked anyone.'**
+  String get noBlockedUsers;
+
+  /// No description provided for @unblockUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Unblock'**
+  String get unblockUser;
+
+  /// No description provided for @unblockUserTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Unblock {username}?'**
+  String unblockUserTitle(String username);
+
+  /// No description provided for @unblockUserMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'They can appear in your feeds and reach you again according to normal app rules.'**
+  String get unblockUserMessage;
+
+  /// No description provided for @userUnblockedSnackbar.
+  ///
+  /// In en, this message translates to:
+  /// **'{username} unblocked'**
+  String userUnblockedSnackbar(String username);
+
+  /// No description provided for @reportUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Report'**
+  String get reportUser;
+
+  /// No description provided for @reportUserTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Report {username}'**
+  String reportUserTitle(String username);
+
+  /// No description provided for @reportUserDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the option that best describes the problem. Our team reviews every report.'**
+  String get reportUserDescription;
+
+  /// No description provided for @reportUserReasonPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'What is the issue?'**
+  String get reportUserReasonPrompt;
+
+  /// No description provided for @reportReasonHarassment.
+  ///
+  /// In en, this message translates to:
+  /// **'Harassment or bullying'**
+  String get reportReasonHarassment;
+
+  /// No description provided for @reportReasonSpam.
+  ///
+  /// In en, this message translates to:
+  /// **'Spam or misleading'**
+  String get reportReasonSpam;
+
+  /// No description provided for @reportReasonHate.
+  ///
+  /// In en, this message translates to:
+  /// **'Hate or discrimination'**
+  String get reportReasonHate;
+
+  /// No description provided for @reportReasonSexual.
+  ///
+  /// In en, this message translates to:
+  /// **'Sexual content'**
+  String get reportReasonSexual;
+
+  /// No description provided for @reportReasonViolence.
+  ///
+  /// In en, this message translates to:
+  /// **'Violence or threats'**
+  String get reportReasonViolence;
+
+  /// No description provided for @reportReasonImpersonation.
+  ///
+  /// In en, this message translates to:
+  /// **'Impersonation or fake account'**
+  String get reportReasonImpersonation;
+
+  /// No description provided for @reportReasonScam.
+  ///
+  /// In en, this message translates to:
+  /// **'Scam or fraud'**
+  String get reportReasonScam;
+
+  /// No description provided for @reportReasonOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Something else'**
+  String get reportReasonOther;
+
+  /// No description provided for @reportUserOtherDetailsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Briefly describe what happened (optional)'**
+  String get reportUserOtherDetailsHint;
+
+  /// No description provided for @reportUserDetailsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Details (optional)'**
+  String get reportUserDetailsLabel;
+
+  /// No description provided for @reportSubmittedSnackbar.
+  ///
+  /// In en, this message translates to:
+  /// **'Thanks — we received your report.'**
+  String get reportSubmittedSnackbar;
 
   /// No description provided for @thisIsYourPost.
   ///
@@ -770,6 +962,12 @@ abstract class AppLocalizations {
   /// **'No posts yet.\nTap New post to share something.'**
   String get noPostsYetTapNewPost;
 
+  /// No description provided for @noPostsFoundForFilter.
+  ///
+  /// In en, this message translates to:
+  /// **'No posts found.\nTry another category or All.'**
+  String get noPostsFoundForFilter;
+
   /// No description provided for @cantRepostOwnPost.
   ///
   /// In en, this message translates to:
@@ -823,6 +1021,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add'**
   String get add;
+
+  /// No description provided for @saves.
+  ///
+  /// In en, this message translates to:
+  /// **'Saves'**
+  String get saves;
+
+  /// No description provided for @saveToSaves.
+  ///
+  /// In en, this message translates to:
+  /// **'Save to Saves'**
+  String get saveToSaves;
+
+  /// No description provided for @removeFromSaves.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from Saves'**
+  String get removeFromSaves;
+
+  /// No description provided for @postSavedToSaves.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to your list.'**
+  String get postSavedToSaves;
+
+  /// No description provided for @postRemovedFromSaves.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed from your list.'**
+  String get postRemovedFromSaves;
+
+  /// No description provided for @savedPostsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No saved posts yet. Tap the bookmark on a post in your feed.'**
+  String get savedPostsEmpty;
+
+  /// No description provided for @openSavedPosts.
+  ///
+  /// In en, this message translates to:
+  /// **'Open saved posts'**
+  String get openSavedPosts;
 
   /// No description provided for @privacySecurity.
   ///
@@ -1039,6 +1279,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Someone commented on your post.'**
   String get notifSomeoneCommented;
+
+  /// No description provided for @notifYouWereMentioned.
+  ///
+  /// In en, this message translates to:
+  /// **'You were mentioned in a comment.'**
+  String get notifYouWereMentioned;
+
+  /// No description provided for @notifMentionOpenHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the post to read the comment you were tagged in.'**
+  String get notifMentionOpenHint;
 
   /// No description provided for @notifFriendInvite.
   ///
@@ -2761,6 +3013,12 @@ abstract class AppLocalizations {
   /// **'Post updated'**
   String get homePostUpdated;
 
+  /// No description provided for @homePostPublished.
+  ///
+  /// In en, this message translates to:
+  /// **'Post published'**
+  String get homePostPublished;
+
   /// No description provided for @alreadyFriendsWith.
   ///
   /// In en, this message translates to:
@@ -2772,6 +3030,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Friend request sent to {name}'**
   String friendRequestSentTo(Object name);
+
+  /// No description provided for @undoFriendRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get undoFriendRequest;
+
+  /// No description provided for @friendRequestWithdrawn.
+  ///
+  /// In en, this message translates to:
+  /// **'Friend request cancelled.'**
+  String get friendRequestWithdrawn;
 
   /// No description provided for @challengeSentTo.
   ///

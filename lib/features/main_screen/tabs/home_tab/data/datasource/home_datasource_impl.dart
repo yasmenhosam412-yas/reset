@@ -1,9 +1,11 @@
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:new_project/features/authentication/data/models/user_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/datasource/home_datasource.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/datasource/home_supabase_tables.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/data/datasource/upload_post_media.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/post_reactions_codec.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/comment_model.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/data/models/people_discovery_row.dart';
@@ -34,12 +36,12 @@ class HomeDatasourceImpl implements HomeDatasource {
       ${PostCols.postType},
       ${PostCols.adLink},
       ${PostCols.createdAt},
-      ${HomeTable.profiles}!inner(${ProfileCols.id}, ${ProfileCols.username}, ${ProfileCols.avatarUrl}),
+      ${HomeTable.profiles}!${PostFkHint.postsAuthorToProfiles}!inner(${ProfileCols.id}, ${ProfileCols.username}, ${ProfileCols.avatarUrl}),
       ${HomeTable.postComments}(
         ${PostCommentCols.id},
         ${PostCommentCols.comment},
         ${PostCommentCols.userId},
-        ${HomeTable.profiles}!inner(${ProfileCols.id}, ${ProfileCols.username}, ${ProfileCols.avatarUrl})
+        ${HomeTable.profiles}!${PostFkHint.postCommentsAuthorToProfiles}!inner(${ProfileCols.id}, ${ProfileCols.username}, ${ProfileCols.avatarUrl})
       )
     ''';
 
@@ -49,6 +51,7 @@ class HomeDatasourceImpl implements HomeDatasource {
     String postImage = '',
     Uint8List? imageBytes,
     String? imageContentType,
+    String? mediaLocalPath,
     bool allowShare = true,
     String postVisibility = 'general',
     String postType = 'post',
@@ -59,9 +62,18 @@ class HomeDatasourceImpl implements HomeDatasource {
       throw StateError('Cannot create a post while signed out.');
     }
     var imageUrl = postImage;
-    if (imageBytes != null && imageBytes.isNotEmpty) {
-      imageUrl = await _uploadPostImage(
+    final path = mediaLocalPath?.trim() ?? '';
+    if (!kIsWeb && path.isNotEmpty) {
+      imageUrl = await _uploadPostMedia(
         uid: uid,
+        filePath: path,
+        bytes: null,
+        contentType: imageContentType ?? 'video/mp4',
+      );
+    } else if (imageBytes != null && imageBytes.isNotEmpty) {
+      imageUrl = await _uploadPostMedia(
+        uid: uid,
+        filePath: null,
         bytes: imageBytes,
         contentType: imageContentType ?? 'image/jpeg',
       );
@@ -165,8 +177,9 @@ class HomeDatasourceImpl implements HomeDatasource {
       }
       imageUrl = '';
     } else if (imageBytes != null && imageBytes.isNotEmpty) {
-      final uploaded = await _uploadPostImage(
+      final uploaded = await _uploadPostMedia(
         uid: uid,
+        filePath: null,
         bytes: imageBytes,
         contentType: imageContentType ?? 'image/jpeg',
       );
@@ -204,24 +217,36 @@ class HomeDatasourceImpl implements HomeDatasource {
     } catch (_) {}
   }
 
-  Future<String> _uploadPostImage({
+  Future<String> _uploadPostMedia({
     required String uid,
-    required Uint8List bytes,
+    required Uint8List? bytes,
+    required String? filePath,
     required String contentType,
   }) async {
     final ext = _fileExtensionForContentType(contentType);
-    final path =
+    final objectPath =
         '$uid/${DateTime.now().microsecondsSinceEpoch}_${Random().nextInt(1 << 20)}$ext';
-    await _client.storage
-        .from(HomeStorage.postImagesBucket)
-        .uploadBinary(
-          path,
-          bytes,
-          fileOptions: FileOptions(contentType: contentType, upsert: false),
-        );
-    return _client.storage
-        .from(HomeStorage.postImagesBucket)
-        .getPublicUrl(path);
+    final bucket = HomeStorage.postImagesBucket;
+    final options = FileOptions(contentType: contentType, upsert: false);
+
+    if (!kIsWeb && filePath != null && filePath.trim().isNotEmpty) {
+      await uploadPostMediaFromLocalFile(
+        client: _client,
+        bucket: bucket,
+        objectPath: objectPath,
+        localPath: filePath.trim(),
+        fileOptions: options,
+      );
+    } else if (bytes != null && bytes.isNotEmpty) {
+      await _client.storage.from(bucket).uploadBinary(
+            objectPath,
+            bytes,
+            fileOptions: options,
+          );
+    } else {
+      throw StateError('No media bytes or file path to upload.');
+    }
+    return _client.storage.from(bucket).getPublicUrl(objectPath);
   }
 
   static String _fileExtensionForContentType(String contentType) {
@@ -233,6 +258,13 @@ class HomeDatasourceImpl implements HomeDatasource {
         return '.webp';
       case 'image/gif':
         return '.gif';
+      case 'video/mp4':
+      case 'video/quicktime':
+        return '.mp4';
+      case 'video/webm':
+        return '.webm';
+      case 'video/x-matroska':
+        return '.mkv';
       default:
         return '.jpg';
     }
@@ -251,6 +283,127 @@ class HomeDatasourceImpl implements HomeDatasource {
       PostCommentCols.postId: postId,
       PostCommentCols.userId: uid,
       PostCommentCols.comment: comment,
+    });
+  }
+
+  @override
+  Future<void> deleteOwnComment({required String commentId}) async {
+    final uid = _currentUserId;
+    if (uid == null) {
+      throw StateError('Cannot delete a comment while signed out.');
+    }
+    final id = commentId.trim();
+    if (id.isEmpty) {
+      throw ArgumentError.value(commentId, 'commentId', 'must not be empty');
+    }
+    await _client
+        .from(HomeTable.postComments)
+        .delete()
+        .eq(PostCommentCols.id, id)
+        .eq(PostCommentCols.userId, uid);
+  }
+
+  @override
+  Future<void> blockUser({required String blockedUserId}) async {
+    final uid = _currentUserId;
+    if (uid == null) {
+      throw StateError('Cannot block while signed out.');
+    }
+    final blocked = blockedUserId.trim();
+    if (blocked.isEmpty || blocked == uid) {
+      throw ArgumentError.value(blockedUserId, 'blockedUserId', 'invalid');
+    }
+    await _client.rpc('block_user', params: {'p_blocked': blocked});
+  }
+
+  @override
+  Future<void> unblockUser({required String blockedUserId}) async {
+    final uid = _currentUserId;
+    if (uid == null) {
+      throw StateError('Cannot unblock while signed out.');
+    }
+    final blocked = blockedUserId.trim();
+    if (blocked.isEmpty) {
+      throw ArgumentError.value(blockedUserId, 'blockedUserId', 'must not be empty');
+    }
+    await _client
+        .from(HomeTable.userBlocks)
+        .delete()
+        .eq(UserBlockCols.blockerUserId, uid)
+        .eq(UserBlockCols.blockedUserId, blocked);
+  }
+
+  @override
+  Future<List<UserModel>> listUsersIBlocked() async {
+    final uid = _currentUserId;
+    if (uid == null) return const [];
+
+    final rowsRaw = await _client
+        .from(HomeTable.userBlocks)
+        .select(UserBlockCols.blockedUserId)
+        .eq(UserBlockCols.blockerUserId, uid)
+        .order(UserBlockCols.createdAt, ascending: false);
+
+    final ids = <String>[];
+    for (final m in _asMapList(rowsRaw)) {
+      final id = m[UserBlockCols.blockedUserId]?.toString().trim() ?? '';
+      if (id.isNotEmpty) ids.add(id);
+    }
+    if (ids.isEmpty) return const [];
+
+    final out = <UserModel>[];
+    const chunk = 80;
+    for (var i = 0; i < ids.length; i += chunk) {
+      final part = ids.sublist(i, min(i + chunk, ids.length));
+      final profilesRaw = await _client
+          .from(HomeTable.profiles)
+          .select(
+            '${ProfileCols.id}, ${ProfileCols.username}, ${ProfileCols.avatarUrl}',
+          )
+          .inFilter(ProfileCols.id, part);
+
+      final byId = <String, Map<String, dynamic>>{};
+      for (final p in _asMapList(profilesRaw)) {
+        final id = p[ProfileCols.id]?.toString().trim() ?? '';
+        if (id.isNotEmpty) byId[id] = p;
+      }
+      for (final id in part) {
+        final row = byId[id];
+        if (row == null) continue;
+        out.add(
+          _mergeSessionProfileIfNeeded(
+            UserModel.fromJson(row),
+            id,
+          ),
+        );
+      }
+    }
+    return out;
+  }
+
+  @override
+  Future<void> reportUser({
+    required String reportedUserId,
+    String? reason,
+    String? details,
+    Map<String, dynamic>? context,
+  }) async {
+    final uid = _currentUserId;
+    if (uid == null) {
+      throw StateError('Cannot report while signed out.');
+    }
+    final rid = reportedUserId.trim();
+    if (rid.isEmpty || rid == uid) {
+      throw ArgumentError.value(reportedUserId, 'reportedUserId', 'invalid');
+    }
+    final r = reason?.trim();
+    final d = details?.trim();
+    await _client.from(HomeTable.userReports).insert({
+      UserReportCols.reporterId: uid,
+      UserReportCols.reportedUserId: rid,
+      UserReportCols.reason: r == null || r.isEmpty ? null : r,
+      UserReportCols.details: d == null || d.isEmpty ? null : d,
+      UserReportCols.context: context,
     });
   }
 
@@ -290,6 +443,7 @@ class HomeDatasourceImpl implements HomeDatasource {
     }
 
     final friendIds = await _acceptedFriendIdSet(uid);
+    final blocked = await _blockedRelevantUserIds(uid);
     final to = offset + limit - 1;
 
     final response = await _client
@@ -302,10 +456,58 @@ class HomeDatasourceImpl implements HomeDatasource {
     return rows
         .map(_mapPostRow)
         .where((post) {
+          final authorId = post.userModel.id.trim().toLowerCase();
+          if (authorId.isNotEmpty && blocked.contains(authorId)) {
+            return false;
+          }
           if (post.postVisibility != 'friends') return true;
-          final authorId = post.userModel.id.trim();
-          if (authorId == uid) return true;
-          return friendIds.contains(authorId);
+          final aid = post.userModel.id.trim();
+          if (aid == uid) return true;
+          return friendIds.contains(aid);
+        })
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<PostModel>> getPostsForAuthor({
+    required String authorUserId,
+    required int limit,
+    required int offset,
+  }) async {
+    final uid = _currentUserId;
+    if (uid == null) {
+      return const [];
+    }
+    final aid = authorUserId.trim();
+    if (aid.isEmpty) return const [];
+
+    final friendIds = await _acceptedFriendIdSet(uid);
+    final blocked = await _blockedRelevantUserIds(uid);
+    if (blocked.contains(aid.toLowerCase())) {
+      return const [];
+    }
+
+    final to = offset + limit - 1;
+
+    final response = await _client
+        .from(HomeTable.posts)
+        .select(_postsSelect)
+        .eq(PostCols.userId, aid)
+        .range(offset, to)
+        .order(PostCols.createdAt, ascending: false);
+
+    final rows = _asMapList(response);
+    return rows
+        .map(_mapPostRow)
+        .where((post) {
+          final authorId = post.userModel.id.trim().toLowerCase();
+          if (authorId.isNotEmpty && blocked.contains(authorId)) {
+            return false;
+          }
+          if (post.postVisibility != 'friends') return true;
+          final postAuthor = post.userModel.id.trim();
+          if (postAuthor == uid) return true;
+          return friendIds.contains(postAuthor);
         })
         .toList(growable: false);
   }
@@ -323,6 +525,8 @@ class HomeDatasourceImpl implements HomeDatasource {
     final safe = q.replaceAll('%', '').replaceAll('_', '');
     if (safe.length < 2) return const [];
 
+    final blocked = await _blockedRelevantUserIds(uid);
+
     final profilesRaw = await _client
         .from(HomeTable.profiles)
         .select(
@@ -338,6 +542,7 @@ class HomeDatasourceImpl implements HomeDatasource {
     final users = profileRows
         .map(UserModel.fromJson)
         .where((u) => u.id.trim().isNotEmpty)
+        .where((u) => !blocked.contains(u.id.trim().toLowerCase()))
         .toList(growable: false);
 
     final idList = users.map((u) => u.id.trim()).toList();
@@ -429,6 +634,7 @@ class HomeDatasourceImpl implements HomeDatasource {
             '';
         comments.add(
           CommentModel(
+            id: map[PostCommentCols.id]?.toString() ?? '',
             userModel: _mergeSessionProfileIfNeeded(
               UserModel.fromJson({
                 ProfileCols.id: commentAuthorId,
@@ -614,6 +820,17 @@ class HomeDatasourceImpl implements HomeDatasource {
   }
 
   @override
+  Future<void> withdrawOutgoingFriendRequest(UserModel userModel) async {
+    final pair = _resolveOutgoingPair(userModel);
+    await _client
+        .from(HomeTable.friendRequests)
+        .delete()
+        .eq(FriendRequestCols.fromUserId, pair.from)
+        .eq(FriendRequestCols.toUserId, pair.to)
+        .eq(FriendRequestCols.status, FriendRequestStatus.pending);
+  }
+
+  @override
   Future<void> sendChallengeRequest(UserModel userModel, int gameId) async {
     final pair = _resolveOutgoingPair(userModel);
     try {
@@ -767,8 +984,9 @@ class HomeDatasourceImpl implements HomeDatasource {
 
     String? newAvatarUrl;
     if (avatarBytes != null && avatarBytes.isNotEmpty) {
-      newAvatarUrl = await _uploadPostImage(
+      newAvatarUrl = await _uploadPostMedia(
         uid: uid,
+        filePath: null,
         bytes: avatarBytes,
         contentType: avatarContentType ?? 'image/jpeg',
       );
@@ -817,6 +1035,29 @@ class HomeDatasourceImpl implements HomeDatasource {
     return friendIds;
   }
 
+  Future<Set<String>> _blockedRelevantUserIds(String uid) async {
+    final iBlocked = await _client
+        .from(HomeTable.userBlocks)
+        .select(UserBlockCols.blockedUserId)
+        .eq(UserBlockCols.blockerUserId, uid);
+    final blockedMe = await _client
+        .from(HomeTable.userBlocks)
+        .select(UserBlockCols.blockerUserId)
+        .eq(UserBlockCols.blockedUserId, uid);
+    final out = <String>{};
+    for (final m in _asMapList(iBlocked)) {
+      final id =
+          m[UserBlockCols.blockedUserId]?.toString().trim().toLowerCase() ?? '';
+      if (id.isNotEmpty) out.add(id);
+    }
+    for (final m in _asMapList(blockedMe)) {
+      final id =
+          m[UserBlockCols.blockerUserId]?.toString().trim().toLowerCase() ?? '';
+      if (id.isNotEmpty) out.add(id);
+    }
+    return out;
+  }
+
   Future<int> _countAcceptedFriends(String uid) async {
     final friendIds = await _acceptedFriendIdSet(uid);
     return friendIds.length;
@@ -827,6 +1068,69 @@ class HomeDatasourceImpl implements HomeDatasource {
     final uid = _currentUserId;
     if (uid == null) return {};
     return _acceptedFriendIdSet(uid);
+  }
+
+  Future<Set<String>> _pendingOutgoingFriendIdSet(String uid) async {
+    final response = await _client
+        .from(HomeTable.friendRequests)
+        .select(FriendRequestCols.toUserId)
+        .eq(FriendRequestCols.fromUserId, uid)
+        .eq(FriendRequestCols.status, FriendRequestStatus.pending);
+    final rows = _asMapList(response);
+    final out = <String>{};
+    for (final m in rows) {
+      final to =
+          m[FriendRequestCols.toUserId]?.toString().trim().toLowerCase() ?? '';
+      if (to.isNotEmpty) out.add(to);
+    }
+    return out;
+  }
+
+  @override
+  Future<Set<String>> getPendingOutgoingFriendUserIds() async {
+    final uid = _currentUserId;
+    if (uid == null) return {};
+    return _pendingOutgoingFriendIdSet(uid);
+  }
+
+  @override
+  Future<List<UserModel>> fetchAcceptedFriendsProfiles() async {
+    final uid = _currentUserId;
+    if (uid == null) return const [];
+
+    final ids = await _acceptedFriendIdSet(uid);
+    if (ids.isEmpty) return const [];
+
+    final idList = ids.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    if (idList.isEmpty) return const [];
+
+    final out = <UserModel>[];
+    const chunk = 80;
+    for (var i = 0; i < idList.length; i += chunk) {
+      final part = idList.sublist(i, min(i + chunk, idList.length));
+      final profilesRaw = await _client
+          .from(HomeTable.profiles)
+          .select(
+            '${ProfileCols.id}, ${ProfileCols.username}, ${ProfileCols.avatarUrl}',
+          )
+          .inFilter(ProfileCols.id, part);
+
+      for (final p in _asMapList(profilesRaw)) {
+        final id = p[ProfileCols.id]?.toString().trim() ?? '';
+        if (id.isEmpty) continue;
+        out.add(
+          _mergeSessionProfileIfNeeded(
+            UserModel.fromJson(p),
+            id,
+          ),
+        );
+      }
+    }
+
+    out.sort(
+      (a, b) => a.username.toLowerCase().compareTo(b.username.toLowerCase()),
+    );
+    return out;
   }
 
   Future<List<IncomingFriendRequestModel>> _fetchIncomingFriendRequests(
@@ -1160,5 +1464,124 @@ class HomeDatasourceImpl implements HomeDatasource {
 
     final rows = _asMapList(response);
     return rows.map(UserFeedNotificationModel.fromJson).toList(growable: false);
+  }
+
+  @override
+  Future<Set<String>> getSavedPostIdsAmong(Iterable<String> postIds) async {
+    final uid = _currentUserId;
+    if (uid == null) return const {};
+
+    final ids = postIds
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList(growable: false);
+    if (ids.isEmpty) return const {};
+
+    const chunk = 80;
+    final out = <String>{};
+    for (var i = 0; i < ids.length; i += chunk) {
+      final part = ids.sublist(i, min(i + chunk, ids.length));
+      final response = await _client
+          .from(HomeTable.postSaves)
+          .select(PostSaveCols.postId)
+          .eq(PostSaveCols.userId, uid)
+          .inFilter(PostSaveCols.postId, part);
+      for (final m in _asMapList(response)) {
+        final pid = m[PostSaveCols.postId]?.toString().trim() ?? '';
+        if (pid.isNotEmpty) out.add(pid);
+      }
+    }
+    return out;
+  }
+
+  @override
+  Future<void> setPostSaved({required String postId, required bool saved}) async {
+    final uid = _currentUserId;
+    if (uid == null) {
+      throw StateError('Cannot save a post while signed out.');
+    }
+    final id = postId.trim();
+    if (id.isEmpty) {
+      throw ArgumentError.value(postId, 'postId', 'must not be empty');
+    }
+    if (saved) {
+      await _client.from(HomeTable.postSaves).upsert(
+        {
+          PostSaveCols.userId: uid,
+          PostSaveCols.postId: id,
+          PostSaveCols.savedAt: DateTime.now().toUtc().toIso8601String(),
+        },
+        onConflict: '${PostSaveCols.userId},${PostSaveCols.postId}',
+      );
+    } else {
+      await _client
+          .from(HomeTable.postSaves)
+          .delete()
+          .eq(PostSaveCols.userId, uid)
+          .eq(PostSaveCols.postId, id);
+    }
+  }
+
+  @override
+  Future<List<PostModel>> getSavedPosts({
+    required int limit,
+    required int offset,
+  }) async {
+    final uid = _currentUserId;
+    if (uid == null) return const [];
+
+    final friendIds = await _acceptedFriendIdSet(uid);
+    final blocked = await _blockedRelevantUserIds(uid);
+    final to = offset + limit - 1;
+
+    final saveRows = await _client
+        .from(HomeTable.postSaves)
+        .select(PostSaveCols.postId)
+        .eq(PostSaveCols.userId, uid)
+        .order(PostSaveCols.savedAt, ascending: false)
+        .range(offset, to);
+
+    final orderedIds = _asMapList(saveRows)
+        .map((m) => m[PostSaveCols.postId]?.toString().trim() ?? '')
+        .where((e) => e.isNotEmpty)
+        .toList(growable: false);
+    if (orderedIds.isEmpty) return const [];
+
+    final byId = await _fetchPostsByIdMap(orderedIds);
+    final out = <PostModel>[];
+    for (final id in orderedIds) {
+      final post = byId[id];
+      if (post == null) continue;
+      final authorLc = post.userModel.id.trim().toLowerCase();
+      if (authorLc.isNotEmpty && blocked.contains(authorLc)) continue;
+      if (post.postVisibility != 'friends') {
+        out.add(post);
+        continue;
+      }
+      final authorId = post.userModel.id.trim();
+      if (authorId == uid || friendIds.contains(authorId)) {
+        out.add(post);
+      }
+    }
+    return out;
+  }
+
+  Future<Map<String, PostModel>> _fetchPostsByIdMap(List<String> ids) async {
+    const chunk = 40;
+    final byId = <String, PostModel>{};
+    for (var i = 0; i < ids.length; i += chunk) {
+      final part = ids.sublist(i, min(i + chunk, ids.length));
+      if (part.isEmpty) continue;
+      final response = await _client
+          .from(HomeTable.posts)
+          .select(_postsSelect)
+          .inFilter(PostCols.id, part);
+      for (final row in _asMapList(response)) {
+        final p = _mapPostRow(row);
+        final id = p.id.trim();
+        if (id.isNotEmpty) byId[id] = p;
+      }
+    }
+    return byId;
   }
 }

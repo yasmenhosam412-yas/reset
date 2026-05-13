@@ -23,10 +23,11 @@ import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/w
 import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/widgets/profile_friend_request_card.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/widgets/profile_hero_card.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/widgets/profile_preferences_card.dart';
-import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/widgets/profile_section_sliver.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/widgets/profile_sign_out_button.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/widgets/profile_delete_account_button.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/navigation/open_author_posts_screen.dart';
+import 'package:new_project/features/main_screen/tabs/home_tab/presentation/pages/saved_posts_screen.dart';
+import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/pages/profile_blocked_users_screen.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/pages/profile_friends_screen.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/pages/profile_online_challenges_screen.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/widgets/profile_stats_row.dart';
@@ -37,6 +38,109 @@ const _kAppVersion = '0.1.0';
 const _kPlayStoreListing =
     'https://play.google.com/store/apps/details?id=com.example.new_project';
 const _kAppStoreListing = 'https://apps.apple.com/app/id0000000000';
+
+Widget _profileSectionTitleSliver(
+  ThemeData theme,
+  ColorScheme scheme,
+  String title, {
+  double top = 22,
+}) {
+  return SliverPadding(
+    padding: EdgeInsets.fromLTRB(20, top, 20, 10),
+    sliver: SliverToBoxAdapter(
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 22,
+            decoration: BoxDecoration(
+              color: scheme.primary,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.35,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _ProfileQuickActionCard extends StatelessWidget {
+  const _ProfileQuickActionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.iconColor,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final Color? iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final tint = iconColor ?? scheme.primary;
+    return Material(
+      color: scheme.surface,
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.45)),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: tint.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: tint, size: 22),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  height: 1.25,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class ProfileTab extends StatefulWidget {
   const ProfileTab({super.key});
@@ -65,6 +169,24 @@ class _ProfileTabState extends State<ProfileTab> {
   Future<void> _onRefresh(BuildContext context) async {
     _bloc.add(ProfileLoadRequested());
     await _bloc.stream.firstWhere((s) => s.status != ProfileStatus.loading);
+  }
+
+  void _openSavedPosts(BuildContext context) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => SavedPostsScreen(
+          commentController: _authorPostsCommentController,
+        ),
+      ),
+    );
+  }
+
+  void _openBlockedUsers(BuildContext context) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const ProfileBlockedUsersScreen(),
+      ),
+    );
   }
 
   void _showSnack(BuildContext context, String message) {
@@ -144,12 +266,13 @@ class _ProfileTabState extends State<ProfileTab> {
 
     return [
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
         sliver: SliverToBoxAdapter(
           child: Text(
             l10n.profile,
-            style: theme.textTheme.headlineMedium?.copyWith(
+            style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w900,
+              letterSpacing: -0.6,
             ),
           ),
         ),
@@ -166,7 +289,7 @@ class _ProfileTabState extends State<ProfileTab> {
           ),
         ),
       ),
-      profileSectionTitleSliver(theme, l10n.overview, top: 22),
+      _profileSectionTitleSliver(theme, scheme, l10n.overview, top: 22),
       SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         sliver: SliverToBoxAdapter(
@@ -197,15 +320,80 @@ class _ProfileTabState extends State<ProfileTab> {
           ),
         ),
       ),
-      profileSectionTitleSliver(theme, l10n.friendRequests, top: 26),
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+        sliver: SliverToBoxAdapter(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Semantics(
+                  button: true,
+                  label: '${l10n.saves}. ${l10n.openSavedPosts}',
+                  child: _ProfileQuickActionCard(
+                    icon: Icons.bookmarks_outlined,
+                    title: l10n.saves,
+                    subtitle: l10n.openSavedPosts,
+                    onTap: () => _openSavedPosts(context),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Semantics(
+                  button: true,
+                  label:
+                      '${l10n.blockedUsersTitle}. ${l10n.openBlockedUsersSubtitle}',
+                  child: _ProfileQuickActionCard(
+                    icon: Icons.block_rounded,
+                    iconColor: scheme.error,
+                    title: l10n.blockedUsersTitle,
+                    subtitle: l10n.openBlockedUsersSubtitle,
+                    onTap: () => _openBlockedUsers(context),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      _profileSectionTitleSliver(theme, scheme, l10n.friendRequests, top: 26),
       if (requests.isEmpty)
         SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           sliver: SliverToBoxAdapter(
-            child: Text(
-              l10n.noPendingFriendRequests,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.4),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 20,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.people_outline_rounded,
+                      size: 28,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        l10n.noPendingFriendRequests,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -228,7 +416,7 @@ class _ProfileTabState extends State<ProfileTab> {
             },
           ),
         ),
-      profileSectionTitleSliver(theme, l10n.preferences, top: 26),
+      _profileSectionTitleSliver(theme, scheme, l10n.preferences, top: 26),
       SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         sliver: SliverToBoxAdapter(
@@ -246,40 +434,52 @@ class _ProfileTabState extends State<ProfileTab> {
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
         sliver: SliverToBoxAdapter(
-          child: Card(
-            margin: EdgeInsets.zero,
+          child: Material(
+            color: scheme.surface,
+            elevation: 0,
+            shadowColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: BorderSide(
+                color: scheme.outlineVariant.withValues(alpha: 0.45),
+              ),
+            ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     l10n.language,
                     style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.2,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  SegmentedButton<String>(
-                    segments: [
-                      ButtonSegment<String>(
-                        value: 'en',
-                        label: Text(l10n.english),
-                      ),
-                      ButtonSegment<String>(
-                        value: 'ar',
-                        label: Text(l10n.arabic),
-                      ),
-                    ],
-                    selected: {currentCode == 'ar' ? 'ar' : 'en'},
-                    onSelectionChanged: (values) {
-                      if (values.isEmpty) return;
-                      unawaited(
-                        AppLocaleController.instance.setLocaleCode(
-                          values.first,
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<String>(
+                      segments: [
+                        ButtonSegment<String>(
+                          value: 'en',
+                          label: Text(l10n.english),
                         ),
-                      );
-                    },
+                        ButtonSegment<String>(
+                          value: 'ar',
+                          label: Text(l10n.arabic),
+                        ),
+                      ],
+                      selected: {currentCode == 'ar' ? 'ar' : 'en'},
+                      onSelectionChanged: (values) {
+                        if (values.isEmpty) return;
+                        unawaited(
+                          AppLocaleController.instance.setLocaleCode(
+                            values.first,
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -287,7 +487,7 @@ class _ProfileTabState extends State<ProfileTab> {
           ),
         ),
       ),
-      profileSectionTitleSliver(theme, l10n.account, top: 26),
+      _profileSectionTitleSliver(theme, scheme, l10n.account, top: 26),
       SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         sliver: SliverToBoxAdapter(
@@ -298,14 +498,26 @@ class _ProfileTabState extends State<ProfileTab> {
         ),
       ),
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 28, 16, 12),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
         sliver: SliverToBoxAdapter(
-          child: Text(
-            'v$_kAppVersion',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
+          child: Column(
+            children: [
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: scheme.outlineVariant.withValues(alpha: 0.35),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'v$_kAppVersion',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -378,17 +590,36 @@ class _ProfileTabState extends State<ProfileTab> {
           }
 
           return Scaffold(
-            body: SafeArea(
-              child: RefreshIndicator(
-                onRefresh: () => _onRefresh(context),
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: _buildSlivers(
-                    context: context,
-                    theme: theme,
-                    scheme: scheme,
-                    dashboard: dashboard,
-                    state: state,
+            body: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomCenter,
+                  stops: const [0, 0.28, 1],
+                  colors: [
+                    Color.lerp(
+                          scheme.primaryContainer,
+                          scheme.surface,
+                          0.35,
+                        ) ??
+                        scheme.surface,
+                    theme.scaffoldBackgroundColor,
+                    theme.scaffoldBackgroundColor,
+                  ],
+                ),
+              ),
+              child: SafeArea(
+                child: RefreshIndicator(
+                  onRefresh: () => _onRefresh(context),
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: _buildSlivers(
+                      context: context,
+                      theme: theme,
+                      scheme: scheme,
+                      dashboard: dashboard,
+                      state: state,
+                    ),
                   ),
                 ),
               ),

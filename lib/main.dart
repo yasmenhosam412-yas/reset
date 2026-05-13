@@ -17,11 +17,16 @@ import 'package:new_project/features/main_screen/tabs/team_tab/data/global_battl
 import 'package:new_project/features/main_screen/tabs/team_tab/data/global_battle_digest_notifications.dart';
 import 'package:new_project/features/main_screen/tabs/team_tab/data/global_battles_repository.dart';
 import 'package:new_project/features/authentication/presentation/controller/auth_bloc.dart';
+import 'package:new_project/core/auth/account_freeze_guard.dart';
 import 'package:new_project/features/main_screen/tabs/home_tab/presentation/controller/bloc/home_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/online_tab/presentation/pages/bloc/online_bloc.dart';
 import 'package:new_project/features/main_screen/tabs/profile_tab/presentation/bloc/profile_bloc.dart';
 import 'package:new_project/firebase_options.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+/// Root [ScaffoldMessenger] for global messages (e.g. account suspension).
+final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,6 +44,11 @@ Future<void> main() async {
   } catch (e, st) {
     debugPrint('Auth initial state wait: $e\n$st');
   }
+
+  registerAccountFreezeGuard(
+    Supabase.instance.client,
+    scaffoldMessengerKey: rootScaffoldMessengerKey,
+  );
 
   if (!kIsWeb) {
     try {
@@ -94,6 +104,7 @@ class MyApp extends StatelessWidget {
       animation: AppLocaleController.instance,
       builder: (context, _) {
         return MaterialApp.router(
+          scaffoldMessengerKey: rootScaffoldMessengerKey,
           debugShowCheckedModeBanner: false,
           locale: AppLocaleController.instance.locale,
           onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,

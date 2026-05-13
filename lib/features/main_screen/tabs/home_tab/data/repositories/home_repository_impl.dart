@@ -32,6 +32,66 @@ class HomeRepositoryImpl implements HomeRepository {
   }
 
   @override
+  Future<Either<Failure, void>> deleteComment({required String commentId}) async {
+    try {
+      await homeDatasource.deleteOwnComment(commentId: commentId);
+      return Right(null);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> blockUser({required String blockedUserId}) async {
+    try {
+      await homeDatasource.blockUser(blockedUserId: blockedUserId);
+      return Right(null);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> unblockUser({required String blockedUserId}) async {
+    try {
+      await homeDatasource.unblockUser(blockedUserId: blockedUserId);
+      return Right(null);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<UserModel>>> getBlockedUsers() async {
+    try {
+      final list = await homeDatasource.listUsersIBlocked();
+      return Right(list);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> reportUser({
+    required String reportedUserId,
+    String? reason,
+    String? details,
+    Map<String, dynamic>? context,
+  }) async {
+    try {
+      await homeDatasource.reportUser(
+        reportedUserId: reportedUserId,
+        reason: reason,
+        details: details,
+        context: context,
+      );
+      return Right(null);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> setPostReaction({
     required String postId,
     String? reaction,
@@ -50,6 +110,7 @@ class HomeRepositoryImpl implements HomeRepository {
     String postImage = '',
     Uint8List? imageBytes,
     String? imageContentType,
+    String? mediaLocalPath,
     bool allowShare = true,
     String postVisibility = 'general',
     String postType = 'post',
@@ -61,6 +122,7 @@ class HomeRepositoryImpl implements HomeRepository {
         postImage: postImage,
         imageBytes: imageBytes,
         imageContentType: imageContentType,
+        mediaLocalPath: mediaLocalPath,
         allowShare: allowShare,
         postVisibility: postVisibility,
         postType: postType,
@@ -126,6 +188,65 @@ class HomeRepositoryImpl implements HomeRepository {
   }
 
   @override
+  Future<Either<Failure, List<PostModel>>> getPostsForAuthor({
+    required String authorUserId,
+    required int limit,
+    required int offset,
+  }) async {
+    try {
+      final result = await homeDatasource.getPostsForAuthor(
+        authorUserId: authorUserId,
+        limit: limit,
+        offset: offset,
+      );
+      return Right(result);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Set<String>>> getSavedPostIdsAmong(
+    Iterable<String> postIds,
+  ) async {
+    try {
+      final result = await homeDatasource.getSavedPostIdsAmong(postIds);
+      return Right(result);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> setPostSaved({
+    required String postId,
+    required bool saved,
+  }) async {
+    try {
+      await homeDatasource.setPostSaved(postId: postId, saved: saved);
+      return const Right(null);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<PostModel>>> getSavedPosts({
+    required int limit,
+    required int offset,
+  }) async {
+    try {
+      final result = await homeDatasource.getSavedPosts(
+        limit: limit,
+        offset: offset,
+      );
+      return Right(result);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
   Future<Either<Failure, List<PeopleDiscoveryRow>>> searchPeopleDiscovery(
     String query,
   ) async {
@@ -142,6 +263,26 @@ class HomeRepositoryImpl implements HomeRepository {
     try {
       final ids = await homeDatasource.getAcceptedFriendUserIds();
       return Right(ids);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Set<String>>> getPendingOutgoingFriendUserIds() async {
+    try {
+      final ids = await homeDatasource.getPendingOutgoingFriendUserIds();
+      return Right(ids);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<UserModel>>> getAcceptedFriendsProfiles() async {
+    try {
+      final list = await homeDatasource.fetchAcceptedFriendsProfiles();
+      return Right(list);
     } catch (e) {
       return Left(failureFromException(e));
     }
@@ -177,6 +318,18 @@ class HomeRepositoryImpl implements HomeRepository {
     try {
       await homeDatasource.sendFriendRequest(userModel);
       return Right(null);
+    } catch (e) {
+      return Left(failureFromException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> withdrawOutgoingFriendRequest(
+    UserModel userModel,
+  ) async {
+    try {
+      await homeDatasource.withdrawOutgoingFriendRequest(userModel);
+      return const Right(null);
     } catch (e) {
       return Left(failureFromException(e));
     }

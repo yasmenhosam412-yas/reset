@@ -14,6 +14,8 @@ abstract class HomeDatasource {
     String postImage = '',
     Uint8List? imageBytes,
     String? imageContentType,
+    /// Native file path (e.g. gallery video on Android/iOS); uploads without loading full file into RAM when set.
+    String? mediaLocalPath,
     bool allowShare = true,
     String postVisibility = 'general',
     String postType = 'post',
@@ -38,6 +40,26 @@ abstract class HomeDatasource {
 
   Future<void> addComment({required String postId, required String comment});
 
+  /// Deletes a comment authored by the signed-in user ([commentId] must match).
+  Future<void> deleteOwnComment({required String commentId});
+
+  /// Blocks [blockedUserId], clears friend links and pending challenges with them.
+  Future<void> blockUser({required String blockedUserId});
+
+  /// Removes a row where the signed-in user is the blocker ([blockedUserId] is the other party).
+  Future<void> unblockUser({required String blockedUserId});
+
+  /// Profiles for users the signed-in user has blocked (most recent first).
+  Future<List<UserModel>> listUsersIBlocked();
+
+  /// Inserts a moderation report row for staff review.
+  Future<void> reportUser({
+    required String reportedUserId,
+    String? reason,
+    String? details,
+    Map<String, dynamic>? context,
+  });
+
   /// Sets the current user's reaction, or clears it when [reaction] is null.
   Future<void> setPostReaction({
     required String postId,
@@ -45,6 +67,13 @@ abstract class HomeDatasource {
   });
 
   Future<List<PostModel>> getPosts({
+    required int limit,
+    required int offset,
+  });
+
+  /// Posts by [authorUserId] visible to the signed-in user (same rules as [getPosts]).
+  Future<List<PostModel>> getPostsForAuthor({
+    required String authorUserId,
     required int limit,
     required int offset,
   });
@@ -58,7 +87,16 @@ abstract class HomeDatasource {
   /// User ids with an accepted `friend_requests` row involving the current user.
   Future<Set<String>> getAcceptedFriendUserIds();
 
+  /// User ids the signed-in user has a **pending** outgoing `friend_requests` row to.
+  Future<Set<String>> getPendingOutgoingFriendUserIds();
+
+  /// Profiles for accepted friends (e.g. @-mentions in comments).
+  Future<List<UserModel>> fetchAcceptedFriendsProfiles();
+
   Future<void> sendFriendRequest(UserModel userModel);
+
+  /// Deletes the pending outgoing request from the signed-in user to [userModel].
+  Future<void> withdrawOutgoingFriendRequest(UserModel userModel);
 
   Future<void> sendChallengeRequest(UserModel userModel, int gameId);
 
@@ -106,4 +144,13 @@ abstract class HomeDatasource {
   });
 
   Future<Map<String, dynamic>> rpcSubmitTeamLineupRace(String raceKey);
+
+  /// Subset of [postIds] that the signed-in user has bookmarked.
+  Future<Set<String>> getSavedPostIdsAmong(Iterable<String> postIds);
+
+  /// Adds or removes a bookmark for the signed-in user.
+  Future<void> setPostSaved({required String postId, required bool saved});
+
+  /// Saved posts ordered by most recently saved first (visibility rules match [getPosts]).
+  Future<List<PostModel>> getSavedPosts({required int limit, required int offset});
 }

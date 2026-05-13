@@ -36,6 +36,9 @@ class PushBootstrap {
           unawaited(_onTokenRefresh(client, uid, t));
         }
       },
+      onError: (Object e, StackTrace st) {
+        debugPrint('PushBootstrap: onTokenRefresh stream error: $e\n$st');
+      },
     );
 
     final initialUid =
@@ -79,7 +82,20 @@ class PushBootstrap {
       return;
     }
 
-    final token = await FirebaseMessaging.instance.getToken();
+    String? token;
+    try {
+      token = await FirebaseMessaging.instance.getToken();
+    } catch (e, st) {
+      // e.g. Android SERVICE_NOT_AVAILABLE: no/outdated Google Play services
+      // (many emulators), network issues, or misconfigured Firebase.
+      debugPrint(
+        'PushBootstrap: FCM getToken failed — push unavailable for now ($e). '
+        'If on an emulator, use one with Google Play; on device, update Play '
+        'Services and check network. Will retry on token refresh or next sign-in.\n'
+        '$st',
+      );
+      return;
+    }
     if (token == null || token.isEmpty) {
       debugPrint(
         'PushBootstrap: FCM getToken() was null/empty — physical device, '
